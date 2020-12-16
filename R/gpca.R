@@ -43,7 +43,7 @@ prep_constraints <- function(X, A, M) {
 #' @param use_cpp use the C++ implementation
 #' @importFrom assertthat assert_that
 #' @importFrom Matrix sparseMatrix t isDiagonal
-#' @importFrom multivarious bi_projector
+#' @importFrom multivarious bi_projector init_transform prep
 #' @export
 #' 
 #' @references 
@@ -54,43 +54,18 @@ prep_constraints <- function(X, A, M) {
 #' 
 #' 
 #' @examples 
+
+
+#' X <- matrix(rnorm(100*100), 100,100)
+#' A <- cov(X)
+#' M <- cov(t(X))
+#' gp1 <- genpca(X, A=A, M=M, ncomp=100)
 #' 
-#' N <- 10
-#' coords <- expand.grid(x=seq(1,N), y=seq(1,N))
-#' img <- apply(coords, 1, function(x) {
-#'   x1 <- 1 - pnorm(abs(x[1] - N/2), sd=8)
-#'   x2 <- 1 - pnorm(abs(x[2] - N/2), sd=8)
-#'   x1*x2
-#' })
-#' 
-#' mat <- matrix(img, N,N)
-#' mlist <- replicate(10, as.vector(mat + rnorm(length(mat))*.02), simplify=FALSE)
-#' X <- do.call(rbind, mlist)
-#' 
-#' ## spatial smoother
-#' S <- neighborweights:::spatial_smoother(coords, sigma=3, nnk=4)
-#' S <- cov(as.matrix(S))
-#' S <- S/eigen(S)$values[1]
-#' T <- neighborweights:::spatial_smoother(as.matrix(1:10), sigma=3, nnk=3)
-#' T <- cov(as.matrix(T))
-#' T <- T/(eigen(T)$values[1])
-#' gp1 <- genpca(X, A=S, ncomp=9)
-#' 
-#' gp1a <- genpca(X, A=S, M=T, ncomp=9)
-#' 
-#' Xs <- do.call(rbind, lapply(1:nrow(X), function(i) X[i,,drop=FALSE] %*% S))
-#' gp2 <- genpca(as.matrix(Xs), ncomp=2)
-#' 
-#' ## use an adjacency matrix to weight items sharing an index.
-#' 
-#' X <- matrix(rnorm(50*100), 50, 100)
-#' colind <- rep(1:10, 10)
-#' S <- neighborweights:::spatial_adjacency(as.matrix(colind), dthresh=4, sigma=1, nnk=27, normalized=TRUE, include_diagonal=TRUE, weight_mode="heat")
-#' diag(S) <- 1
-#' S <- S/RSpectra::svds(S,k=1)$d
-#' gp1 <- genpca(X, A=S, ncomp=2)
+#' Xrecon <- reconstruct(gp1)
+#' @import multivarious
+#' @importFrom assertthat assert_that
 genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)), 
-                   preproc=center(), deflation=FALSE, 
+                   preproc=multivarious::center(), deflation=FALSE, 
                    threshold=1e-06, 
                    use_cpp=TRUE, maxeig=800) {
   
@@ -100,8 +75,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)),
   A <- pcon$A
   M <- pcon$M
   
-  procres <- prep(preproc)
-  Xp <- init_transform(procres, X)
+  procres <- multivarious::prep(preproc)
+  Xp <- multivarious::init_transform(procres, X)
   
   assert_that(ncomp > 0)
   ncomp <- min(min(dim(Xp)), ncomp)
@@ -120,6 +95,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)),
       } else {
         svdfit <- gmd_deflationR(t(Xp), A, M, ncomp, threshold)
       }
+      ## swap v and u ...
+      svdfit <- list(u=svdfit$v, v=svdfit$u,d=svdfit$d, cumv=svdfit$cumv,propv=svdfit$propv)
     } else {
       if (use_cpp) {
         svdfit <- gmd_deflation_cpp(Xp, M, A, ncomp, threshold)
@@ -131,12 +108,14 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)),
   } else { 
     if(n < p){
       ret = gmdLA(t(Xp), A,M, ncomp,p,n, maxeig=maxeig)
-      svdfit = list(u=ret$v, v=ret$u,d=ret$d, cumv=ret$cumv,propv=ret$propv)
+      ## swap v and u ...
+      svdfit <- list(u=ret$v, v=ret$u,d=ret$d, cumv=ret$cumv,propv=ret$propv)
     } else{
-      svdfit = gmdLA(Xp, M,A,ncomp,n,p, maxeig=maxeig)
+      svdfit <- gmdLA(Xp, M,A,ncomp,n,p, maxeig=maxeig)
     }
   }
   
+
   scores <- t(t(as.matrix(M %*% svdfit$u)) * svdfit$d)
   #col_scores <- t(t(as.matrix(A %*% svdfit$v)) * svdfit$d)
   
@@ -260,7 +239,7 @@ gmdLA <- function(X, Q, R, k=min(n,p), n, p, maxeig=800) {
 
 #' @importFrom multivarious reconstruct
 reconstruct.genpca <- function(x, 
-                               comp=1:x$ncomp, 
+                               comp=1:ncomp(x), 
                                rowind=1:nrow(scores(x)), colind=1:nrow(components(x))) {
   
   ## X = FV
@@ -273,16 +252,16 @@ reconstruct.genpca <- function(x,
   ## Xr = x$ou %*% diag(x$d) %*% t(x$ov)
   ## does not work when X is uncentered
   
-  assert_that(max(comp) <= length(x$d))
+  assert_that(max(comp) <= ncomp(x))
   
-  out <- x$ou[rowind,,drop=FALSE] %*% diagonal(x$d[comp]) %*% t(x$ov[,comp,drop=FALSE])[,colind]
+  out <- x$ou[rowind,comp,drop=FALSE] %*% diag(sdev(x)[comp]) %*% t(x$ov[,comp,drop=FALSE])[,colind]
   reverse_transform(x$preproc, out)
   
 }
 
 
 
-gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, svd_init=TRUE) {
+gmd_deflationR <- function(X, Q, R, k, thr = 1e-6) {
   
   n = nrow(X)
   p = ncol(X)
@@ -293,17 +272,12 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, svd_init=TRUE) {
   vgmd = matrix(nrow=p, ncol = k)
   dgmd = rep(0,k)
   propv = rep(0,k)
-  Xhat = X
+  Xhat <- X
   
+
+  u <- cbind(rnorm(n))
+  v <- cbind(rnorm(p))
   
-  if (svd_init) {
-    init <- rsvd::rsvd(Xhat,k=1)
-    u <- init$u[,1,drop=FALSE]
-    v <- init$v[,1,drop=FALSE]
-  } else {
-    u = cbind(rnorm(n))
-    v = cbind(rnorm(p))
-  }
   
   #browser()
   print("qnorm")
@@ -318,15 +292,15 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, svd_init=TRUE) {
   qrnorm = sum(Matrix::diag(Matrix::crossprod(X,Q) %*% X %*% R))
   cumv = rep(0,k)
   
-  print("begin loop")
+  #print("begin loop")
   for(i in 1:k){
     print(i)
     err <- 1
-    #browser()
-    if (svd_init && i > 1) {
-      init <- rsvd::rsvd(Xhat,k=1)
-      v <- init$v[,1,drop=FALSE]
-    } 
+    
+    #if (svd_init && i > 1) {
+    #  init <- rsvd::rsvd(Xhat,k=1)
+    #  v <- init$v[,1,drop=FALSE]
+    #} 
     
     while(err > thr){
       oldu = u
@@ -342,20 +316,22 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, svd_init=TRUE) {
       v <- vhat / as.double(sqrt(Matrix::crossprod(vhat, R) %*% vhat))
       err = as.numeric(t(oldu - u) %*% (oldu - u) + t(oldv -v ) %*% (oldv - v))
       
-      print(paste("err: ", err))
+      #print(paste("err: ", err))
       if (is.na(err)) {
-        print(paste("t(oldu - u) %*% (oldu - u)", t(oldu - u) %*% (oldu - u)))
-        print(paste("t(oldv -v ) %*% (oldv - v)", t(oldv -v ) %*% (oldv - v)))
+        message("error is NA, convergence failed")
+        message(paste("t(oldu - u) %*% (oldu - u)", t(oldu - u) %*% (oldu - u)))
+        message(paste("t(oldv -v ) %*% (oldv - v)", t(oldv -v ) %*% (oldv - v)))
+        stop()
       }
     }
     
     
-    dgmd[i] = Matrix::crossprod(u, Q) %*% X %*% (R %*% v)
-    ugmd[,i] = u[,1]
-    vgmd[,i] = v[,1]
-    Xhat = Xhat - dgmd[i] *  u %*% t(v)
-    propv[i] = dgmd[i]^2/as.double(qrnorm)
-    cumv[i] = sum(propv[1:i])
+    dgmd[i] <- Matrix::crossprod(u, Q) %*% X %*% (R %*% v)
+    ugmd[,i] <- u[,1]
+    vgmd[,i] <- v[,1]
+    Xhat <- Xhat - dgmd[i] *  u %*% t(v)
+    propv[i] <- dgmd[i]^2/as.double(qrnorm)
+    cumv[i] <- sum(propv[1:i])
   }
   
   list(d=as.vector(dgmd), v=vgmd, u=ugmd, cumv=cumv, propv=propv)

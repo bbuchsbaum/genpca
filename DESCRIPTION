@@ -1,13 +1,17 @@
 Package: genpca
-Title: What the Package Does (One Line, Title Case)
+Title: Generalized Principal Components Analysis
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Bradley",
+           family = "Buchsbaum",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
+           email = "brad.buchsbaum@gmail.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+Description: An implementation of generalized principal components analysis, an extension of PCA
+   that finds maximal directions in the data after projecting data to an inner product space induced 
+   by two positive semidefinite matrices,one for the rows of size n by n and one for the columns of 
+   size p by p.
+   
 License: `use_mit_license()`, `use_gpl3_license()` or friends to
     pick a license
 Encoding: UTF-8
@@ -15,6 +19,14 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
 Imports: 
-    multivarious (>= 0.0.0.9000)
-Remotes:  
+    multivarious (>= 0.0.0.9000),
+    Matrix,
+    Rcpp
+Remotes: 
     bbuchsbaum/multivarious
+Suggests: 
+    testthat,
+    covr
+LinkingTo: 
+    Rcpp,
+    RcppArmadillo
