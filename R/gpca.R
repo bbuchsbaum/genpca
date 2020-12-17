@@ -31,20 +31,26 @@ prep_constraints <- function(X, A, M) {
 
 #' Generalized Principal Components Analysis
 #' 
-#' Compute a PCA in a inner-product space defined by row and coulmn constraint matrices.
+#' Compute a PCA in a inner-product space defined by row and column constraint matrices.
 #' 
 #' @param X the data matrix
 #' @param A the column constraints. Can be a \code{vector}, symmetric \code{matrix}, or symmetric sparse matrix with \code{ncol(X)} rows and columns.
 #' @param M the row constraints. Can be a \code{vector}, symmetric \code{matrix}, or symmetric sparse matrix with \code{nrow(X)} rows and columns.
 #' @param ncomp the number of components to return
-#' @param preproc the type of pre-processing
+#' @param preproc a pre-processing function (e.g. `center()` or `standardize()` from `multivarious` package, see Details)
 #' @param deflation use the iterative deflation method
 #' @param threshold convergence threshold for deflation method
 #' @param use_cpp use the C++ implementation
 #' @importFrom assertthat assert_that
 #' @importFrom Matrix sparseMatrix t isDiagonal
 #' @importFrom multivarious bi_projector init_transform prep
+#' 
+#' @return an instance of type `genpca`, extending `bi_projector`
 #' @export
+#' 
+#' @details Pre-processing such as scaling and centering is carried out using special functions from the `multivarious` package. 
+#' Basic options are `multivarious::center()`, `multivarious::standardize()`, and for no pre-processing at all, `multivarious::pass()`.
+#' 
 #' 
 #' @references 
 #' 
@@ -54,14 +60,13 @@ prep_constraints <- function(X, A, M) {
 #' 
 #' 
 #' @examples 
-
-
 #' X <- matrix(rnorm(100*100), 100,100)
 #' A <- cov(X)
 #' M <- cov(t(X))
 #' gp1 <- genpca(X, A=A, M=M, ncomp=100)
 #' 
 #' Xrecon <- reconstruct(gp1)
+#' 
 #' @import multivarious
 #' @importFrom assertthat assert_that
 genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)), 

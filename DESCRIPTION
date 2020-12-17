@@ -8,10 +8,10 @@ Authors@R:
            email = "brad.buchsbaum@gmail.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: An implementation of generalized principal components analysis, an extension of PCA
-   that finds maximal directions in the data after projecting data to an inner product space induced 
-   by two positive semidefinite matrices,one for the rows of size n by n and one for the columns of 
-   size p by p.
-   
+   that finds maximal directions in the data in an inner product space induced 
+   by two positive semidefinite matrices, one for the rows of size n by n and one for the columns of 
+   size p by p. These constraint matrices can encode structural information (e.g. spatial/temporal correlations) 
+   that act as a kind of prior on the PCA solution.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to
     pick a license
 Encoding: UTF-8

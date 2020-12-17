@@ -25,7 +25,7 @@ genpca(
 
 \item{ncomp}{the number of components to return}
 
-\item{preproc}{the type of pre-processing}
+\item{preproc}{a pre-processing function (e.g. \code{center()} or \code{standardize()} from \code{multivarious} package, see Details)}
 
 \item{deflation}{use the iterative deflation method}
 
@@ -33,8 +33,15 @@ genpca(
 
 \item{use_cpp}{use the C++ implementation}
 }
+\value{
+an instance of type \code{genpca}, extending \code{bi_projector}
+}
 \description{
-Compute a PCA in a inner-product space defined by row and coulmn constraint matrices.
+Compute a PCA in a inner-product space defined by row and column constraint matrices.
+}
+\details{
+Pre-processing such as scaling and centering is carried out using special functions from the \code{multivarious} package.
+Basic options are \code{multivarious::center()}, \code{multivarious::standardize()}, and for no pre-processing at all, \code{multivarious::pass()}.
 }
 \examples{
 X <- matrix(rnorm(100*100), 100,100)
@@ -43,6 +50,7 @@ M <- cov(t(X))
 gp1 <- genpca(X, A=A, M=M, ncomp=100)
 
 Xrecon <- reconstruct(gp1)
+
 }
 \references{
 Abdi, H. (2007). Singular value decomposition (SVD) and generalized singular value decomposition. \emph{Encyclopedia of measurement and statistics}, 907-912.
