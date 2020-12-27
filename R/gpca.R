@@ -133,7 +133,6 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)),
     s = scores,
     sdev=svdfit$d, 
     preproc=procres,
-    ncomp=length(svdfit$d),
     ## generalized singular vector v
     ov=svdfit$v, 
     ## generalized singular vector u
