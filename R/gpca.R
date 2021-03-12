@@ -1,5 +1,6 @@
 
 #' @keywords internal
+#' @import assertthat
 prep_constraints <- function(X, A, M) {
   if (is.null(A)) {
     A <- sparseMatrix(i=1:ncol(X), j=1:ncol(X),x=rep(1, ncol(X)))
@@ -67,8 +68,9 @@ prep_constraints <- function(X, A, M) {
 #' 
 #' Xrecon <- reconstruct(gp1)
 #' 
+#' gp2 <- truncate(gp1,2)
+#' 
 #' @import multivarious
-#' @importFrom assertthat assert_that
 genpca <- function(X, A=NULL, M=NULL, ncomp=min(dim(X)), 
                    preproc=multivarious::center(), deflation=FALSE, 
                    threshold=1e-06, 
@@ -238,6 +240,25 @@ gmdLA <- function(X, Q, R, k=min(n,p), n, p, maxeig=800) {
     cumv = cumv,
     propv = propv
   )
+  
+}
+
+#' @importFrom multivarious truncate
+truncate.genpca <- function(x, ncomp) {
+  ret <- bi_projector(
+    v = x$v[,1:ncomp, drop=FALSE],
+    s = scores(x)[,1:ncomp, drop=FALSE],
+    sdev=x$sdev[1:ncomp,drop=FALSE], 
+    preproc=x$preproc,
+    ## generalized singular vector v
+    ov=x$ov[,1:ncomp,drop=FALSE], 
+    ## generalized singular vector u
+    ou=x$ou[,1:ncomp,drop=FALSE], 
+    u=x$u[,1:ncomp, drop=FALSE],
+    #col_scores=col_scores,
+    classes=c("genpca"),
+    A=x$A,
+    M=x$M)
   
 }
 

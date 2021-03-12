@@ -51,6 +51,8 @@ gp1 <- genpca(X, A=A, M=M, ncomp=100)
 
 Xrecon <- reconstruct(gp1)
 
+gp2 <- truncate(gp1,2)
+
 }
 \references{
 Abdi, H. (2007). Singular value decomposition (SVD) and generalized singular value decomposition. \emph{Encyclopedia of measurement and statistics}, 907-912.
