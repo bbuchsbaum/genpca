@@ -244,6 +244,7 @@ gmdLA <- function(X, Q, R, k=min(n,p), n, p, maxeig=800) {
 }
 
 #' @importFrom multivarious truncate
+#' @export
 truncate.genpca <- function(x, ncomp) {
   ret <- bi_projector(
     v = x$v[,1:ncomp, drop=FALSE],
