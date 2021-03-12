@@ -264,6 +264,7 @@ truncate.genpca <- function(x, ncomp) {
 }
 
 #' @importFrom multivarious reconstruct
+#' @export
 reconstruct.genpca <- function(x, 
                                comp=1:ncomp(x), 
                                rowind=1:nrow(scores(x)), colind=1:nrow(components(x))) {
