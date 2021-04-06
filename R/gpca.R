@@ -61,12 +61,20 @@ prep_constraints <- function(X, A, M) {
 #' 
 #' 
 #' @examples 
-#' X <- matrix(rnorm(100*100), 100,100)
-#' A <- cov(X)
-#' M <- cov(t(X))
-#' gp1 <- genpca(X, A=A, M=M, ncomp=100)
+#' X <- matrix(rnorm(10*10, mean=1), 10,10)
+#' X[3,4] = 10
+#' s <- apply(X,1,sd)
 #' 
+#' gp1 <- genpca(X, M=1/(s^2), ncomp=10)
+#' gp2 <- genpca(X, ncomp=10)
 #' Xrecon <- reconstruct(gp1)
+#' Xrecon2 <- reconstruct(gp2)
+#' 
+#' reg1 <- regress(scores(gp1), scale(X, scale=FALSE))
+#' reg2 <- regress(scores(gp2), scale(X, scale=FALSE))
+#' 
+#' rec1 <- reconstruct(reg1)
+#' rec2 <- reconstruct(reg2)
 #' 
 #' gp2 <- truncate(gp1,2)
 #' 
