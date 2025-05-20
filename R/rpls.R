@@ -284,7 +284,8 @@ fit_rpls <- function(X, Y,
 #'   objects (see \code{\link[multivarious]{prep}}). By default they pass
 #'   the data through unchanged using \code{pass()}.
 #' @param ... Further arguments (e.g., custom stopping criteria if implemented)
-#'   are passed to \code{fit_rpls} and stored in the returned object.
+#'   are stored in the returned object (they are not used by
+#'   \code{fit_rpls}).
 #'
 #' @return An object of class \code{c("rpls","cross_projector","projector")}
 #'   with at least the elements
