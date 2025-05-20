@@ -239,7 +239,7 @@ test_that("rpls and genpls give similar results for identity constraints", {
   )
   
   tmp = data.frame(X=X_centered, Y=Y_centered)
-  fit_plsr <- plsr(Y ~ X, data=tmp, ncomp=2, scale=FALSE)
+  #fit_plsr <- plsr(Y ~ X, data=tmp, ncomp=2, scale=FALSE)
   
   # 4) Compare loadings:
   rpls_vx  <- fit_rpls_obj$vx  # p x K
