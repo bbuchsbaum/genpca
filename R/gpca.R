@@ -222,7 +222,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   if (is.null(ncomp)) {
       ncomp <- min(dim(X))
   }
-  assert_that(ncomp > 0, msg="ncomp must be positive.")
+  assert_that(length(ncomp) == 1 && ncomp == floor(ncomp) && ncomp > 0,
+              msg="ncomp must be a single positive integer.")
   ncomp <- min(min(dim(X)), ncomp) # Cannot exceed dimensions
 
   # Prepare and validate constraints M and A

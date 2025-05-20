@@ -3,6 +3,11 @@ context("genpca")
 mat_10_10 <- matrix(rnorm(10*10), 10, 10)
 library(multivarious)
 
+test_that("ncomp must be integer", {
+  expect_error(genpca(mat_10_10, ncomp = 2.5), "single positive integer")
+  expect_error(genpca(mat_10_10, ncomp = c(1, 2)), "single positive integer")
+})
+
 test_that("pca and genpca have same results with identity matrix for row and column constraints", {
   res1 <- genpca(mat_10_10, preproc=center())
   res2 <- pca(mat_10_10,ncomp=ncomp(res1), preproc=center())
