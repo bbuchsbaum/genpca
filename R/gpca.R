@@ -125,7 +125,12 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
 #'                use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
 #'                (Ignored for \code{method = "eigen"} and \code{method = "spectra"}).
 #' @param maxeig Upper bound on subspace dimension for eigen/SVD calculations, primarily for
-#'               \code{method = "eigen"}. Affects internal calls to `RSpectra::eigs_sym`. Default `800`.
+#'               \code{method = "eigen"}. If a constraint matrix dimension is \code{<= maxeig}
+#'               a full eigen decomposition is used. Otherwise only the leading \code{maxeig}
+#'               eigencomponents are computed via \code{RSpectra::eigs_sym}, so results may be
+#'               approximate. Default `800`.
+#' @param warn_approx Logical. If \code{TRUE} (default) a warning is emitted when an
+#'        approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.
 #' @param maxit_spectra Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default `1000`.
 #' @param tol_spectra Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.
 #' @param verbose Logical. If `TRUE`, print progress messages. Default `FALSE`.
@@ -206,6 +211,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                    threshold = 1e-6, # For deflation
                    use_cpp = TRUE, # For deflation
                    maxeig = 800, # For method="eigen"
+                   warn_approx = TRUE, # Warn if only an approximate eigen decomposition is used
                    maxit_spectra = 1000, # For method="spectra"
                    tol_spectra = 1e-9,   # For method="spectra"
                    verbose = FALSE) {
@@ -287,11 +293,15 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
     if (verbose) message(paste0("Using one-shot eigen decomposition (gmdLA) to extract ", ncomp, " components..."))
     if (n < p) {
         if (verbose) message(" (n < p, using dual formulation)")
-        ret <- gmdLA(Matrix::t(Xp), A, M, k=ncomp, n_orig=p, p_orig=n, maxeig=maxeig, use_dual = TRUE, verbose=verbose)
+        ret <- gmdLA(Matrix::t(Xp), A, M, k=ncomp, n_orig=p, p_orig=n,
+                      maxeig=maxeig, use_dual = TRUE,
+                      warn_approx = warn_approx, verbose=verbose)
         # Swap u and v back
         svdfit <- list(u=ret$v, v=ret$u, d=ret$d, k=ret$k, cumv=ret$cumv, propv=ret$propv)
     } else {
-        svdfit <- gmdLA(Xp, M, A, k=ncomp, n_orig=n, p_orig=p, maxeig=maxeig, use_dual = FALSE, verbose=verbose)
+        svdfit <- gmdLA(Xp, M, A, k=ncomp, n_orig=n, p_orig=p,
+                        maxeig=maxeig, use_dual = FALSE,
+                        warn_approx = warn_approx, verbose=verbose)
     }
 
   } else if (method == "spectra") { # Matrix-free C++/Spectra approach
@@ -415,7 +425,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 #' @importFrom methods as is
 #' @importFrom stats eigen
 gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
-                  maxeig=800, tol=1e-8, use_dual=FALSE, verbose=FALSE) {
+                  maxeig=800, tol=1e-8, use_dual=FALSE,
+                  warn_approx=TRUE, verbose=FALSE) {
 
   # Caching key based on object ID might be fragile. Attribute caching is used.
   cache_attr_name <- "eigen_decomp_cache"
@@ -442,18 +453,23 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
         if (!is(M_sym, "sparseMatrix")) M_sym <- Matrix::Matrix(M_sym, sparse=TRUE)
         
         decomp_raw <- tryCatch({
-            # Determine max rank safely for RSpectra
-            safe_k <- min(maxeig, nrow(M_sym)-1)
-            if (safe_k < 1) safe_k <- 1 # Ensure k >= 1
-            if (nrow(M_sym) > safe_k && safe_k >= 1) { # Use RSpectra if large and maxeig allows k < dim-1
-                if (verbose) message(paste(" (", mat_name, "is large, using RSpectra::eigs_sym with k=", safe_k, ")"))
-                RSpectra::eigs_sym(M_sym, k=safe_k, which="LM")
+            if (nrow(M_sym) <= maxeig) {
+                if (verbose) message(paste(" (", mat_name, "<= maxeig, using base::eigen)"))
+                stats::eigen(as.matrix(M_sym), symmetric=TRUE)
             } else {
-                if (verbose) message(paste(" (", mat_name, "using base::eigen)"))
-                stats::eigen(as.matrix(M_sym), symmetric=TRUE) # Ensure dense for base::eigen
+                safe_k <- min(maxeig, nrow(M_sym) - 1)
+                if (safe_k < 1) safe_k <- 1
+                if (warn_approx)
+                    warning(mat_name, " dimension ", nrow(M_sym),
+                            " exceeds maxeig=", maxeig,
+                            "; using RSpectra::eigs_sym(k=", safe_k,
+                            ") -- result is approximate")
+                if (verbose) message(paste(" (", mat_name,
+                                          " > maxeig, using RSpectra::eigs_sym with k=", safe_k, ")"))
+                RSpectra::eigs_sym(M_sym, k=safe_k, which="LM")
             }
           },
-          error = function(e) {stop(paste("Eigen decomposition failed for", mat_name, ":", e$message))} 
+          error = function(e) {stop(paste("Eigen decomposition failed for", mat_name, ":", e$message))}
         )
         
         valid_idx <- which(decomp_raw$values > eigen_tol)
