@@ -16,10 +16,14 @@
 #'         et al., 2014*), chosen automatically or via `force_row_likeness`
 #'         / `force_col_likeness`.
 #' }
-#' 
+#'
+#' Unlike `genpls()` from \code{genplsr.R}, which targets a regression setting and
+#' extracts latent components that best predict \eqn{Y} from \eqn{X}, `genplsc()`
+#' focuses purely on the correlation structure shared between \eqn{X} and \eqn{Y}.
+#'
 #' For every constraint matrix you may either
-#' 
-#' * give a **fixed rank** (`rank_Mx = 50`) or  
+#'
+#' * give a **fixed rank** (`rank_Mx = 50`) or
 #' * leave it `NULL` / `NA` / `0` to let an **adaptive** scheme keep the
 #'   smallest eigen‑subspace that captures `var_threshold` of its total
 #'   variance (capped by `max_k`).
