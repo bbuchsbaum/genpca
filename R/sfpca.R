@@ -54,6 +54,9 @@ second_diff_matrix <- function(n) {
 #'   second differences penalty (sparse matrix).
 #' @param penalty_u The penalty function for u. Can be "l1" (lasso), "scad", or a custom function.
 #' @param penalty_v The penalty function for v. Can be "l1" (lasso), "scad", or a custom function.
+#' @param uthresh Quantile for selecting `lambda_u` when estimated.
+#' @param vthresh Quantile for selecting `lambda_v` when estimated.
+#' @param knn Number of nearest neighbours for constructing `Omega_v`.
 #' @param max_iter Maximum number of iterations for the alternating optimization.
 #' @param tol Tolerance for convergence.
 #' @param verbose Logical; if TRUE, prints progress messages.
