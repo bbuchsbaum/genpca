@@ -254,13 +254,17 @@ sfpca_rank1 <- function(X,
                         penalty_u, penalty_v,
                         max_iter, tol, verbose,
                         u_init = NULL, v_init = NULL) {
-  require(Matrix)
-  require(RSpectra)
+  if (!requireNamespace("Matrix", quietly = TRUE)) {
+    stop("Package 'Matrix' is required but not installed.")
+  }
+  if (!requireNamespace("RSpectra", quietly = TRUE)) {
+    stop("Package 'RSpectra' is required but not installed.")
+  }
   n <- nrow(X)
   p <- ncol(X)
   # Initialize u and v
   if (is.null(u_init) || is.null(v_init)) {
-    svd_res <- svds(X, k = 1, nu = 1, nv = 1)
+    svd_res <- RSpectra::svds(X, k = 1, nu = 1, nv = 1)
     u <- as.numeric(svd_res$u)
     v <- as.numeric(svd_res$v)
     d <- svd_res$d[1]
@@ -270,8 +274,8 @@ sfpca_rank1 <- function(X,
   }
   
   # Precompute S matrices and Lipschitz constants
-  S_u <- Diagonal(n) + alpha_u * Omega_u
-  S_v <- Diagonal(p) + alpha_v * Omega_v
+  S_u <- Matrix::Diagonal(n) + alpha_u * Omega_u
+  S_v <- Matrix::Diagonal(p) + alpha_v * Omega_v
   
   # Compute the largest eigenvalues using eigs_sym
   L_u <- eigs_sym(S_u, 1, which = "LM")$values  
@@ -332,7 +336,7 @@ sfpca_proximal_operator <- function(z, S, lambda, L, penalty) {
   }
   
   # Adjust for S matrix
-  x <- Matrix::solve(S + Diagonal(n = length(y), x = 1e-6), y)  # Regularization for numerical stability
+  x <- Matrix::solve(S + Matrix::Diagonal(n = length(y), x = 1e-6), y)  # Regularization for numerical stability
   
   # Proximal operator depending on penalty
   if (penalty == "l1") {
@@ -390,7 +394,9 @@ penalty_function <- function(x, penalty, lambda = 1) {
 # Efficient eigenvalue computations for symmetric sparse matrices (same as before)
 #' @noRd
 eigs_sym <- function(A, k = 1, which = "LM") {
-  require(RSpectra)
-  eigs(A, k = k, which = which, opts = list(tol = 1e-3), symmetric = TRUE)
+  if (!requireNamespace("RSpectra", quietly = TRUE)) {
+    stop("Package 'RSpectra' is required but not installed.")
+  }
+  RSpectra::eigs(A, k = k, which = which, opts = list(tol = 1e-3), symmetric = TRUE)
 }
 
