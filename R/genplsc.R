@@ -143,9 +143,21 @@ genplsc <- function(X, Y,
   Ax_isqrt<- build_invsqrt_mult(Ax, rank_Ax, var_threshold, max_k, tol=tol)
   Ay_isqrt<- build_invsqrt_mult(Ay, rank_Ay, var_threshold, max_k, tol=tol)
 
-  partial_svd <- function(M, k) {
+  partial_svd <- function(M, k, method = c("base", "RSpectra", "irlba")) {
+    method <- match.arg(method)
     k_eff <- min(k, nrow(M), ncol(M))
-    sv <- base::svd(M, nu = k_eff, nv = k_eff)
+    sv <- switch(method,
+                 RSpectra = if (requireNamespace("RSpectra", quietly = TRUE)) {
+                   RSpectra::svds(M, k = k_eff, nu = k_eff, nv = k_eff)
+                 } else {
+                   base::svd(M, nu = k_eff, nv = k_eff)
+                 },
+                 irlba = if (requireNamespace("irlba", quietly = TRUE)) {
+                   irlba::irlba(M, nv = k_eff, nu = k_eff)
+                 } else {
+                   base::svd(M, nu = k_eff, nv = k_eff)
+                 },
+                 base::svd(M, nu = k_eff, nv = k_eff))
     list(u = sv$u[, seq_len(k_eff), drop = FALSE],
          d = sv$d[seq_len(k_eff)],
          v = sv$v[, seq_len(k_eff), drop = FALSE])
@@ -162,7 +174,7 @@ genplsc <- function(X, Y,
       Ytil <- col_transform(row_transform(Yp,My_sqrt), Ay_sqrt)   # n × q
 
       C    <- crossprod(Xtil, Ytil)                               # p × q
-      sv   <- partial_svd(C, ncomp)
+      sv   <- partial_svd(C, ncomp, method = svd_method)
 
       Tt   <- Xtil %*% sv$u
       Ut   <- Ytil %*% sv$v
@@ -186,8 +198,8 @@ genplsc <- function(X, Y,
       Xr  <- row_transform(Xp, Mx_sqrt)                   # n × p
       Yr  <- row_transform(Yp, My_sqrt)                   # n × q
 
-      Gx  <- tcrossprod( Ax_sqrt(t(Xr)) )                 # n × n
-      Gy  <- tcrossprod( Ay_sqrt(t(Yr)) )                 # n × n
+      Gx  <- crossprod( Ax_sqrt(t(Xr)) )                  # n × n
+      Gy  <- crossprod( Ay_sqrt(t(Yr)) )                  # n × n
 
       Qx  <- partial_eig_approx(Gx, rank_Mx,
                                 var_threshold,max_k,tol=tol)$Q
@@ -195,7 +207,8 @@ genplsc <- function(X, Y,
                                 var_threshold,max_k,tol=tol)$Q
 
       XYR <- tcrossprod(Xr, Yr)                           # n × n
-      sv  <- partial_svd( crossprod(Qx, XYR %*% Qy), ncomp)
+      sv  <- partial_svd( crossprod(Qx, XYR %*% Qy), ncomp,
+                           method = svd_method)
 
       Tt  <- Qx %*% sv$u
       Ut  <- Qy %*% sv$v
@@ -221,7 +234,8 @@ genplsc <- function(X, Y,
       XYc <- crossprod( row_transform(Xc,Mx_sqrt),
                         row_transform(Yc,My_sqrt) )      # p × q
 
-      sv  <- partial_svd( crossprod(Qx, XYc %*% Qy), ncomp)
+      sv  <- partial_svd( crossprod(Qx, XYc %*% Qy), ncomp,
+                           method = svd_method)
 
       vx_emb <- Qx %*% sv$u
       vy_emb <- Qy %*% sv$v
