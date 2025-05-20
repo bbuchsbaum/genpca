@@ -232,6 +232,10 @@ fit_rpls <- function(X, Y,
     
     # Deflate M using cached RkM
     M <- M - Rk %*% (inv_RkTRk %*% RkM) # M = M - Rk (Rk'Rk)^{-1} Rk' M
+
+    # Recompute crossprod(Rk, M) after deflation so RkM reflects the
+    # updated (deflated) M for the next iteration
+    RkM <- crossprod(Rk, M)
   } # end for K
   
   if (num_components < K) {
