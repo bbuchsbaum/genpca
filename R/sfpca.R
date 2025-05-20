@@ -178,7 +178,12 @@ sfpca <- function(X, K, spat_cds,
     u_list[, k] <- as.vector(result$u)
     v_list[, k] <- as.vector(result$v)
     # Deflate X
-    X_residual <- X_residual - d_list[k] * result$u %o% result$v
+    u_sp <- Matrix::sparseVector(x = result$u, i = seq_along(result$u),
+                                length = length(result$u))
+    v_sp <- Matrix::sparseVector(x = result$v, i = seq_along(result$v),
+                                length = length(result$v))
+    X_residual <- X_residual - d_list[k] * Matrix::tcrossprod(u_sp, v_sp)
+    X_residual <- Matrix::drop0(X_residual)
   }
   
   return(list(d = d_list, u = u_list, v = v_list,
@@ -274,6 +279,10 @@ sfpca_rank1 <- function(X,
   # Precompute S matrices and Lipschitz constants
   S_u <- Matrix::Diagonal(n) + alpha_u * Omega_u
   S_v <- Matrix::Diagonal(p) + alpha_v * Omega_v
+
+  # Precompute Cholesky factorizations for proximal updates
+  S_u_chol <- Matrix::Cholesky(S_u + Matrix::Diagonal(n) * 1e-6)
+  S_v_chol <- Matrix::Cholesky(S_v + Matrix::Diagonal(p) * 1e-6)
   
   # Compute the largest eigenvalues using eigs_sym
   L_u <- eigs_sym(S_u, 1, which = "LM")$values  
@@ -295,12 +304,12 @@ sfpca_rank1 <- function(X,
   repeat {
     iter <- iter + 1
     # Update u with fixed v
-    u <- sfpca_proximal_operator(X %*% v, S_u, lambda_u, L_u, penalty_u)
+    u <- sfpca_proximal_operator(X %*% v, S_u_chol, lambda_u, L_u, penalty_u)
     u_norm <- sqrt(as.numeric(Matrix::crossprod(u, S_u %*% u)))
     if (u_norm > 0) u <- u / u_norm else u <- rep(0, n)
     
     # Update v with fixed u
-    v <- sfpca_proximal_operator(Matrix::crossprod(X, u), S_v, lambda_v, L_v, penalty_v)
+    v <- sfpca_proximal_operator(Matrix::crossprod(X, u), S_v_chol, lambda_v, L_v, penalty_v)
     v_norm <- sqrt(as.numeric(Matrix::crossprod(v, S_v %*% v)))
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
     
@@ -322,7 +331,7 @@ sfpca_rank1 <- function(X,
 }
 
 #' @noRd
-sfpca_proximal_operator <- function(z, S, lambda, L, penalty) {
+sfpca_proximal_operator <- function(z, S_chol, lambda, L, penalty) {
   # Gradient step
   y <- z / L
   
@@ -331,8 +340,8 @@ sfpca_proximal_operator <- function(z, S, lambda, L, penalty) {
     stop("Invalid values in y during proximal operator computation.")
   }
   
-  # Adjust for S matrix
-  x <- Matrix::solve(S + Matrix::Diagonal(n = length(y), x = 1e-6), y)  # Regularization for numerical stability
+  # Adjust for S matrix using pre-computed Cholesky factor
+  x <- Matrix::solve(S_chol, y)
   
   # Proximal operator depending on penalty
   if (penalty == "l1") {
