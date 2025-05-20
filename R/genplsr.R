@@ -209,9 +209,10 @@ genpls <- function(X, Y,
     stop("ncomp must be a positive integer.")
   
   n <- nrow(X); p <- ncol(X); q <- ncol(Y)
-  approx_rank <- min(n,p,q)
-  if(ncomp > approx_rank && verbose) {
-    warning(sprintf("Requested ncomp=%d > min(n,p,q)=%d => degenerate?", ncomp, approx_rank))
+  approx_rank <- min(n, p, q)
+  if (ncomp > approx_rank) {
+    warning(sprintf("Requested ncomp=%d exceeds approximate rank %d; results may be truncated.",
+                    ncomp, approx_rank), call. = FALSE)
   }
   
   # 2) Default constraints => identity if missing
