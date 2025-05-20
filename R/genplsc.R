@@ -68,24 +68,26 @@
 #' *A Generalized Least‑Squares Matrix Decomposition*. **JASA**, 109(505), 145–159.
 #' 
 #' @examples
-#' \dontrun{
 #' set.seed(1)
 #' n <- 50; p <- 40; q <- 30
-#' X <- matrix(rnorm(n*p), n, p)
-#' Y <- matrix(rnorm(n*q), n, q)
-#' 
+#' X <- matrix(rnorm(n * p), n, p)
+#' Y <- matrix(rnorm(n * q), n, q)
+#'
 #' # unconstrained, direct
 #' fit1 <- genplsc(X, Y, ncomp = 5)
-#' 
+#'
 #' # unconstrained, operator trick (row likeness here)
 #' fit2 <- genplsc(X, Y, ncomp = 5, dual = TRUE)
-#' 
+#'
 #' # diagonal row constraints and adaptive rank
 #' Mx <- diag(abs(rnorm(n)))
 #' My <- diag(abs(rnorm(n)))
-#' fit3 <- genplsc(X, Y, Mx = Mx, My = My, dual = TRUE,
-#'                 var_threshold = 0.95, ncomp = 4,
-#'                 svd_method = "RSpectra")
+#' if (requireNamespace("RSpectra", quietly = TRUE)) {
+#'   fit3 <- genplsc(
+#'     X, Y, Mx = Mx, My = My, dual = TRUE,
+#'     var_threshold = 0.95, ncomp = 4,
+#'     svd_method = "RSpectra"
+#'   )
 #' }
 #' 
 #' @aliases genplscorr genplscorr2
