@@ -110,6 +110,9 @@ genplsc <- function(X, Y,
   svd_method <- match.arg(svd_method)
   n <- nrow(X); p <- ncol(X); q <- ncol(Y)
 
+  if(!is.null(force_row_likeness) && !is.null(force_col_likeness))
+    stop("Specify only one of force_row_likeness or force_col_likeness")
+
   ## ---- 1. defaults for constraints --------------------------------
   if(is.null(Mx)) Mx <- Matrix::Diagonal(n)
   if(is.null(My)) My <- Matrix::Diagonal(n)
