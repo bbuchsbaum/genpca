@@ -2,7 +2,6 @@
 
 library(testthat)
 library(Matrix)
-library(multivarious)
 
 test_that("genplscor works with identity constraints (basic usage)", {
   set.seed(123)
