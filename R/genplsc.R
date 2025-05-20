@@ -186,7 +186,7 @@ genplsc <- function(X, Y,
       Qy  <- partial_eig_approx(Gy, rank_My,
                                 var_threshold,max_k,tol=tol)$Q
 
-      XYR <- crossprod(Xr, Yr)                            # n × n
+      XYR <- tcrossprod(Xr, Yr)                           # n × n
       sv  <- partial_svd( crossprod(Qx, XYR %*% Qy), ncomp)
 
       Tt  <- Qx %*% sv$u

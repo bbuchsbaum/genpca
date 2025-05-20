@@ -788,3 +788,17 @@ test_that("genplscorr2 handles low-rank data + constraints consistently", {
   # The point is: in a low-rank scenario, we'd see that both approaches 
   # pick up somewhat similar directions, though not identical.
 })
+
+test_that("genplscorr dual=TRUE row likeness returns correct dimensions", {
+  set.seed(42)
+  n <- 7; p <- 5; q <- 4
+  X <- matrix(rnorm(n * p), n, p)
+  Y <- matrix(rnorm(n * q), n, q)
+
+  fit <- genplsc(X, Y, ncomp = 2, dual = TRUE,
+                 force_row_likeness = TRUE, verbose = FALSE)
+
+  expect_s3_class(fit, c("genplscorr", "cross_projector", "projector"))
+  expect_equal(dim(fit$Tx), c(n, fit$ncomp))
+  expect_equal(dim(fit$Ty), c(n, fit$ncomp))
+})
