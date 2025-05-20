@@ -24,6 +24,32 @@ test_that("prep_constraints ridge remedy produces PSD matrix", {
   expect_equal(dim(pc$A), c(2,2))
 })
 
+# Test 3: prep_constraints with remedy="clip" fixes negative eigenvalues by clipping
+test_that("prep_constraints clip remedy produces PSD matrices", {
+  set.seed(1)
+  X <- matrix(rnorm(4), 2, 2)
+  A_bad <- Matrix(c(-0.5, 0, 0, 1), 2, 2, sparse=TRUE)
+  M_bad <- Matrix(c(1, 0, 0, -0.2), 2, 2, sparse=TRUE)
+  pc <- prep_constraints(X, A_bad, M_bad, remedy="clip")
+  eigA <- eigen(as.matrix(pc$A), symmetric=TRUE, only.values=TRUE)$values
+  eigM <- eigen(as.matrix(pc$M), symmetric=TRUE, only.values=TRUE)$values
+  expect_true(min(eigA) >= -1e-8)
+  expect_true(min(eigM) >= -1e-8)
+  expect_equal(dim(pc$A), c(2,2))
+  expect_equal(dim(pc$M), c(2,2))
+})
+
+# Test 4: prep_constraints with remedy="identity" replaces bad matrices with identity
+test_that("prep_constraints identity remedy returns identity matrices", {
+  set.seed(1)
+  X <- matrix(rnorm(4), 2, 2)
+  A_bad <- Matrix(c(-1, 0, 0, 1), 2, 2, sparse=TRUE)
+  M_bad <- Matrix(c(1, 0, 0, -1), 2, 2, sparse=TRUE)
+  pc <- prep_constraints(X, A_bad, M_bad, remedy="identity")
+  expect_equal(pc$A, Matrix::Diagonal(2))
+  expect_equal(pc$M, Matrix::Diagonal(2))
+})
+
 # Test 3: construct_spatial_penalty edge cases
 
 test_that("construct_spatial_penalty handles knn edge cases", {
