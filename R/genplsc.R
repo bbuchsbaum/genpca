@@ -62,7 +62,12 @@
 #' @param tol              Numerical tolerance (e.g. tiny eigenvalues).
 #' @param verbose          Logical; print progress if `TRUE`.
 #' @param ...              Ignored; added for forward compatibility.
-#' 
+#'
+#' @return A [`cross_projector`][multivarious::cross_projector] object of class
+#'   `c("genplscorr", "cross_projector", "projector")` containing the original
+#'   space loadings `vx`, `vy`, embedded factor scores `Tx`, `Ty`, and the full
+#'   set of singular values `d_full`.
+#'
 #' @references
 #' Allen, G. I., Grosenick, L., & Taylor, J. (2014).  
 #' *A Generalized Least‑Squares Matrix Decomposition*. **JASA**, 109(505), 145–159.
