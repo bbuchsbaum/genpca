@@ -269,3 +269,13 @@ test_that("rpls and genpls give similar results for identity constraints", {
     expect_gt(cval_scores, 0.9)
   }
 })
+
+test_that("genpls warns when NIPALS fails to converge", {
+  set.seed(42)
+  X <- matrix(rnorm(20), 10, 2)
+  Y <- matrix(rnorm(30), 10, 3)
+  expect_warning(
+    genpls(X, Y, ncomp = 1, maxiter = 1, tol = 1e-9, verbose = FALSE),
+    "did not converge"
+  )
+})
