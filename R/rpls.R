@@ -354,22 +354,9 @@ rpls <- function(X, Y,
   # Ensure penalty is valid early
   penalty  <- match.arg(penalty)
 
-  # Handle preprocessing setup (assuming multivarious structure)
-  # If multivarious is not a strict dependency, need fallback or clearer error
-  if (!requireNamespace("multivarious", quietly = TRUE)) {
-     # Simple pass-through if multivarious isn't available
-     # This requires `pass()` to be defined or available, e.g. via simple definition
-     # Might be better to make multivarious a formal Suggests/Imports
-     if (!exists("pass", mode="function")) {
-        stop("Function 'pass()' needed for default preprocessing. ",
-             "Load 'multivarious' package or define a simple 'pass()' function.")
-     }
-     proc_x <- prep(preproc_x) # Assumes prep.pass exists
-     proc_y <- prep(preproc_y) # Assumes prep.pass exists
-  } else {
-     proc_x   <- multivarious::prep(preproc_x)
-     proc_y   <- multivarious::prep(preproc_y)
-  }
+  # Preprocess X and Y using multivarious
+  proc_x   <- multivarious::prep(preproc_x)
+  proc_y   <- multivarious::prep(preproc_y)
 
   Xp <- init_transform(proc_x, X) # Apply initial transform (e.g., centering)
   Yp <- init_transform(proc_y, Y)
