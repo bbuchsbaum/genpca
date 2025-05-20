@@ -302,8 +302,11 @@ sfpca_rank1 <- function(X,
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
     
     # Compute objective value
-    obj <- as.numeric(Matrix::crossprod(u, X %*% v) - lambda_u * penalty_function(u, penalty_u) -
-                        lambda_v * penalty_function(v, penalty_v))
+    obj <- as.numeric(
+      Matrix::crossprod(u, X %*% v) -
+        lambda_u * penalty_function(u, penalty_u, lambda_u) -
+        lambda_v * penalty_function(v, penalty_v, lambda_v)
+    )
     if (verbose) cat("Iteration", iter, "Objective:", obj, "\n")
     
     # Check convergence
@@ -359,17 +362,22 @@ scad_proximal <- function(x, lambda, a = 3.7) {
 
 # Penalty function value (same as before)
 #' @noRd
-penalty_function <- function(x, penalty) {
+penalty_function <- function(x, penalty, lambda = 1) {
   if (penalty == "l1") {
     sum(abs(x))
   } else if (penalty == "scad") {
-    lambda <- 1  # Assume lambda = 1 for illustration
     a <- 3.7
     abs_x <- abs(x)
-    penalty_values <- ifelse(abs_x <= lambda, lambda * abs_x,
-                             ifelse(abs_x <= a * lambda,
-                                    (-abs_x^2 + 2 * a * lambda * abs_x - lambda^2) / (2 * (a - 1)) + lambda^2,
-                                    ((a + 1) * lambda^2) / 2))
+    penalty_values <- ifelse(
+      abs_x <= lambda,
+      lambda * abs_x,
+      ifelse(
+        abs_x <= a * lambda,
+        (-abs_x^2 + 2 * a * lambda * abs_x - lambda^2) /
+          (2 * (a - 1)) + lambda^2,
+        ((a + 1) * lambda^2) / 2
+      )
+    )
     sum(penalty_values)
   } else {
     stop("Unsupported penalty function.")
