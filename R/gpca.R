@@ -779,7 +779,9 @@ reconstruct.genpca <- function(x,
                                colind = NULL) { # Default to all cols
 
   max_comp <- multivarious::ncomp(x)
-  if (max_comp == 0) return(matrix(0, nrow=length(rowind %||% 1:nrow(x$A)), ncol=length(colind %||% 1:nrow(x$M)))) # Return empty if no components
+  if (max_comp == 0) return(matrix(0,
+                                   nrow = length(rowind %||% 1:nrow(x$M)),
+                                   ncol = length(colind %||% 1:nrow(x$A)))) # Return empty if no components
   if (length(comp) == 0 || min(comp) < 1 || max(comp) > max_comp) {
       stop("Selected components 'comp' are out of bounds [1, ", max_comp, "].")
   }
