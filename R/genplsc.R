@@ -43,7 +43,9 @@
 #' @param X,Y              Numeric matrices with identical numbers of rows.
 #' @param Mx,Ax,My,Ay      Row/column constraint matrices (NULL ⇒ identity).
 #' @param ncomp            Number of latent factors.  If \eqn{\le 0},
-#'                         uses \eqn{\min(p,q)}.
+#'                         uses \eqn{\min(p,q)}.  After computing
+#'                         `p` and `q`, any oversized value is
+#'                         trimmed to `min(ncomp, p, q)`.
 #' @param preproc_x,preproc_y  [`multivarious`] preprocessing objects
 #'                         (e.g. `center()`, `standardize()`, `pass()`).
 #' @param rank_Mx,rank_Ax,rank_My,rank_Ay
@@ -109,6 +111,7 @@ genplsc <- function(X, Y,
 
   svd_method <- match.arg(svd_method)
   n <- nrow(X); p <- ncol(X); q <- ncol(Y)
+  ncomp <- min(ncomp, p, q)  # cannot exceed matrix dimensions
 
   ## ---- 1. defaults for constraints --------------------------------
   if(is.null(Mx)) Mx <- Matrix::Diagonal(n)

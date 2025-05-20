@@ -112,6 +112,8 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
 #' @param My,Ay row/column constraints for \eqn{Y}, each either diagonal/identity
 #'        or PSD of size \eqn{(n \times n)/(q \times q)}. Same adaptive logic as above.
 #' @param ncomp integer, number of factors (components) to extract.
+#'   After the dimensions `p` and `q` are determined, oversized
+#'   values are reduced to `min(ncomp, p, q)`.
 #'
 #' @param preproc_x, preproc_y \code{\link[multivarious]{pre_processor}} objects or
 #'        \code{\link[multivarious]{pass}} for no preprocessing.
@@ -166,6 +168,7 @@ genpls <- function(X, Y,
   if(ncomp > approx_rank && verbose) {
     warning(sprintf("Requested ncomp=%d > min(n,p,q)=%d => degenerate?", ncomp, approx_rank))
   }
+  ncomp <- min(ncomp, p, q)  # cannot exceed dimensions
   
   # 2) Default constraints => identity if missing
   if(is.null(Mx)) Mx <- Matrix::Diagonal(n)

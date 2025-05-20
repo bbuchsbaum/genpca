@@ -269,3 +269,18 @@ test_that("rpls and genpls give similar results for identity constraints", {
     expect_gt(cval_scores, 0.9)
   }
 })
+
+
+test_that("genpls trims oversized ncomp to min(p, q)", {
+  set.seed(42)
+  n <- 8
+  p <- 3
+  q <- 4
+  X <- matrix(rnorm(n * p), n, p)
+  Y <- matrix(rnorm(n * q), n, q)
+
+  too_many <- 10
+  fit <- genpls(X, Y, ncomp = too_many, verbose = FALSE)
+  expect_equal(fit$ncomp, min(too_many, p, q))
+})
+

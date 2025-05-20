@@ -788,3 +788,17 @@ test_that("genplscorr2 handles low-rank data + constraints consistently", {
   # The point is: in a low-rank scenario, we'd see that both approaches 
   # pick up somewhat similar directions, though not identical.
 })
+
+test_that("genplsc trims oversized ncomp to min(p, q)", {
+  set.seed(99)
+  n <- 6
+  p <- 2
+  q <- 3
+  X <- matrix(rnorm(n * p), n, p)
+  Y <- matrix(rnorm(n * q), n, q)
+
+  too_many <- 8
+  fit <- genplsc(X, Y, ncomp = too_many, verbose = FALSE)
+  expect_equal(fit$ncomp, min(too_many, p, q))
+})
+
