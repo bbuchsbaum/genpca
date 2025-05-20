@@ -259,6 +259,14 @@ genplsc <- function(X, Y,
       vy <- Ay_isqrt(vy_emb)
   }
 
+  ## ---- 6C. sign convention ---------------------------------------
+  signs <- sign(vx[1,])
+  signs[signs == 0] <- 1
+  vx <- sweep(vx, 2, signs, `*`)
+  vy <- sweep(vy, 2, signs, `*`)
+  Tt <- sweep(Tt, 2, signs, `*`)
+  Ut <- sweep(Ut, 2, signs, `*`)
+
   ## ---- 7. return ---------------------------------------------------
   cross_projector(
         vx=vx, vy=vy, Tx=Tt, Ty=Ut,
