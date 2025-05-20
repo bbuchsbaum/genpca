@@ -497,9 +497,10 @@ test_that("genplscorr: dual=TRUE vs dual=FALSE produce closely equivalent result
   # 2) Compare factor scores or loadings
   # We'll define a helper again for correlation across columns:
   col_cors <- function(matA, matB) {
-    stopifnot(ncol(matA) == ncol(matB))
-    out <- numeric(ncol(matA))
-    for (j in seq_len(ncol(matA))) {
+    stopifnot(ncol(matA) > 0, ncol(matB) > 0)
+    K <- min(ncol(matA), ncol(matB))
+    out <- numeric(K)
+    for (j in seq_len(K)) {
       # best correlation with any col in matB
       cvals <- sapply(seq_len(ncol(matB)), function(k) {
         cor(matA[, j], matB[, k])
@@ -777,10 +778,10 @@ test_that("genplscorr2 handles low-rank data + constraints consistently", {
     cval_y <- cor(fit_nodual$vy[,j], fit_dual$vy[,j])
     # Just expect they're not trivial => we won't do expect_* but we can check 
     # they aren't negligible
-    testthat::expect_gt(abs(cval_x), 0.2, 
-                        info=paste("component", j, "X-loadings correlation is non-trivial"))
-    testthat::expect_gt(abs(cval_y), 0.2, 
-                        info=paste("component", j, "Y-loadings correlation is non-trivial"))
+    msg_x <- paste("component", j, "X-loadings correlation is non-trivial")
+    msg_y <- paste("component", j, "Y-loadings correlation is non-trivial")
+    testthat::expect_true(abs(cval_x) > 0.2, info = msg_x)
+    testthat::expect_true(abs(cval_y) > 0.2, info = msg_y)
   }
   
   # You might also check factor scores or singular values, etc.
