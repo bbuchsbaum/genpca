@@ -1,7 +1,6 @@
 context("genpca")
 
 mat_10_10 <- matrix(rnorm(10*10), 10, 10)
-library(multivarious)
 
 test_that("ncomp must be integer", {
   expect_error(genpca(mat_10_10, ncomp = 2.5), "single positive integer")
@@ -9,70 +8,70 @@ test_that("ncomp must be integer", {
 })
 
 test_that("pca and genpca have same results with identity matrix for row and column constraints", {
-  res1 <- genpca(mat_10_10, preproc=center())
-  res2 <- pca(mat_10_10,ncomp=ncomp(res1), preproc=center())
+  res1 <- genpca(mat_10_10, preproc=multivarious::center())
+  res2 <- multivarious::pca(mat_10_10,ncomp=ncomp(res1), preproc=multivarious::center())
   
-  diffscores <- abs(scores(res1)) - abs(scores(res2))
+  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
   expect_true(sum(diffscores) < 1e-5)
-  expect_equal(sdev(res1), sdev(res2))
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2))
   
-  expect_equal(unname(apply(components(res1), 2, function(x) sum(x^2))), 
+  expect_equal(unname(apply(multivarious::components(res1), 2, function(x) sum(x^2))), 
                rep(1, ncomp(res1)))
 })
 
 test_that("gen_pca with column variances is equivalent to a scaled pca", {
   wts <- 1/apply(mat_10_10, 2, var)
-  res1 <- genpca(mat_10_10, A=wts, preproc=center())
-  res2 <- pca(mat_10_10, preproc=standardize())
+  res1 <- genpca(mat_10_10, A=wts, preproc=multivarious::center())
+  res2 <- multivarious::pca(mat_10_10, preproc=multivarious::standardize())
   
   # Compare absolute scores element-wise with tolerance
   # Scores should match up to sign flips
-  expect_equal(abs(scores(res1)), abs(scores(res2)), tolerance = 1e-6)
-  expect_equal(sdev(res1), sdev(res2), check.attributes=FALSE)
+  expect_equal(abs(multivarious::scores(res1)), abs(multivarious::scores(res2)), tolerance = 1e-6)
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), check.attributes=FALSE)
   
 })
 
 test_that("gen_pca with use_cpp with column variances is equivalent to a scaled pca", {
   wts <- 1/apply(mat_10_10, 2, var)
-  res1 <- genpca(mat_10_10, A=wts, preproc=center(), use_cpp=TRUE)
-  res2 <- pca(mat_10_10, preproc=standardize())
+  res1 <- genpca(mat_10_10, A=wts, preproc=multivarious::center(), use_cpp=TRUE)
+  res2 <- multivarious::pca(mat_10_10, preproc=multivarious::standardize())
   
-  diffscores <- abs(scores(res1)) - abs(scores(res2))
+  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
   expect_true(abs(sum(diffscores)) < 1e-5)
-  expect_equal(sdev(res1), sdev(res2), check.attributes=FALSE)
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), check.attributes=FALSE)
   
 })
 
 test_that("gen_pca with use_cpp (+ deflation) with column variances is equivalent to a scaled pca", {
   wts <- 1/apply(mat_10_10, 2, var)
-  res1 <- genpca(mat_10_10, A=wts, preproc=center(), ncomp=9, 
+  res1 <- genpca(mat_10_10, A=wts, preproc=multivarious::center(), ncomp=9, 
   method="deflation", use_cpp=TRUE, threshold=1e-7)
-  res2 <- pca(mat_10_10, preproc=standardize(), ncomp=9)
+  res2 <- multivarious::pca(mat_10_10, preproc=multivarious::standardize(), ncomp=9)
   
-  diffscores <- abs(scores(res1)) - abs(scores(res2))
+  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
   expect_true(mean(abs(diffscores)) < .01)
-  expect_equal(sdev(res1), sdev(res2), tolerance=.01)
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), tolerance=.01)
   
 })
 
 test_that("gen_pca with use_cpp (+ deflation and n < p) with column variances is equivalent to a scaled pca", {
   mat_10_20 <- matrix(rnorm(10*20), 10, 20)
   wts <- 1/apply(mat_10_20, 2, var)
-  res1 <- genpca(mat_10_20, A=wts, preproc=center(), ncomp=9, method="deflation", 
+  res1 <- genpca(mat_10_20, A=wts, preproc=multivarious::center(), ncomp=9, method="deflation", 
   use_cpp=FALSE, threshold=1e-8)
-  res2 <- pca(mat_10_20, preproc=standardize(), ncomp=9)
+  res2 <- multivarious::pca(mat_10_20, preproc=multivarious::standardize(), ncomp=9)
   
-  diffscores <- abs(scores(res1)) - abs(scores(res2))
+  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
   expect_true(mean(abs(diffscores)) < .01)
-  expect_equal(sdev(res1), sdev(res2), tolerance=.01)
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), tolerance=.01)
   
 })
 
 test_that("gen_pca with dense column and row constraints works", {
   A <- cov(matrix(rnorm(10*10),10,10))
   M <- cov(matrix(rnorm(10*10),10,10))
-  res1 <- genpca(mat_10_10, A=A, M=M, preproc=center())
-  expect_equal(ncomp(res1),length(sdev(res1)))
+  res1 <- genpca(mat_10_10, A=A, M=M, preproc=multivarious::center())
+  expect_equal(ncomp(res1),length(multivarious::sdev(res1)))
 })
 
 test_that("gen_pca with sparse column and row constraints works", {
@@ -80,19 +79,19 @@ test_that("gen_pca with sparse column and row constraints works", {
   Matrix::diag(A) <- 1
   M <- neighborweights:::adjacency.neighbor_graph(neighborweights::graph_weights(t(mat_10_10), k=3))
   Matrix::diag(M) <- 1.5
-  res1 <- genpca(mat_10_10, A=A, M=M, preproc=center())
+  res1 <- genpca(mat_10_10, A=A, M=M, preproc=multivarious::center())
 })
 
 
 test_that("can reconstruct a genpca model with component selection", {
   A <- cov(matrix(rnorm(20*10), 20,10))
   M <- cov(matrix(rnorm(20*10), 20,10))
-  res1 <- genpca(mat_10_10, preproc=center())
+  res1 <- genpca(mat_10_10, preproc=multivarious::center())
   recon1 <- reconstruct(res1)
   expect_equal(as.matrix(recon1), mat_10_10, check.attributes=FALSE)
   
-  res1 <- genpca(mat_10_10, A=A, M=M, ncomp=10, preproc=center())
-  res2 <- pca(mat_10_10,ncomp=10, preproc=center())
+  res1 <- genpca(mat_10_10, A=A, M=M, ncomp=10, preproc=multivarious::center())
+  res2 <- multivarious::pca(mat_10_10,ncomp=10, preproc=multivarious::center())
   recon2 <- reconstruct(res2)
   
    
@@ -104,21 +103,21 @@ test_that("can project a row vector", {
   M <- cov(matrix(rnorm(10*10),10,10))
   
   res1 <- genpca(mat_10_10, A=A, M=M)
-  p <- project(res1, mat_10_10[1,])
+  p <- multivarious::project(res1, mat_10_10[1,])
   expect_equal(dim(p), c(1,ncomp(res1)))
 })
 
 #test_that("can extract residuals", {
 #  res1 <- genpca(mat_10_10)
 #  resid <- residuals(res1, ncomp=2, mat_10_10)
-#  d <- sdev(res1)
+#  d <- multivarious::sdev(res1)
 #  expect_equal(sum(d[3:length(d)] ^2), sum(resid^2))
 #})
 
 test_that("can run genpca with deflation", {
   X <- matrix(rnorm(100),10,10)
-  res1 <- genpca(X, preproc=center(), ncomp=5,deflation=TRUE)
-  res2 <- genpca(X, preproc=center(), ncomp=5)
+  res1 <- genpca(X, preproc=multivarious::center(), ncomp=5,deflation=TRUE)
+  res2 <- genpca(X, preproc=multivarious::center(), ncomp=5)
   expect_true(sum(abs(res1$u) - abs(res2$u)) < 1)
 })
 
@@ -127,8 +126,8 @@ test_that("can run genpca with sparse weighting matrix", {
   A <- neighborweights::temporal_adjacency(1:20)
   A <- cov(as.matrix(A))
   M <- neighborweights::temporal_adjacency(1:10000)
-  res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), M=M, preproc=center(), ncomp=5,deflation=TRUE)
-  res2 <- genpca(X, A=A, M=M, preproc=center(), ncomp=5)
+  res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE)
+  res2 <- genpca(X, A=A, M=M, preproc=multivarious::center(), ncomp=5)
   expect_true(!is.null(res1))
 })
 
@@ -143,13 +142,13 @@ test_that("can run genpca on a largeish matrix with deflation", {
   M <- t(M) %*% M
   
   res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=center(), ncomp=5,deflation=TRUE, threshold=1e-5)
+                 M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE, threshold=1e-5)
   res2 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=center(), ncomp=5,deflation=TRUE, 
+                 M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE, 
                  threshold=1e-5, use_cpp=FALSE)
   
   res3 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=center(), ncomp=20,deflation=FALSE)
+                 M=M, preproc=multivarious::center(), ncomp=20,deflation=FALSE)
   
   expect_true(!is.null(res1))
 })
@@ -309,10 +308,10 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constrai
   # Directly call C++ function (make sure it's exported properly)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
-  expect_equal(res_cpp$d, sdev(res_r), tolerance = 1e-6)
+  expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
-  compare_subspaces(res_cpp$u, scores(res_r), tol = 1e-5)
-  compare_subspaces(res_cpp$v, components(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$v, multivarious::components(res_r), tol = 1e-5)
 })
 
 test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints", {
@@ -329,10 +328,10 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constrain
   res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
-  expect_equal(res_cpp$d, sdev(res_r), tolerance = 1e-6)
+  expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
-  compare_subspaces(res_cpp$u, scores(res_r), tol = 1e-5)
-  compare_subspaces(res_cpp$v, components(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$v, multivarious::components(res_r), tol = 1e-5)
 })
 
 test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints", {
@@ -350,10 +349,10 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constra
   res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
-  expect_equal(res_cpp$d, sdev(res_r), tolerance = 1e-6)
+  expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
-  compare_subspaces(res_cpp$u, scores(res_r), tol = 1e-5)
-  compare_subspaces(res_cpp$v, components(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$v, multivarious::components(res_r), tol = 1e-5)
 })
 
 test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints", {
@@ -370,10 +369,10 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constrai
   res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
-  expect_equal(res_cpp$d, sdev(res_r), tolerance = 1e-6)
+  expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
-  compare_subspaces(res_cpp$u, scores(res_r), tol = 1e-5)
-  compare_subspaces(res_cpp$v, components(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$v, multivarious::components(res_r), tol = 1e-5)
 })
 
 test_that("gmd_fast_cpp handles k=1 correctly", {
@@ -389,12 +388,12 @@ test_that("gmd_fast_cpp handles k=1 correctly", {
   res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
-  expect_equal(res_cpp$d, sdev(res_r), tolerance = 1e-6)
+  expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
   expect_equal(ncol(res_cpp$u), k)
   expect_equal(ncol(res_cpp$v), k)
-  compare_subspaces(res_cpp$u, scores(res_r), tol = 1e-5)
-  compare_subspaces(res_cpp$v, components(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-5)
+  compare_subspaces(res_cpp$v, multivarious::components(res_r), tol = 1e-5)
 })
 
 test_that("gmd_fast_cpp returns fewer components if necessary", {
@@ -446,7 +445,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                      preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig$sdev,           fit_spc$sdev,           tolerance = 1e-6)
-  expect_equal(abs(fit_eig$scores()),  abs(fit_spc$scores()),  tolerance = 1e-5)
+  expect_equal(abs(fit_eig$multivarious::scores()),  abs(fit_spc$multivarious::scores()),  tolerance = 1e-5)
 
   ## 2) n < p    (left‑side operator)
   fit_eig_w <- genpca(Xwide,  ncomp = 15, method = "eigen",
@@ -455,7 +454,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                       preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig_w$sdev,          fit_spc_w$sdev,          tolerance = 1e-6)
-  expect_equal(abs(fit_eig_w$scores()), abs(fit_spc_w$scores()), tolerance = 1e-5)
+  expect_equal(abs(fit_eig_w$multivarious::scores()), abs(fit_spc_w$multivarious::scores()), tolerance = 1e-5)
 })
 
 ## -------------------------------------------------------------------------------
