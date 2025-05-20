@@ -753,7 +753,12 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
   }
 
   if (k_found == 0) {
-      return(list(d=numeric(0), v=matrix(NA_real_, p, 0), u=matrix(NA_real_, n, 0), k=0, cumv=numeric(0), propv=numeric(0)))
+      return(list(d=numeric(0),
+                  v=matrix(0, p, 0),
+                  u=matrix(0, n, 0),
+                  k=0,
+                  cumv=numeric(0),
+                  propv=numeric(0)))
   }
 
   cumv <- cumsum(propv) # Calculate cumulative sum on valid components
