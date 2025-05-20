@@ -125,6 +125,9 @@ fit_rpls <- function(X, Y,
           v_k_new <- pmax(r - lamk, 0)
         }
       } else if (penalty == "ridge") {
+        if (nonneg) {
+          warning("nonneg option is ignored for ridge penalties")
+        }
          # For L2: objective is 0.5 * v^T Q v - v^T (Q M u) + 0.5 lamk v^T v
          # => derivative: Qv - Q M u + lamk v = 0 => (Q + lamk I) v = Q (M u)
          r <- M %*% u_k # Let r = M u
