@@ -104,7 +104,7 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
     if(valid_comp && iter == maxiter && diff_val >= tol) {
       warning(sprintf("Component %d did not converge within %d iterations", k, maxiter))
     }
-    
+
     if(!valid_comp) {
       warning(sprintf("Component %d could not be extracted; stopping early.", k),
               call.=FALSE)
@@ -114,6 +114,14 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       scoreY[,k] <- u_n
       break
     }
+
+    # Gram-Schmidt u_n against previously extracted Y-scores
+    for(j in seq_len(k-1)) {
+      dot_uu <- sum(u_n * scoreY[, j])
+      u_n <- u_n - dot_uu * scoreY[, j]
+    }
+    norm_u <- sqrt(sum(u_n^2))
+    if(norm_u > 1e-15) u_n <- u_n / norm_u else u_n[] <- 0
 
     loadX[,k] <- p_k
     loadY[,k] <- q_k
