@@ -1,21 +1,20 @@
 Package: genpca
 Title: Generalized Principal Components Analysis
 Version: 0.0.0.9000
+URL: https://github.com/bbuchsbaum/genpca
+BugReports: https://github.com/bbuchsbaum/genpca/issues
 Authors@R: 
     person(given = "Bradley",
            family = "Buchsbaum",
            role = c("aut", "cre"),
            email = "brad.buchsbaum@gmail.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: An implementation of generalized principal components analysis, an extension of PCA
-   that finds maximal directions in the data in an inner product space induced 
-   by two positive semidefinite matrices, one for the rows of size n by n and one for the columns of 
-   size p by p. These constraint matrices can encode structural information (e.g. spatial/temporal correlations) 
-   that act as a kind of prior on the PCA solution.
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+Description: Implements generalized principal components analysis. This
+    extension of PCA finds maximal directions in an inner product space induced
+    by two positive semidefinite matrices for the rows and columns.
+    These constraint matrices can encode structural information, such as
+    spatial or temporal correlations, that act as a prior on the PCA solution.
+License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
 Imports: 
@@ -24,9 +23,10 @@ Imports:
     Rcpp,
     RSpectra,
     RcppEigen
-Remotes: 
-    bbuchsbaum/multivarious
-Suggests: 
+    FNN,
+    PRIMME,
+    assertthat
+Suggests:
     testthat,
     covr
 LinkingTo: 
