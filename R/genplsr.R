@@ -14,16 +14,29 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
   
   for(k in seq_len(ncomp)) {
     if(verbose) cat(sprintf("Extracting comp %d/%d...\n", k, ncomp))
-    
+
+    # initialise vectors for this component
+    p_k <- numeric(p)
+    q_k <- numeric(q)
+    t_n <- numeric(n)
+
     # initialize u => col j in Yres with max var
     var_ycols <- apply(Yres, 2, var)
     jmax <- which.max(var_ycols)
     u_n <- Yres[, jmax, drop=FALSE]
+
+    valid_comp <- TRUE
     
     for(iter in seq_len(maxiter)) {
       # (1) p_k
       denom_u <- sum(u_n^2)
-      if(denom_u<1e-15) break
+      if(denom_u < 1e-15) {
+        p_k[] <- 0
+        q_k[] <- 0
+        t_n[] <- 0
+        valid_comp <- FALSE
+        break
+      }
       p_k <- crossprod(Xres, u_n)/ denom_u
       
       # Gram–Schmidt p_k
@@ -36,7 +49,13 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       
       # (2) t_k
       denom_p<- sum(p_k^2)
-      if(denom_p<1e-15) break
+      if(denom_p < 1e-15) {
+        p_k[] <- 0
+        q_k[] <- 0
+        t_n[] <- 0
+        valid_comp <- FALSE
+        break
+      }
       t_n <- Xres %*% p_k / denom_p
       
       # Gram–Schmidt t_n
@@ -49,7 +68,13 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       
       # (3) q_k
       denom_t<- sum(t_n^2)
-      if(denom_t<1e-15) break
+      if(denom_t < 1e-15) {
+        p_k[] <- 0
+        q_k[] <- 0
+        t_n[] <- 0
+        valid_comp <- FALSE
+        break
+      }
       q_k <- crossprod(Yres, t_n)/ denom_t
       
       # Gram–Schmidt q_k
@@ -62,7 +87,13 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       
       # (4) u_n new
       denom_q<- sum(q_k^2)
-      if(denom_q<1e-15) break
+      if(denom_q < 1e-15) {
+        p_k[] <- 0
+        q_k[] <- 0
+        t_n[] <- 0
+        valid_comp <- FALSE
+        break
+      }
       u_n_new <- Yres %*% q_k / denom_q
       
       diff_val<- sqrt(sum((u_n_new - u_n)^2))
@@ -70,14 +101,26 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       if(diff_val<tol) break
     }
     
+    if(!valid_comp) {
+      warning(sprintf("Component %d could not be extracted; stopping early.", k),
+              call.=FALSE)
+      loadX[,k] <- p_k
+      loadY[,k] <- q_k
+      scoreX[,k] <- t_n
+      scoreY[,k] <- u_n
+      break
+    }
+
     loadX[,k] <- p_k
     loadY[,k] <- q_k
     scoreX[,k]<- t_n
     scoreY[,k]<- u_n
     
     # deflate
-    Xres <- Xres - t_n %*% t(p_k)
-    Yres <- Yres - t_n %*% t(q_k)
+    if(sum(abs(t_n)) > 0 && sum(abs(p_k)) > 0) {
+      Xres <- Xres - t_n %*% t(p_k)
+      Yres <- Yres - t_n %*% t(q_k)
+    }
   }
   
   list(P=loadX, Q=loadY, T=scoreX, U=scoreY)
