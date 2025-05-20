@@ -33,13 +33,25 @@ partial_eig_once <- function(M, k=50, which="LA", eps=1e-15, tol=1e-6) {
   # clamp k
   k_eff <- min(k, nrow(M), ncol(M))
   k_eff <- max(k_eff, 1)
-  es <- PRIMME::eigs_sym(M, NEig=k_eff, which=which, tol=tol)
-  lam <- pmax(es$values, 0)
-  Q   <- es$vectors
-  if(!is.matrix(Q) || nrow(Q)!=nrow(M)) {
+
+  # For small matrices, base eigen() is more accurate than the
+  # iterative solver used by PRIMME.  This helps avoid numeric
+  # discrepancies in unit tests comparing to direct SVD.
+  if (nrow(M) <= 50) {
+    es <- eigen(as.matrix(M), symmetric = TRUE)
+    lam <- pmax(es$values[seq_len(k_eff)], 0)
+    Q   <- es$vectors[, seq_len(k_eff), drop = FALSE]
+  } else {
+    es <- PRIMME::eigs_sym(M, NEig = k_eff, which = which, tol = tol)
+    lam <- pmax(es$values, 0)
+    Q   <- es$vectors
+  }
+
+  if (!is.matrix(Q) || nrow(Q) != nrow(M)) {
     stop("partial_eig_once: dimension mismatch or no eigenvectors returned.")
   }
-  list(Q=Q, lam=lam)
+
+  list(Q = Q, lam = lam)
 }
 
 #' Decide adaptive rank to capture var_threshold fraction of total variance
