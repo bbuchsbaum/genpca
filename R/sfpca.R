@@ -121,8 +121,6 @@ sfpca <- function(X, K, spat_cds,
     svd_res <- svds(X_residual, k = 1, nu = 1, nv = 1)
     u_init <- as.numeric(svd_res$u)
     v_init <- as.numeric(svd_res$v)
-    d_init <- svd_res$d[1]
-    
     # Heuristic estimation of penalty parameters
     # Sparsity penalties based on quantiles of initial singular vectors
     if (is.null(lambda_u)) {
@@ -290,13 +288,11 @@ sfpca_rank1 <- function(X,
   repeat {
     iter <- iter + 1
     # Update u with fixed v
-    u_old <- u
     u <- sfpca_proximal_operator(X %*% v, S_u, lambda_u, L_u, penalty_u)
     u_norm <- sqrt(as.numeric(Matrix::crossprod(u, S_u %*% u)))
     if (u_norm > 0) u <- u / u_norm else u <- rep(0, n)
     
     # Update v with fixed u
-    v_old <- v
     v <- sfpca_proximal_operator(Matrix::crossprod(X, u), S_v, lambda_v, L_v, penalty_v)
     v_norm <- sqrt(as.numeric(Matrix::crossprod(v, S_v %*% v)))
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
