@@ -2,6 +2,17 @@
 
 library(testthat)
 
+test_that("rpls validates input dimensions and lambda", {
+  set.seed(1)
+  X <- matrix(rnorm(10 * 3), 10, 3)
+  Y_bad <- matrix(rnorm(11 * 2), 11, 2)
+  expect_error(rpls(X, Y_bad), "same number of rows")
+
+  Y_good <- matrix(rnorm(10 * 2), 10, 2)
+  expect_error(rpls(X, Y_good, lambda = -0.1), "non-negative")
+  expect_error(rpls(X, Y_good, lambda = "a"), "numeric")
+})
+
 test_that("rpls with default arguments works correctly for a small example", {
   # Generate synthetic data
   set.seed(42)

@@ -16,6 +16,16 @@ fit_rpls <- function(X, Y,
   n <- nrow(X)
   p <- ncol(X)
   q <- ncol(Y)
+  if (n != nrow(Y)) {
+    stop("X and Y must have the same number of rows")
+  }
+
+  if (!is.numeric(lambda) || any(is.na(lambda))) {
+    stop("lambda must be numeric and non-missing")
+  }
+  if (any(lambda < 0)) {
+    stop("lambda must be non-negative")
+  }
   
   # Make lambda into a length-K vector
   if (length(lambda) == 1L) {
