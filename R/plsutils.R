@@ -182,6 +182,7 @@ build_invsqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
 row_transform <- function(mat, ffun) ffun(mat)
 
 #' @noRd
+#'@keywords internal
 col_transform <- function(mat, ffun) {
   mt <- t(mat)
   mt2<- ffun(mt)
