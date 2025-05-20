@@ -53,7 +53,7 @@ using namespace arma;
 // large dimension should be in ROWS (if columns is X, then pass (t(X), R,))
 
 //[[Rcpp::export]]
-List gmd_deflation_cpp(const arma::mat &X, arma::sp_mat Q, arma::sp_mat R, int k, double thr=1e-6) {
+List gmd_deflation_cpp(const arma::mat &X, arma::sp_mat Q, arma::sp_mat R, int k, double thr=1e-7) {
   Rcout << "begin " << std::endl;
   int n = X.n_rows;
   int p = X.n_cols;
