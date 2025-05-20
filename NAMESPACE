@@ -3,6 +3,7 @@
 S3method(reconstruct,genpca)
 S3method(truncate,genpca)
 export(genpca)
+export(genpls)
 export(reconstruct)
 export(truncate)
 import(assertthat)
