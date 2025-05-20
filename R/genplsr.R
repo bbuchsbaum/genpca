@@ -26,7 +26,8 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
     u_n <- Yres[, jmax, drop=FALSE]
 
     valid_comp <- TRUE
-    
+    diff_val <- Inf
+
     for(iter in seq_len(maxiter)) {
       # (1) p_k
       denom_u <- sum(u_n^2)
@@ -99,6 +100,9 @@ nipals_deflation_gs <- function(Xmat, Ymat, ncomp, maxiter=200, tol=1e-9, verbos
       diff_val<- sqrt(sum((u_n_new - u_n)^2))
       u_n <- u_n_new
       if(diff_val<tol) break
+    }
+    if(valid_comp && iter == maxiter && diff_val >= tol) {
+      warning(sprintf("Component %d did not converge within %d iterations", k, maxiter))
     }
     
     if(!valid_comp) {
