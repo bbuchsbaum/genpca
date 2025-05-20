@@ -414,6 +414,11 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 #' @importFrom RSpectra eigs_sym
 #' @importFrom methods as is
 #' @importFrom stats eigen
+#' @details
+#' `gmdLA` caches the eigen decomposition of the constraint matrices by
+#' storing it as an attribute on the matrix. `compute_sqrtm()` returns this
+#' modified matrix so callers can reassign it (e.g. `R <- sqrtm_res$matrix`)
+#' to reuse the cached decomposition in subsequent calls.
 gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
                   maxeig=800, tol=1e-8, use_dual=FALSE, verbose=FALSE) {
 
@@ -421,7 +426,10 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
   cache_attr_name <- "eigen_decomp_cache"
   eigen_tol <- tol # Tolerance for filtering eigenvalues
 
-  # Helper to compute M^(1/2) and M^(-1/2) or retrieve from cache
+  # Helper to compute M^(1/2) and M^(-1/2) or retrieve from cache. The
+  # eigen decomposition is cached on the matrix via an attribute so that
+  # repeated calls avoid recomputation. The updated matrix with this
+  # attribute is returned alongside the decomposition.
   compute_sqrtm <- function(M, cache_attr, mat_name) {
     if (!is.null(attr(M, cache_attr))) {
       if (verbose) message(paste(" Using cached decomposition for matrix", mat_name))
@@ -477,6 +485,8 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
       }
       attr(M, cache_attr) <- decomp # Cache the computed decomposition
     }
+    # Return matrix with cached decomposition for reuse
+    decomp$matrix <- M
     return(decomp)
   }
   
@@ -484,6 +494,7 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
   if (!use_dual) { # Primal: n_orig >= p_orig
       if (verbose) message(" gmdLA: Using primal approach (n >= p)")
       R_decomp <- compute_sqrtm(R, paste0(cache_attr_name, "_R"), "R")
+      R <- R_decomp$matrix
       Rtilde <- R_decomp$sqrtm
       Rtilde.inv <- R_decomp$invsqrtm
 
@@ -535,6 +546,7 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
   } else { # Dual: n_orig < p_orig
       if (verbose) message(" gmdLA: Using dual approach (n < p)")
       Q_decomp <- compute_sqrtm(Q, paste0(cache_attr_name, "_Q"), "Q")
+      Q <- Q_decomp$matrix
       Qtilde <- Q_decomp$sqrtm
       Qtilde.inv <- Q_decomp$invsqrtm
 
