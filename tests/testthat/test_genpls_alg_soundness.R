@@ -53,13 +53,13 @@ test_that("genpls respects orthogonality under column constraints", {
   gram_x <- t(fit$vx) %*% (Ax %*% fit$vx)
   gram_y <- t(fit$vy) %*% (Ay %*% fit$vy)
 
-  expect_equal(gram_x, diag(K), tolerance = 1e-6)
-  expect_equal(gram_y, diag(K), tolerance = 1e-6)
+  expect_equal(as.matrix(gram_x), diag(K), tolerance = 1e-6)
+  expect_equal(as.matrix(gram_y), diag(K), tolerance = 1e-6)
 
   gram_px <- t(fit$tilde_Px) %*% fit$tilde_Px
   gram_py <- t(fit$tilde_Py) %*% fit$tilde_Py
 
-  expect_equal(gram_px, diag(K), tolerance = 1e-6)
-  expect_equal(gram_py, diag(K), tolerance = 1e-6)
+  expect_equal(as.matrix(gram_px), diag(K), tolerance = 1e-6)
+  expect_equal(as.matrix(gram_py), diag(K), tolerance = 1e-6)
 })
 
