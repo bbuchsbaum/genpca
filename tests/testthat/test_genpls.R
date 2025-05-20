@@ -24,6 +24,10 @@ test_that("genpls handles basic numeric input and constraints", {
   expect_s3_class(fit, c("genpls", "cross_projector", "projector"))
   expect_true(ncol(fit$vx) <= 2)
   expect_true(ncol(fit$vy) <= 2)
+  expect_equal(multivarious::ncomp(fit), ncol(fit$vx))
+  tol <- 1e-9
+  nnz <- sum(colSums(abs(fit$tilde_Px)) > tol)
+  expect_equal(multivarious::ncomp(fit), nnz)
 })
 
 test_that("genpls catches non-numeric or invalid ncomp", {
@@ -56,6 +60,9 @@ test_that("genpls runs and handles degenerate solutions gracefully", {
   fit <- genpls(X, Y, ncomp=3, verbose=TRUE)
   # might see warnings about degenerate or rank-limited
   expect_true(ncol(fit$vx) <= 3)
+  expect_equal(multivarious::ncomp(fit), ncol(fit$vx))
+  nnz <- sum(colSums(abs(fit$tilde_Px)) > 1e-9)
+  expect_equal(multivarious::ncomp(fit), nnz)
 })
 
 test_that("genpls works with adjacency-like constraints (row & col)", {

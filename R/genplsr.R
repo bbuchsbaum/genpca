@@ -235,19 +235,21 @@ genpls <- function(X, Y,
   Ytilde <- col_transform(Yrw, Ay_sqrt)
   
   nipres <- nipals_deflation_gs(Xtilde, Ytilde, ncomp, maxiter, tol, verbose)
-  
-  Ptilde <- nipres$P
-  Qtilde <- nipres$Q
-  Ttilde <- nipres$T
-  Utilde <- nipres$U
+
+  extracted <- which(colSums(abs(nipres$P)) > tol)
+  Ptilde <- nipres$P[, extracted, drop = FALSE]
+  Qtilde <- nipres$Q[, extracted, drop = FALSE]
+  Ttilde <- nipres$T[, extracted, drop = FALSE]
+  Utilde <- nipres$U[, extracted, drop = FALSE]
+  ncomp_eff <- length(extracted)
   
   # 7) build_invsqrt_mult => from plsutils
   Ax_invsqrt <- build_invsqrt_mult(Ax, rank_Ax, var_threshold, max_k, tol=tol)
   Ay_invsqrt <- build_invsqrt_mult(Ay, rank_Ay, var_threshold, max_k, tol=tol)
   
-  vx <- vapply(seq_len(ncomp), function(j) Ax_invsqrt(Ptilde[, j]),
+  vx <- vapply(seq_len(ncomp_eff), function(j) Ax_invsqrt(Ptilde[, j]),
                numeric(nrow(Ptilde)))
-  vy <- vapply(seq_len(ncomp), function(j) Ay_invsqrt(Qtilde[, j]),
+  vy <- vapply(seq_len(ncomp_eff), function(j) Ay_invsqrt(Qtilde[, j]),
                numeric(nrow(Qtilde)))
   
   out <- cross_projector(
@@ -260,7 +262,7 @@ genpls <- function(X, Y,
     tilde_Py=Qtilde,
     tilde_Tx=Ttilde,
     tilde_Ty=Utilde,
-    ncomp=ncomp,
+    ncomp=ncomp_eff,
     rank_Mx=rank_Mx,
     rank_Ax=rank_Ax,
     rank_My=rank_My,
