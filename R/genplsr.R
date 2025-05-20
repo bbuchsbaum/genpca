@@ -245,8 +245,10 @@ genpls <- function(X, Y,
   Ax_invsqrt <- build_invsqrt_mult(Ax, rank_Ax, var_threshold, max_k, tol=tol)
   Ay_invsqrt <- build_invsqrt_mult(Ay, rank_Ay, var_threshold, max_k, tol=tol)
   
-  vx <- sapply(seq_len(ncomp), function(j) Ax_invsqrt(Ptilde[,j]))
-  vy <- sapply(seq_len(ncomp), function(j) Ay_invsqrt(Qtilde[,j]))
+  vx <- vapply(seq_len(ncomp), function(j) Ax_invsqrt(Ptilde[, j]),
+               numeric(nrow(Ptilde)))
+  vy <- vapply(seq_len(ncomp), function(j) Ay_invsqrt(Qtilde[, j]),
+               numeric(nrow(Qtilde)))
   
   out <- cross_projector(
     vx=vx,
