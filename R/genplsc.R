@@ -56,7 +56,6 @@
 #'                         Override automatic choice when `dual = TRUE`.
 #' @param svd_method       `"base"`, `"RSpectra"`, or `"irlba"`.
 #' @param tol              Numerical tolerance (e.g. tiny eigenvalues).
-#' @param maxiter          Unused (kept for API compatibility).
 #' @param verbose          Logical; print progress if `TRUE`.
 #' @param ...              Ignored; added for forward compatibility.
 #' 
@@ -98,7 +97,7 @@ genplsc <- function(X, Y,
                              force_row_likeness = NULL,
                              force_col_likeness = NULL,
                              svd_method = c("base","RSpectra","irlba"),
-                             tol = 1e-9, maxiter = 200,   # maxiter kept for API compat
+                             tol = 1e-9,
                              verbose = FALSE)
 {
   ## ---- 0. sanity ---------------------------------------------------
