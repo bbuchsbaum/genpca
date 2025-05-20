@@ -131,16 +131,11 @@ genplsc <- function(X, Y,
   Ay_isqrt<- build_invsqrt_mult(Ay, rank_Ay, var_threshold, max_k, tol=tol)
 
   partial_svd <- function(M, k) {
-    if(svd_method=="base")
-      return(with(base::svd(M, nu=k, nv=k), list(u=u[,1:k,drop=FALSE],
-                                                 d=d[1:k], v=v[,1:k,drop=FALSE])))
-    if(svd_method=="RSpectra" && requireNamespace("RSpectra",quietly=TRUE))
-      return(RSpectra::svds(M,k))
-    if(svd_method=="irlba"    && requireNamespace("irlba",quietly=TRUE))
-      return(irlba::irlba(M,nu=k,nv=k))
-    warning("Requested svd_method not available; falling back to base::svd")
-    with(base::svd(M, nu=k, nv=k), list(u=u[,1:k,drop=FALSE],
-                                        d=d[1:k], v=v[,1:k,drop=FALSE]))
+    k_eff <- min(k, nrow(M), ncol(M))
+    sv <- base::svd(M, nu = k_eff, nv = k_eff)
+    list(u = sv$u[, seq_len(k_eff), drop = FALSE],
+         d = sv$d[seq_len(k_eff)],
+         v = sv$v[, seq_len(k_eff), drop = FALSE])
   }
 
   ## ---- 4. decide row/col likeness (for dual path) ------------------
