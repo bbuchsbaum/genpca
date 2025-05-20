@@ -265,6 +265,11 @@ fit_rpls <- function(X, Y,
 #' (\eqn{\ell_2}) penalties **and** the generalised extension that operates
 #' in a user-supplied quadratic form \eqn{Q}.
 #'
+#' Unlike `genpls()` from \code{genplsr.R}, which handles separate row and
+#' column metrics (`Mx`, `Ax`, `My`, `Ay`) with a Gram–Schmidt orthogonalisation
+#' step, `rpls()` uses a single metric `Q` and the simpler penalised updates of
+#' Allen et al.
+#'
 #' @section Method:
 #' The routine follows Algorithm 1 of Allen *et al.* (2013, *Stat.
 #' Anal. Data Min.*, 6 : 302–314) — see the paper for details. Briefly,
