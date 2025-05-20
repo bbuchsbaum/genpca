@@ -13,7 +13,8 @@ genpca(
   deflation = FALSE,
   threshold = 1e-06,
   use_cpp = TRUE,
-  maxeig = 800
+  maxeig = 800,
+  warn_approx = TRUE
 )
 }
 \arguments{
@@ -32,6 +33,12 @@ genpca(
 \item{threshold}{convergence threshold for deflation method}
 
 \item{use_cpp}{use the C++ implementation}
+\item{maxeig}{upper bound on the dimension used for eigen decompositions.
+If the dimension of a constraint matrix is at most this value a full eigen
+decomposition is used. Otherwise only the leading \code{maxeig} eigenvalues are
+computed, yielding an approximate result.}
+\item{warn_approx}{logical; emit a warning when an approximate eigen
+decomposition is used.}
 }
 \value{
 an instance of type \code{genpca}, extending \code{bi_projector}
@@ -42,6 +49,13 @@ Compute a PCA in a inner-product space defined by row and column constraint matr
 \details{
 Pre-processing such as scaling and centering is carried out using special functions from the \code{multivarious} package.
 Basic options are \code{multivarious::center()}, \code{multivarious::standardize()}, and for no pre-processing at all, \code{multivarious::pass()}.
+When \code{method = "eigen"}, the \code{maxeig} parameter controls how eigen
+decompositions of the constraint matrices are performed. If the dimension of a
+constraint matrix does not exceed \code{maxeig} a full eigen decomposition is
+used. Otherwise only the leading \code{maxeig} eigenvalues and vectors are
+computed via \code{RSpectra::eigs_sym}, producing an approximate result.
+Set \code{warn_approx = FALSE} to suppress the warning about this
+approximation.
 }
 \examples{
 X <- matrix(rnorm(100*100), 100,100)
