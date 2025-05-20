@@ -206,7 +206,19 @@ genplsc <- function(X, Y,
       Qy  <- partial_eig_approx(Gy, rank_My,
                                 var_threshold,max_k,tol=tol)$Q
 
-      XYR <- tcrossprod(Xr, Yr)                           # n × n
+      ## Make sure Xr and Yr have matching column counts for tcrossprod
+      if(ncol(Xr) != ncol(Yr)) {
+        if(ncol(Xr) < ncol(Yr)) {
+          Xpad <- cbind(Xr, matrix(0, nrow(Xr), ncol(Yr) - ncol(Xr)))
+          Ypad <- Yr
+        } else {
+          Xpad <- Xr
+          Ypad <- cbind(Yr, matrix(0, nrow(Yr), ncol(Xr) - ncol(Yr)))
+        }
+        XYR <- tcrossprod(Xpad, Ypad)                    # n × n
+      } else {
+        XYR <- tcrossprod(Xr, Yr)                        # n × n
+      }
       sv  <- partial_svd( crossprod(Qx, XYR %*% Qy), ncomp,
                            method = svd_method)
 
