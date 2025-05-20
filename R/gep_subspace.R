@@ -5,9 +5,8 @@
 #' @noRd
 factor_mat <- function(M, reg = 1e-3, max_tries = 5) {
   d <- nrow(M)
-  M_reg <- M
   for (i in seq_len(max_tries)) {
-    M_reg <- M_reg + Diagonal(d, reg)
+    M_reg <- M + Diagonal(d, reg)
     ch <- try(Cholesky(M_reg, LDL = FALSE), silent = TRUE)
     if (!inherits(ch, "try-error")) {
       return(list(ch=ch, final_reg=reg))
