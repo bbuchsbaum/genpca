@@ -7,20 +7,24 @@ Authors@R: c(
            email = "brad.buchsbaum@gmail.com", 
            role = c("aut", "cre")))
 Description: Generalized PCA and related matrix decompositions.
-License: MIT
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:
     Rcpp,
-    RcppArmadillo,
-    RcppEigen,
     RSpectra,
     FNN,
     Matrix,
     multivarious,
-    assertthat
+    assertthat,
+    methods,
+    PRIMME
 LinkingTo:
     Rcpp,
     RcppArmadillo,
     RcppEigen,
     RSpectra
+Suggests:
+    testthat,
+    microbenchmark
+RoxygenNote: 7.3.2.9000

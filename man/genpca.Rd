@@ -2,74 +2,183 @@
 % Please edit documentation in R/gpca.R
 \name{genpca}
 \alias{genpca}
-\title{Generalized Principal Components Analysis}
+\alias{gmdLA}
+\alias{gmd_deflationR}
+\alias{truncate.genpca}
+\alias{reconstruct.genpca}
+\alias{ncomp.genpca}
+\title{Generalised Principal Components Analysis (GPCA)}
 \usage{
 genpca(
   X,
   A = NULL,
   M = NULL,
-  ncomp = min(dim(X)),
-  preproc = multivarious::center(),
-  deflation = FALSE,
+  ncomp = NULL,
+  method = c("eigen", "spectra", "deflation"),
+  constraints_remedy = c("error", "ridge", "clip", "identity"),
+  preproc = multivarious::pass(),
   threshold = 1e-06,
   use_cpp = TRUE,
   maxeig = 800,
-  warn_approx = TRUE
+  warn_approx = TRUE,
+  maxit_spectra = 1000,
+  tol_spectra = 1e-09,
+  verbose = FALSE
 )
+
+gmdLA(
+  X,
+  Q,
+  R,
+  k = min(n_orig, p_orig),
+  n_orig,
+  p_orig,
+  maxeig = 800,
+  tol = 1e-08,
+  use_dual = FALSE,
+  warn_approx = TRUE,
+  verbose = FALSE
+)
+
+gmd_deflationR(X, Q, R, k, thr = 1e-06, verbose = FALSE)
+
+\method{truncate}{genpca}(x, ncomp)
+
+\method{reconstruct}{genpca}(
+  x,
+  comp = 1:multivarious::ncomp(x),
+  rowind = NULL,
+  colind = NULL,
+  ...
+)
+
+\method{ncomp}{genpca}(x)
 }
 \arguments{
-\item{X}{the data matrix}
+\item{X}{Numeric matrix n x p.}
 
-\item{A}{the column constraints. Can be a \code{vector}, symmetric \code{matrix}, or symmetric sparse matrix with \code{ncol(X)} rows and columns.}
+\item{A}{Column constraint: vector (implies diagonal), dense matrix, or sparse
+symmetric p x p PSD matrix. If `NULL`, defaults to identity.}
 
-\item{M}{the row constraints. Can be a \code{vector}, symmetric \code{matrix}, or symmetric sparse matrix with \code{nrow(X)} rows and columns.}
+\item{M}{Row constraint: vector (implies diagonal), dense matrix, or sparse
+symmetric n x n PSD matrix. If `NULL`, defaults to identity.}
 
-\item{ncomp}{the number of components to return}
+\item{ncomp}{Number of components to extract. Defaults to `min(dim(X))`. Must be positive.}
 
-\item{preproc}{a pre-processing function (e.g. \code{center()} or \code{standardize()} from \code{multivarious} package, see Details)}
+\item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
 
-\item{deflation}{use the iterative deflation method}
+\item{constraints_remedy}{Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.}
 
-\item{threshold}{convergence threshold for deflation method}
+\item{preproc}{Pre‑processing transformer object from the **multivarious** package
+(default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
+See `?multivarious::prep` for options.}
 
-\item{use_cpp}{use the C++ implementation}
-\item{maxeig}{upper bound on the dimension used for eigen decompositions.
-If the dimension of a constraint matrix is at most this value a full eigen
-decomposition is used. Otherwise only the leading \code{maxeig} eigenvalues are
-computed, yielding an approximate result.}
-\item{warn_approx}{logical; emit a warning when an approximate eigen
-decomposition is used.}
+\item{threshold}{Convergence tolerance for the \code{"deflation"} method's inner loop. Default `1e-6`.}
+
+\item{use_cpp}{Logical. If `TRUE` (default) and package was compiled with C++ support,
+use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
+(Ignored for \code{method = "eigen"} and \code{method = "spectra"}).}
+
+\item{maxeig}{Upper bound on subspace dimension for eigen/SVD calculations, primarily for
+\code{method = "eigen"}. If a constraint matrix dimension is \code{<= maxeig}
+a full eigen decomposition is used. Otherwise only the leading \code{maxeig}
+eigencomponents are computed via \code{RSpectra::eigs_sym}, so results may be
+approximate. Default `800`.}
+
+\item{warn_approx}{Logical. If \code{TRUE} (default) a warning is emitted when an
+approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.}
+
+\item{maxit_spectra}{Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default `1000`.}
+
+\item{tol_spectra}{Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.}
+
+\item{verbose}{Logical. If `TRUE`, print progress messages. Default `FALSE`.}
 }
 \value{
-an instance of type \code{genpca}, extending \code{bi_projector}
+An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::bi_projector`,
+  with slots including:
+  \describe{
+    \item{u,v}{Left/right singular vectors scaled by the constraint metrics
+               (MU, AV). These correspond to loadings/components in the original space's geometry.
+               Use `loadings(fit)` or `components(fit)`.} 
+    \item{ou,ov}{Orthonormal singular vectors in the constraint metric
+                 (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
+    \item{sdev}{Generalised singular values d_k.}
+    \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.} 
+    \item{preproc}{The `multivarious` pre‑processing object used.}
+    \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
+    \item{propv}{Proportion of generalized variance explained by each component.}
+    \item{cumv}{Cumulative proportion of generalized variance explained.}
+  }
 }
 \description{
-Compute a PCA in a inner-product space defined by row and column constraint matrices.
+Implements the Generalised Least‑Squares Matrix Decomposition of
+Allen, Grosenick & Taylor (2014) for data observed in a **row**
+inner‑product space M and a **column** inner‑product space A.
+Setting M = I_n, A = I_p recovers ordinary PCA.
 }
 \details{
-Pre-processing such as scaling and centering is carried out using special functions from the \code{multivarious} package.
-Basic options are \code{multivarious::center()}, \code{multivarious::standardize()}, and for no pre-processing at all, \code{multivarious::pass()}.
-When \code{method = "eigen"}, the \code{maxeig} parameter controls how eigen
-decompositions of the constraint matrices are performed. If the dimension of a
-constraint matrix does not exceed \code{maxeig} a full eigen decomposition is
-used. Otherwise only the leading \code{maxeig} eigenvalues and vectors are
-computed via \code{RSpectra::eigs_sym}, producing an approximate result.
-Set \code{warn_approx = FALSE} to suppress the warning about this
-approximation.
+`gmdLA` caches the eigen decomposition of the constraint matrices by
+storing it as an attribute on the matrix. `compute_sqrtm()` returns this
+modified matrix so callers can reassign it (e.g. `R <- sqrtm_res$matrix`)
+to reuse the cached decomposition in subsequent calls.
 }
+\section{Method}{
+
+We compute the rank‑ncomp factors UDVT that minimise
+\deqn{ \|X - UDV^\top\|_{M,A}^2
+      = \mathrm{tr}\!\bigl(M\, (X-UDV^\top)\,A\,(X-UDV^\top)^\top\bigr) }
+subject to UT M U = I, VT AV = I. (Allen et al., 2014).
+Three methods are available via the `method` argument:
+\itemize{
+ \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
+ \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
+ \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
+}
+}
+
 \examples{
-X <- matrix(rnorm(100*100), 100,100)
-A <- cov(X)
-M <- cov(t(X))
-gp1 <- genpca(X, A=A, M=M, ncomp=100)
+if (requireNamespace("RSpectra", quietly = TRUE) &&
+    requireNamespace("multivarious", quietly = TRUE)) {
+  set.seed(123)
+  X <- matrix(stats::rnorm(200 * 100), 200, 100)
+  rownames(X) <- paste0("R", 1:200)
+  colnames(X) <- paste0("C", 1:100)
 
-Xrecon <- reconstruct(gp1)
+  # Standard PCA (A=I, M=I, centered) - using default method="eigen"
+  gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
+  
+  # Standard PCA using Spectra method (requires C++ build)
+  # gpca_std_spectra <- try(genpca(X, ncomp = 5, preproc = multivarious::center(), \n#'   #                              method="spectra", verbose = TRUE))
+  # if (!inherits(gpca_std_spectra, "try-error")) {
+  #    print(head(gpca_std_spectra$sdev))
+  # }
 
-gp2 <- truncate(gp1,2)
+  # Compare singular values with prcomp
+  pr_std <- stats::prcomp(X, center = TRUE, scale. = FALSE)
+  print("Eigen Method Sdev:")
+  print(head(gpca_std_eigen$sdev))
+  print("prcomp Sdev:")
+  print(head(pr_std$sdev))
+  print(paste("Total Var Explained (Eigen):", round(sum(gpca_std_eigen$propv)*100), "\%"))
 
+  # Weighted column PCA (diagonal A, no centering)
+  col_weights <- stats::runif(100, 0.5, 1.5)
+  gpca_weighted <- genpca(X, A = col_weights, ncomp = 3, preproc=multivarious::pass(), verbose = FALSE)
+  print("Weighted GPCA Sdev:")
+  print(gpca_weighted$sdev)
+  print(head(loadings(gpca_weighted)))
+}
 }
 \references{
-Abdi, H. (2007). Singular value decomposition (SVD) and generalized singular value decomposition. \emph{Encyclopedia of measurement and statistics}, 907-912.
-
-Allen, G. I., Grosenick, L., & Taylor, J. (2014). A generalized least-square matrix decomposition. \emph{Journal of the American Statistical Association}, 109(505), 145-159.
+Allen, G. I., Grosenick, L., & Taylor, J. (2014).
+*A Generalized Least‑Squares Matrix Decomposition.* 
+Journal of the American Statistical Association, 109(505), 145‑159.
+arXiv:1102.3074.
 }
+\seealso{
+\code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
+  `multivarious::bi_projector`, `multivarious::project`, `multivarious::scores`,
+  `multivarious::loadings`, `multivarious::reconstruct`.
+}
+\keyword{internal}

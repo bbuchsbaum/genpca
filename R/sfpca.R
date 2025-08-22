@@ -121,7 +121,18 @@ sfpca <- function(X, K, spat_cds,
   for (k in 1:K) {
     if (verbose) cat("Component", k, "\n")
     # Estimate initial u and v using SVD
-    svd_res <- svds(X_residual, k = 1, nu = 1, nv = 1)
+    # Try RSpectra first, fallback to base R svd if it fails
+    svd_res <- tryCatch({
+      svds(X_residual, k = 1, nu = 1, nv = 1)
+    }, error = function(e) {
+      if (verbose) cat("RSpectra::svds failed, falling back to base R svd for component", k, "\n")
+      # Convert to dense matrix for base R svd
+      X_dense <- as.matrix(X_residual)
+      base_svd <- svd(X_dense, nu = 1, nv = 1)
+      list(u = base_svd$u[, 1, drop = FALSE], 
+           v = base_svd$v[, 1, drop = FALSE], 
+           d = base_svd$d[1])
+    })
     u_init <- as.numeric(svd_res$u)
     v_init <- as.numeric(svd_res$v)
     # Heuristic estimation of penalty parameters
@@ -178,10 +189,13 @@ sfpca <- function(X, K, spat_cds,
     u_list[, k] <- as.vector(result$u)
     v_list[, k] <- as.vector(result$v)
     # Deflate X
-    u_sp <- Matrix::sparseVector(x = result$u, i = seq_along(result$u),
-                                length = length(result$u))
-    v_sp <- Matrix::sparseVector(x = result$v, i = seq_along(result$v),
-                                length = length(result$v))
+    # Ensure u and v are vectors for sparseVector
+    u_vec <- as.vector(result$u)
+    v_vec <- as.vector(result$v)
+    u_sp <- Matrix::sparseVector(x = u_vec, i = seq_along(u_vec),
+                                length = length(u_vec))
+    v_sp <- Matrix::sparseVector(x = v_vec, i = seq_along(v_vec),
+                                length = length(v_vec))
     X_residual <- X_residual - d_list[k] * Matrix::tcrossprod(u_sp, v_sp)
     X_residual <- Matrix::drop0(X_residual)
   }
@@ -267,7 +281,18 @@ sfpca_rank1 <- function(X,
   p <- ncol(X)
   # Initialize u and v
   if (is.null(u_init) || is.null(v_init)) {
-    svd_res <- RSpectra::svds(X, k = 1, nu = 1, nv = 1)
+    # Try RSpectra first, fallback to base R svd if it fails
+    svd_res <- tryCatch({
+      RSpectra::svds(X, k = 1, nu = 1, nv = 1)
+    }, error = function(e) {
+      if (verbose) cat("RSpectra::svds failed in sfpca_rank1, falling back to base R svd\n")
+      # Convert to dense matrix for base R svd
+      X_dense <- as.matrix(X)
+      base_svd <- svd(X_dense, nu = 1, nv = 1)
+      list(u = base_svd$u[, 1, drop = FALSE], 
+           v = base_svd$v[, 1, drop = FALSE], 
+           d = base_svd$d[1])
+    })
     u <- as.numeric(svd_res$u)
     v <- as.numeric(svd_res$v)
     d <- svd_res$d[1]
@@ -304,12 +329,12 @@ sfpca_rank1 <- function(X,
   repeat {
     iter <- iter + 1
     # Update u with fixed v
-    u <- sfpca_proximal_operator(X %*% v, S_u_chol, lambda_u, L_u, penalty_u)
+    u <- sfpca_proximal_operator(as.vector(X %*% v), S_u_chol, lambda_u, L_u, penalty_u)
     u_norm <- sqrt(as.numeric(Matrix::crossprod(u, S_u %*% u)))
     if (u_norm > 0) u <- u / u_norm else u <- rep(0, n)
     
     # Update v with fixed u
-    v <- sfpca_proximal_operator(Matrix::crossprod(X, u), S_v_chol, lambda_v, L_v, penalty_v)
+    v <- sfpca_proximal_operator(as.vector(Matrix::crossprod(X, u)), S_v_chol, lambda_v, L_v, penalty_v)
     v_norm <- sqrt(as.numeric(Matrix::crossprod(v, S_v %*% v)))
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
     
@@ -342,6 +367,8 @@ sfpca_proximal_operator <- function(z, S_chol, lambda, L, penalty) {
   
   # Adjust for S matrix using pre-computed Cholesky factor
   x <- Matrix::solve(S_chol, y)
+  # Ensure x is a vector, not a matrix
+  x <- as.vector(x)
   
   # Proximal operator depending on penalty
   if (penalty == "l1") {

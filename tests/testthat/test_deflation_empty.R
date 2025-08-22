@@ -25,6 +25,6 @@ test_that("genpca handles zero-rank input consistently", {
   expect_s3_class(fit, c("genpca", "bi_projector", "projector"))
   expect_equal(multivarious::ncomp(fit), 0)
   expect_equal(dim(multivarious::scores(fit)), c(6, 0))
-  expect_equal(dim(multivarious::loadings(fit)), c(4, 0))
+  expect_equal(dim(fit$v), c(4, 0))
   expect_equal(length(multivarious::sdev(fit)), 0)
 })

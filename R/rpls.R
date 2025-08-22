@@ -322,36 +322,7 @@ fit_rpls <- function(X, Y,
 #'   an Application to NMR Spectroscopy.* **Statistical Analysis and Data
 #'   Mining, 6(4)**, 302-314. DOI:10.1002/sam.11169.
 #'
-#' @examples
-#' # Use require(multivarious) if preproc objects like pass() are needed
-#' # Or define pass <- function() structure(list(), class = "pass") # simplified
-#' pass <- function() structure(list(), class="pass")
-#' prep.pass <- function(x, ...) x
-#' init_transform.pass <- function(x, ...) list(Xt=..., obj=x)
-#' init_transform.pass <- function(x, data, ...) data
-#' transform.pass <- function(x, data, ...) data
-#' inverse_transform.pass <- function(x, data, ...) data
-#'
-#' set.seed(1)
-#' X <- scale(matrix(rnorm(30 * 20), 30, 20), TRUE, FALSE)
-#' Y <- scale(matrix(rnorm(30 * 3 ), 30, 3 ), TRUE, FALSE)
-#'
-#' # Fit with L1 penalty
-#' fit_l1 <- rpls(X, Y, K = 2, lambda = 0.05, penalty = "l1", verbose = TRUE)
-#' print(fit_l1$ncomp)
-#'
-#' # Fit with Ridge penalty and a dummy Q matrix (identity)
-#' fit_r <- rpls(X, Y, K = 2, lambda = 0.1, penalty = "ridge", Q = diag(20), verbose = TRUE)
-#'
-#' # Project X to latent space
-#' latent <- project(fit_l1, X, source = "X")  # 30 × 2 scores
-#' print(dim(latent))
-#'
-#' # Transfer (predict) Y from X
-#' Yhat   <- transfer(fit_l1, X, source = "X", target = "Y")
-#' print(dim(Yhat))
-#' print(mean((Y - Yhat)^2)) # reconstruction MSE
-#'
+#' @importFrom multivarious cross_projector
 #' @export
 rpls <- function(X, Y,
                  K         = 2,

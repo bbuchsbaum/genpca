@@ -38,25 +38,20 @@ orthonormalize <- function(X) {
 #' @param q Number of eigen-pairs required (`q << d`).
 #' @param which `"largest"` or `"smallest"`.
 #' @param max_iter,tol Stopping rule - iteration stops when
-#'   `max(abs(λ_new - λ_old)/abs(λ_old)) < tol`.
-#' @param V0 Optional `d×q` initial block (will be orthonormalised).
+#'   `max(abs(lambda_new - lambda_old)/abs(lambda_old)) < tol`.
+#' @param V0 Optional `d x q` initial block (will be orthonormalised).
 #' @param seed Optional integer seed for reproducible random initialisation.
 #' @param reg_S,reg_T Ridge terms added to `S1`/`S2` and the small
-#'   `q×q` Gram matrix to guarantee invertibility.
-#' @param verbose Logical – print convergence info.
+#'   `q x q` Gram matrix to guarantee invertibility.
+#' @param verbose Logical - print convergence info.
 #'
 #' @return A list with components
 #'   \describe{
 #'     \item{values}{length-`q` numeric vector of Ritz eigen-values.}
-#'     \item{vectors}{`d×q` matrix, columns are orthonormal eigen-vectors
+#'     \item{vectors}{`d x q` matrix, columns are orthonormal eigen-vectors
 #'                    in the *original* S-inner-product.}
 #'   }
 #' @keywords internal
-#' @examples
-#' d <- 100; q <- 4
-#' S2 <- crossprod(matrix(rnorm(d*d), d, d)) + Diagonal(d)*0.1
-#' S1 <- crossprod(matrix(rnorm(d*d), d, d)) + Diagonal(d)*0.1
-#' solve_gep_subspace(S1, S2, q)
 solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
                                max_iter = 100, tol = 1e-6, V0 = NULL, seed = NULL,
                                reg_S = 1e-3, reg_T = 1e-6, verbose = FALSE) {
@@ -166,7 +161,7 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
   }
   
   if (iter == max_iter) {
-    warning("Reached max_iter without convergence (Δλ > tol)")
+    warning("Reached max_iter without convergence (delta_lambda > tol)")
   }
   
   list(values = lambda, vectors = V, final_reg_S = final_reg_S)

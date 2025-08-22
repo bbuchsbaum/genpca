@@ -25,19 +25,43 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
     # Ensure sparse format (forceSymmetric might return dsyMatrix)
     if (!is(A, "sparseMatrix")) { A <- as(A, "sparseMatrix") }
     # Check PSD (only eigenvalues for efficiency)
-    min_eig_A <- tryCatch(RSpectra::eigs_sym(A, k=1, which="SA")$values,
-                          error=function(e) {NA}) # Handle potential errors
+    min_eig_A <- tryCatch({
+        # Try RSpectra first for efficiency
+        result <- RSpectra::eigs_sym(A, k=1, which="SA")
+        if (is.null(result) || is.null(result$values) || length(result$values) == 0) {
+            NA
+        } else {
+            result$values[1]
+        }
+    }, error=function(e) {
+        # Fallback to base R eigen if RSpectra fails
+        tryCatch({
+            if (verbose) message("  RSpectra failed, falling back to base R eigen")
+            eig_result <- base::eigen(as.matrix(A), symmetric = TRUE, only.values = TRUE)
+            min(eig_result$values)
+        }, error=function(e2) {
+            if (verbose) message("  Both RSpectra and base eigen failed: ", e2$message)
+            NA
+        })
+    })
+    
     if (is.na(min_eig_A) || min_eig_A < -tol) {
-        if (verbose) message("Matrix A is not PSD (min eig: ", signif(min_eig_A, 4), "). Applying remedy: ", remedy)
+        if (verbose) message("Matrix A is not PSD (min eig: ", ifelse(is.na(min_eig_A), "NA", signif(min_eig_A, 4)), "). Applying remedy: ", remedy)
         if (remedy == "error") {
-            stop("Matrix A must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", min_eig_A)
+            stop("Matrix A must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", ifelse(is.na(min_eig_A), "NA (eigenvalue computation failed)", min_eig_A))
         } else if (remedy == "ridge") {
-            ridge_val <- tol - min_eig_A # Amount to add to diagonal
+            # Handle NA case by using a reasonable default ridge value
+            if (is.na(min_eig_A)) {
+                ridge_val <- tol * 10  # Use a conservative ridge value when eigenvalue is unknown
+                if (verbose) message("  Using default ridge value due to NA eigenvalue")
+            } else {
+                ridge_val <- tol - min_eig_A # Amount to add to diagonal
+            }
             A <- A + Matrix::Diagonal(p, x = ridge_val)
             A <- (A + Matrix::t(A)) / 2 # Re-symmetrize
         } else if (remedy == "clip") {
             A_dense <- as.matrix((A + Matrix::t(A))/2) # Ensure symmetry for eigen
-            E <- eigen(A_dense, symmetric = TRUE)
+            E <- base::eigen(A_dense, symmetric = TRUE)
             vals_clipped <- pmax(E$values, tol) # Clip negative eigenvalues
             A <- Matrix::Matrix(E$vectors %*% Matrix::diag(vals_clipped) %*% Matrix::t(E$vectors), sparse=TRUE)
             A <- (A + Matrix::t(A)) / 2 # Re-symmetrize after reconstruction
@@ -64,19 +88,43 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
     }
     if (!is(M, "sparseMatrix")) { M <- as(M, "sparseMatrix") }
     # Check PSD
-    min_eig_M <- tryCatch(RSpectra::eigs_sym(M, k=1, which="SA")$values,
-                          error=function(e) {NA})
+    min_eig_M <- tryCatch({
+        # Try RSpectra first for efficiency
+        result <- RSpectra::eigs_sym(M, k=1, which="SA")
+        if (is.null(result) || is.null(result$values) || length(result$values) == 0) {
+            NA
+        } else {
+            result$values[1]
+        }
+    }, error=function(e) {
+        # Fallback to base R eigen if RSpectra fails
+        tryCatch({
+            if (verbose) message("  RSpectra failed, falling back to base R eigen")
+            eig_result <- base::eigen(as.matrix(M), symmetric = TRUE, only.values = TRUE)
+            min(eig_result$values)
+        }, error=function(e2) {
+            if (verbose) message("  Both RSpectra and base eigen failed: ", e2$message)
+            NA
+        })
+    })
+    
     if (is.na(min_eig_M) || min_eig_M < -tol) {
-        if (verbose) message("Matrix M is not PSD (min eig: ", signif(min_eig_M, 4), "). Applying remedy: ", remedy)
+        if (verbose) message("Matrix M is not PSD (min eig: ", ifelse(is.na(min_eig_M), "NA", signif(min_eig_M, 4)), "). Applying remedy: ", remedy)
         if (remedy == "error") {
-            stop("Matrix M must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", min_eig_M)
+            stop("Matrix M must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", ifelse(is.na(min_eig_M), "NA (eigenvalue computation failed)", min_eig_M))
         } else if (remedy == "ridge") {
-            ridge_val <- tol - min_eig_M
+            # Handle NA case by using a reasonable default ridge value
+            if (is.na(min_eig_M)) {
+                ridge_val <- tol * 10  # Use a conservative ridge value when eigenvalue is unknown
+                if (verbose) message("  Using default ridge value due to NA eigenvalue")
+            } else {
+                ridge_val <- tol - min_eig_M
+            }
             M <- M + Matrix::Diagonal(n, x = ridge_val)
             M <- (M + Matrix::t(M)) / 2
         } else if (remedy == "clip") {
             M_dense <- as.matrix((M + Matrix::t(M))/2)
-            E <- eigen(M_dense, symmetric = TRUE)
+            E <- base::eigen(M_dense, symmetric = TRUE)
             vals_clipped <- pmax(E$values, tol)
             M <- Matrix::Matrix(E$vectors %*% Matrix::diag(vals_clipped) %*% Matrix::t(E$vectors), sparse=TRUE)
             M <- (M + Matrix::t(M)) / 2
@@ -87,7 +135,10 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
   }
   
   # Ensure consistent sparse format (dgCMatrix is common)
-  list(A = as(A, "dgCMatrix"), M = as(M, "dgCMatrix"))
+  # Exception: preserve diagonal matrix format for identity matrices to match expected types
+  A_result <- if(is(A, "ddiMatrix")) A else as(A, "dgCMatrix")
+  M_result <- if(is(M, "ddiMatrix")) M else as(M, "dgCMatrix")
+  list(A = A_result, M = M_result)
 }
 
 #' Generalised Principal Components Analysis (GPCA)
@@ -157,9 +208,7 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
 #' Journal of the American Statistical Association, 109(505), 145‑159.
 #' arXiv:1102.3074.
 #'
-#' @seealso \code{\link{prep_constraints}}, \code{\link{gmdLA}}, \code{\link{gmd_deflationR}},
-#'   \code{\link{gmd_fast_cpp}} (if using method="spectra"), \code{\link{truncate.genpca}},
-#'   \code{\link{reconstruct.genpca}},
+#' @seealso \code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
 #'   `multivarious::bi_projector`, `multivarious::project`, `multivarious::scores`,
 #'   `multivarious::loadings`, `multivarious::reconstruct`.
 #'
@@ -186,7 +235,7 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
 #'   print(head(gpca_std_eigen$sdev))
 #'   print("prcomp Sdev:")
 #'   print(head(pr_std$sdev))
-#'   print(paste("Total Var Explained (Eigen):"), round(sum(gpca_std_eigen$propv)*100), "%")
+#'   print(paste("Total Var Explained (Eigen):", round(sum(gpca_std_eigen$propv)*100), "%"))
 #'
 #'   # Weighted column PCA (diagonal A, no centering)
 #'   col_weights <- stats::runif(100, 0.5, 1.5)
@@ -197,12 +246,12 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
 #' }
 #' @useDynLib genpca, .registration = TRUE 
 #' @importFrom Rcpp sourceCpp
-#' @importFrom multivarious bi_projector init_transform prep pass scores sdev loadings components reconstruct reverse_transform ncomp
-#' @importFrom Matrix Matrix isSymmetric isDiagonal diag as t forceSymmetric Diagonal crossprod tcrossprod sweep
+#' @importFrom multivarious bi_projector init_transform prep pass scores sdev components reconstruct reverse_transform ncomp
+#' @importFrom Matrix Matrix isSymmetric isDiagonal diag t forceSymmetric Diagonal crossprod tcrossprod
 #' @importFrom assertthat assert_that
 #' @importFrom RSpectra eigs_sym svds
 #' @importFrom methods as is
-#' @importFrom stats rnorm runif eigen
+#' @importFrom stats rnorm runif
 #' @export
 genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                    method = c("eigen", "spectra", "deflation"),
@@ -424,7 +473,6 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 #' @importFrom Matrix Diagonal t crossprod tcrossprod diag solve isDiagonal Matrix
 #' @importFrom RSpectra eigs_sym
 #' @importFrom methods as is
-#' @importFrom stats eigen
 #' @details
 #' `gmdLA` caches the eigen decomposition of the constraint matrices by
 #' storing it as an attribute on the matrix. `compute_sqrtm()` returns this
@@ -464,7 +512,7 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
         decomp_raw <- tryCatch({
             if (nrow(M_sym) <= maxeig) {
                 if (verbose) message(paste(" (", mat_name, "<= maxeig, using base::eigen)"))
-                stats::eigen(as.matrix(M_sym), symmetric=TRUE)
+                base::eigen(as.matrix(M_sym), symmetric=TRUE)
             } else {
                 safe_k <- min(maxeig, nrow(M_sym) - 1)
                 if (safe_k < 1) safe_k <- 1
@@ -684,7 +732,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
 
       # Update u: u_hat = Xhat R v; normalize u = u_hat / sqrt(u_hat' Q u_hat)
       uhat <- Xhat %*% (R %*% v)
-      u_norm_sq <- Matrix::crossprod(uhat, Q) %*% uhat
+      u_norm_sq <- as.numeric(Matrix::crossprod(uhat, Q) %*% uhat)
       if (u_norm_sq < thr^2) { # Check for near zero norm
           if (verbose) message("  u norm near zero, stopping power iteration for component ", i)
           break
@@ -693,7 +741,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
 
       # Update v: v_hat = Xhat' Q u; normalize v = v_hat / sqrt(v_hat' R v_hat)
       vhat <- Matrix::crossprod(Xhat, (Q %*% u))
-      v_norm_sq <- Matrix::crossprod(vhat, R) %*% vhat
+      v_norm_sq <- as.numeric(Matrix::crossprod(vhat, R) %*% vhat)
        if (v_norm_sq < thr^2) { # Check for near zero norm
           if (verbose) message("  v norm near zero, stopping power iteration for component ", i)
           break
@@ -769,7 +817,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
 
 # S3 method for truncate
 #' @rdname genpca
-#' @importFrom multivarious ncomp scores loadings sdev bi_projector
+#' @importFrom multivarious ncomp scores sdev bi_projector
 #' @export
 truncate.genpca <- function(x, ncomp) {
   # Check requested ncomp
@@ -784,7 +832,7 @@ truncate.genpca <- function(x, ncomp) {
   # Use the bi_projector constructor to create the truncated object
   # Select the first 'ncomp' components from relevant slots
   ret <- multivarious::bi_projector(
-    v = multivarious::loadings(x)[, 1:ncomp, drop=FALSE], # A ov
+    v = x$v[, 1:ncomp, drop=FALSE], # A ov
     s = multivarious::scores(x)[, 1:ncomp, drop=FALSE],   # M ou D
     sdev = multivarious::sdev(x)[1:ncomp],                # d
     preproc = x$preproc,                    # Preprocessing object
@@ -803,14 +851,15 @@ truncate.genpca <- function(x, ncomp) {
 
 # S3 method for reconstruct
 #' @rdname genpca
-#' @importFrom multivarious ncomp sdev scores loadings reverse_transform
+#' @importFrom multivarious ncomp sdev scores reverse_transform
 #' @importFrom assertthat assert_that
-#' @importFrom Matrix Diagonal t %*%
+#' @importFrom Matrix Diagonal t
 #' @export
 reconstruct.genpca <- function(x,
                                comp = 1:multivarious::ncomp(x),
                                rowind = NULL, # Default to all rows
-                               colind = NULL) { # Default to all cols
+                               colind = NULL, # Default to all cols
+                               ...) {
 
   max_comp <- multivarious::ncomp(x)
   if (max_comp == 0) return(matrix(0,
@@ -846,6 +895,9 @@ reconstruct.genpca <- function(x,
   # Perform the core reconstruction: OU %*% D %*% t(OV)
   # Ensure matrix multiplication handles sparse matrices correctly
   reconstructed_data_preproc <- OU_comp %*% D_comp %*% Matrix::t(OV_comp)
+
+  # Convert to regular matrix for reverse_transform (it requires a matrix, not Matrix object)
+  reconstructed_data_preproc <- as.matrix(reconstructed_data_preproc)
 
   # Apply inverse pre-processing transform
   final_reconstruction <- multivarious::reverse_transform(x$preproc, reconstructed_data_preproc)

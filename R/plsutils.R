@@ -5,7 +5,6 @@
 #' and row/column transformations for data embeddings.
 
 #' @keywords internal
-#' @importFrom PRIMME eigs_sym
 #' @importFrom Matrix diag isDiagonal crossprod
 NULL
 

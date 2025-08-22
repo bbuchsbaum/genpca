@@ -26,7 +26,7 @@ test_that("gen_pca with column variances is equivalent to a scaled pca", {
   
   # Compare absolute scores element-wise with tolerance
   # Scores should match up to sign flips
-  expect_equal(abs(multivarious::scores(res1)), abs(multivarious::scores(res2)), tolerance = 1e-6)
+  expect_equal(abs(as.matrix(multivarious::scores(res1))), abs(as.matrix(multivarious::scores(res2))), tolerance = 1e-6)
   expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), check.attributes=FALSE)
   
 })
@@ -48,7 +48,7 @@ test_that("gen_pca with use_cpp (+ deflation) with column variances is equivalen
   method="deflation", use_cpp=TRUE, threshold=1e-7)
   res2 <- multivarious::pca(mat_10_10, preproc=multivarious::standardize(), ncomp=9)
   
-  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
+  diffscores <- abs(as.matrix(multivarious::scores(res1))) - abs(as.matrix(multivarious::scores(res2)))
   expect_true(mean(abs(diffscores)) < .01)
   expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), tolerance=.01)
   
@@ -61,7 +61,7 @@ test_that("gen_pca with use_cpp (+ deflation and n < p) with column variances is
   use_cpp=FALSE, threshold=1e-8)
   res2 <- multivarious::pca(mat_10_20, preproc=multivarious::standardize(), ncomp=9)
   
-  diffscores <- abs(multivarious::scores(res1)) - abs(multivarious::scores(res2))
+  diffscores <- abs(as.matrix(multivarious::scores(res1))) - abs(as.matrix(multivarious::scores(res2)))
   expect_true(mean(abs(diffscores)) < .01)
   expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), tolerance=.01)
   
@@ -116,7 +116,7 @@ test_that("can project a row vector", {
 
 test_that("can run genpca with deflation", {
   X <- matrix(rnorm(100),10,10)
-  res1 <- genpca(X, preproc=multivarious::center(), ncomp=5,deflation=TRUE)
+  res1 <- genpca(X, preproc=multivarious::center(), ncomp=5, method="deflation")
   res2 <- genpca(X, preproc=multivarious::center(), ncomp=5)
   expect_true(sum(abs(res1$u) - abs(res2$u)) < 1)
 })
@@ -126,7 +126,7 @@ test_that("can run genpca with sparse weighting matrix", {
   A <- neighborweights::temporal_adjacency(1:20)
   A <- cov(as.matrix(A))
   M <- neighborweights::temporal_adjacency(1:10000)
-  res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE)
+  res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), M=M, preproc=multivarious::center(), ncomp=5, method="deflation")
   res2 <- genpca(X, A=A, M=M, preproc=multivarious::center(), ncomp=5)
   expect_true(!is.null(res1))
 })
@@ -142,13 +142,13 @@ test_that("can run genpca on a largeish matrix with deflation", {
   M <- t(M) %*% M
   
   res1 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE, threshold=1e-5)
+                 M=M, preproc=multivarious::center(), ncomp=5, method="deflation", threshold=1e-5)
   res2 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=multivarious::center(), ncomp=5,deflation=TRUE, 
+                 M=M, preproc=multivarious::center(), ncomp=5, method="deflation", 
                  threshold=1e-5, use_cpp=FALSE)
   
   res3 <- genpca(X, A=Matrix::Matrix(A, sparse=TRUE), 
-                 M=M, preproc=multivarious::center(), ncomp=20,deflation=FALSE)
+                 M=M, preproc=multivarious::center(), ncomp=20, method="eigen")
   
   expect_true(!is.null(res1))
 })
@@ -236,13 +236,13 @@ test_that("genpca with spatial adjacency recovers a smooth temporal blob better 
   # Possibly center or no preproc
   fit_no_constraint <- genpca(X, A=A_id, M=M_id, ncomp=1,
                               preproc=multivarious::center(),
-                              deflation=FALSE, use_cpp=FALSE)
+                              method="eigen", use_cpp=FALSE)
   
   ## 7) Run genpca with adjacency or Laplacian
   ## Let's do adjacency or Laplacian. Here we do adjacency:
   fit_adj <- genpca(X, A=A_sp, M=M_id, ncomp=1,
                     preproc=multivarious::center(),
-                    deflation=FALSE, use_cpp=FALSE)
+                    method="eigen", use_cpp=FALSE)
   
   ## 8) Compare reconstruction MSE for rank-1 approximation
   #   We'll do Xhat = reconstruct(..., comp=1)
@@ -304,7 +304,7 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constrai
   # Center data as gmd_fast_cpp assumes centered data
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
   # Directly call C++ function (make sure it's exported properly)
   res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
@@ -325,7 +325,7 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constrain
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
   res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
@@ -346,7 +346,7 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constra
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
@@ -366,7 +366,7 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constrai
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
@@ -385,7 +385,7 @@ test_that("gmd_fast_cpp handles k=1 correctly", {
   R <- Diagonal(p, x = runif(p, 0.5, 1.5))
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, deflation=FALSE, preproc=NULL)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
   res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
@@ -445,7 +445,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                      preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig$sdev,           fit_spc$sdev,           tolerance = 1e-6)
-  expect_equal(abs(fit_eig$multivarious::scores()),  abs(fit_spc$multivarious::scores()),  tolerance = 1e-5)
+  expect_equal(abs(multivarious::scores(fit_eig)),  abs(multivarious::scores(fit_spc)),  tolerance = 1e-5)
 
   ## 2) n < p    (left‑side operator)
   fit_eig_w <- genpca(Xwide,  ncomp = 15, method = "eigen",
@@ -454,7 +454,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                       preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig_w$sdev,          fit_spc_w$sdev,          tolerance = 1e-6)
-  expect_equal(abs(fit_eig_w$multivarious::scores()), abs(fit_spc_w$multivarious::scores()), tolerance = 1e-5)
+  expect_equal(abs(multivarious::scores(fit_eig_w)), abs(multivarious::scores(fit_spc_w)), tolerance = 1e-5)
 })
 
 ## -------------------------------------------------------------------------------

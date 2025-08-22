@@ -9,11 +9,16 @@ test_that("reconstruct returns matrix with expected dimensions when ncomp is zer
   p <- 4
   A <- Matrix::Diagonal(p)
   M <- Matrix::Diagonal(n)
+  # Create a proper pre_processor
+  dummy_data <- matrix(rnorm(n * p), n, p)
+  dummy_fit <- genpca(dummy_data, preproc = multivarious::pass())
+  proper_preproc <- dummy_fit$preproc
+  
   obj <- multivarious::bi_projector(
     v = matrix(0, p, 0),
     s = matrix(0, n, 0),
     sdev = numeric(0),
-    preproc = multivarious::pass(),
+    preproc = proper_preproc,
     ov = matrix(0, p, 0),
     ou = matrix(0, n, 0),
     u  = matrix(0, n, 0),
