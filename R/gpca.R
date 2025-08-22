@@ -1,6 +1,6 @@
 #' @keywords internal
 #' @import assertthat
-prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "clip", "identity"), verbose = FALSE) {
+prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "clip", "identity"), verbose = FALSE) {
   n <- nrow(X)
   p <- ncol(X)
   
@@ -8,129 +8,71 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
   
   # --- Process A (Column constraints) ---
   if (is.null(A)) {
-    A <- Matrix::sparseMatrix(i=1:p, j=1:p, x=1.0, dims=c(p,p))
+    A <- Matrix::Diagonal(p)
   } else if (is.vector(A)) {
     assert_that(length(A) == p, msg="Length of vector A must equal ncol(X)")
     assert_that(all(A >= -tol), msg="Diagonal elements of A (from vector) must be non-negative.")
     A <- Matrix::Diagonal(n=p, x=A)
   } else {
-    # Ensure it's a Matrix object first for isSymmetric etc.
-    if (!is(A, "Matrix")) { A <- Matrix::Matrix(A, sparse=TRUE) }
+    # Ensure it's a Matrix object
+    if (!is(A, "Matrix")) { A <- Matrix::Matrix(A, sparse=FALSE) }
     assert_that(nrow(A) == p, msg=paste("nrow(A) != ncol(X) -- ", nrow(A), " != ", p))
     assert_that(ncol(A) == p, msg=paste("ncol(A) != ncol(X) -- ", ncol(A), " != ", p))
-    if (!Matrix::isSymmetric(A)) {
-        warning("Matrix A is not symmetric, taking the upper triangle.")
-        A <- Matrix::forceSymmetric(A, uplo="U")
-    }
-    # Ensure sparse format (forceSymmetric might return dsyMatrix)
-    if (!is(A, "sparseMatrix")) { A <- as(A, "sparseMatrix") }
-    # Check PSD (only eigenvalues for efficiency)
-    min_eig_A <- tryCatch({
-        # Try RSpectra first for efficiency
-        result <- RSpectra::eigs_sym(A, k=1, which="SA")
-        if (is.null(result) || is.null(result$values) || length(result$values) == 0) {
-            NA
-        } else {
-            result$values[1]
-        }
-    }, error=function(e) {
-        # Fallback to base R eigen if RSpectra fails
-        tryCatch({
-            if (verbose) message("  RSpectra failed, falling back to base R eigen")
-            eig_result <- base::eigen(as.matrix(A), symmetric = TRUE, only.values = TRUE)
-            min(eig_result$values)
-        }, error=function(e2) {
-            if (verbose) message("  Both RSpectra and base eigen failed: ", e2$message)
-            NA
-        })
-    })
     
-    if (is.na(min_eig_A) || min_eig_A < -tol) {
-        if (verbose) message("Matrix A is not PSD (min eig: ", ifelse(is.na(min_eig_A), "NA", signif(min_eig_A, 4)), "). Applying remedy: ", remedy)
-        if (remedy == "error") {
-            stop("Matrix A must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", ifelse(is.na(min_eig_A), "NA (eigenvalue computation failed)", min_eig_A))
-        } else if (remedy == "ridge") {
-            # Handle NA case by using a reasonable default ridge value
-            if (is.na(min_eig_A)) {
-                ridge_val <- tol * 10  # Use a conservative ridge value when eigenvalue is unknown
-                if (verbose) message("  Using default ridge value due to NA eigenvalue")
-            } else {
-                ridge_val <- tol - min_eig_A # Amount to add to diagonal
-            }
-            A <- A + Matrix::Diagonal(p, x = ridge_val)
-            A <- (A + Matrix::t(A)) / 2 # Re-symmetrize
-        } else if (remedy == "clip") {
-            A_dense <- as.matrix((A + Matrix::t(A))/2) # Ensure symmetry for eigen
-            E <- base::eigen(A_dense, symmetric = TRUE)
-            vals_clipped <- pmax(E$values, tol) # Clip negative eigenvalues
-            A <- Matrix::Matrix(E$vectors %*% Matrix::diag(vals_clipped) %*% Matrix::t(E$vectors), sparse=TRUE)
-            A <- (A + Matrix::t(A)) / 2 # Re-symmetrize after reconstruction
-        } else if (remedy == "identity") {
-            A <- Matrix::Diagonal(p)
-        }
+    # Always use ensure_spd - it checks and returns early if already SPD
+    if (remedy == "error") {
+      # For "error" remedy, check symmetry first
+      if (!Matrix::isSymmetric(A)) {
+        stop("Matrix A must be symmetric")
+      }
+      # Check if already SPD without fixing
+      A_test <- tryCatch({
+        ensure_spd(A, tol = tol)
+        TRUE
+      }, error = function(e) {
+        FALSE
+      })
+      if (!isTRUE(A_test)) {
+        stop("Matrix A must be positive semi-definite")
+      }
+    } else {
+      # Apply remedy to make SPD
+      A <- ensure_spd(A, tol = tol)
     }
   }
   
   # --- Process M (Row constraints) ---
   if (is.null(M)) {
-    M <- Matrix::sparseMatrix(i=1:n, j=1:n, x=1.0, dims=c(n,n))
+    M <- Matrix::Diagonal(n)
   } else if (is.vector(M)) {
     assert_that(length(M) == n, msg="Length of vector M must equal nrow(X)")
     assert_that(all(M >= -tol), msg="Diagonal elements of M (from vector) must be non-negative.")
     M <- Matrix::Diagonal(n=n, x=M)
   } else {
-    if (!is(M, "Matrix")) { M <- Matrix::Matrix(M, sparse=TRUE) }
+    # Ensure it's a Matrix object
+    if (!is(M, "Matrix")) { M <- Matrix::Matrix(M, sparse=FALSE) }
     assert_that(nrow(M) == n, msg=paste("nrow(M) != nrow(X) -- ", nrow(M), " != ", n))
     assert_that(ncol(M) == n, msg=paste("ncol(M) != nrow(X) -- ", ncol(M), " != ", n))
-    if (!Matrix::isSymmetric(M)) {
-        warning("Matrix M is not symmetric, taking the upper triangle.")
-        M <- Matrix::forceSymmetric(M, uplo="U")
-    }
-    if (!is(M, "sparseMatrix")) { M <- as(M, "sparseMatrix") }
-    # Check PSD
-    min_eig_M <- tryCatch({
-        # Try RSpectra first for efficiency
-        result <- RSpectra::eigs_sym(M, k=1, which="SA")
-        if (is.null(result) || is.null(result$values) || length(result$values) == 0) {
-            NA
-        } else {
-            result$values[1]
-        }
-    }, error=function(e) {
-        # Fallback to base R eigen if RSpectra fails
-        tryCatch({
-            if (verbose) message("  RSpectra failed, falling back to base R eigen")
-            eig_result <- base::eigen(as.matrix(M), symmetric = TRUE, only.values = TRUE)
-            min(eig_result$values)
-        }, error=function(e2) {
-            if (verbose) message("  Both RSpectra and base eigen failed: ", e2$message)
-            NA
-        })
-    })
     
-    if (is.na(min_eig_M) || min_eig_M < -tol) {
-        if (verbose) message("Matrix M is not PSD (min eig: ", ifelse(is.na(min_eig_M), "NA", signif(min_eig_M, 4)), "). Applying remedy: ", remedy)
-        if (remedy == "error") {
-            stop("Matrix M must be positive semi-definite (smallest eigenvalue >= -tol). Error was: ", ifelse(is.na(min_eig_M), "NA (eigenvalue computation failed)", min_eig_M))
-        } else if (remedy == "ridge") {
-            # Handle NA case by using a reasonable default ridge value
-            if (is.na(min_eig_M)) {
-                ridge_val <- tol * 10  # Use a conservative ridge value when eigenvalue is unknown
-                if (verbose) message("  Using default ridge value due to NA eigenvalue")
-            } else {
-                ridge_val <- tol - min_eig_M
-            }
-            M <- M + Matrix::Diagonal(n, x = ridge_val)
-            M <- (M + Matrix::t(M)) / 2
-        } else if (remedy == "clip") {
-            M_dense <- as.matrix((M + Matrix::t(M))/2)
-            E <- base::eigen(M_dense, symmetric = TRUE)
-            vals_clipped <- pmax(E$values, tol)
-            M <- Matrix::Matrix(E$vectors %*% Matrix::diag(vals_clipped) %*% Matrix::t(E$vectors), sparse=TRUE)
-            M <- (M + Matrix::t(M)) / 2
-        } else if (remedy == "identity") {
-            M <- Matrix::Diagonal(n)
-        }
+    # Always use ensure_spd - it checks and returns early if already SPD
+    if (remedy == "error") {
+      # For "error" remedy, check symmetry first
+      if (!Matrix::isSymmetric(M)) {
+        stop("Matrix M must be symmetric")
+      }
+      # Check if already SPD without fixing
+      M_test <- tryCatch({
+        ensure_spd(M, tol = tol)
+        TRUE
+      }, error = function(e) {
+        FALSE
+      })
+      if (!isTRUE(M_test)) {
+        stop("Matrix M must be positive semi-definite")
+      }
+    } else {
+      # Apply remedy to make SPD
+      M <- ensure_spd(M, tol = tol)
     }
   }
   
@@ -255,7 +197,7 @@ prep_constraints <- function(X, A, M, tol = 1e-8, remedy = c("error", "ridge", "
 #' @export
 genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                    method = c("eigen", "spectra", "deflation"),
-                   constraints_remedy = c("error", "ridge", "clip", "identity"),
+                   constraints_remedy = c("ridge", "error", "clip", "identity"),
                    preproc = multivarious::pass(), # Default to pass() for safety
                    threshold = 1e-6, # For deflation
                    use_cpp = TRUE, # For deflation

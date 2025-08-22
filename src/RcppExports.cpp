@@ -29,6 +29,36 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gmd_fast_cpp_dn
+Rcpp::List gmd_fast_cpp_dn(const arma::mat& X, const arma::mat& Q, const arma::mat& R, const int k, const double tol);
+RcppExport SEXP _genpca_gmd_fast_cpp_dn(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_dn(X, Q, R, k, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_fast_cpp_sp
+Rcpp::List gmd_fast_cpp_sp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, const int k, const double tol);
+RcppExport SEXP _genpca_gmd_fast_cpp_sp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_sp(X, Q, R, k, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 // gmd_deflation_cpp
 List gmd_deflation_cpp(const arma::mat& X, arma::sp_mat Q, arma::sp_mat R, int k, double thr);
 RcppExport SEXP _genpca_gmd_deflation_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP thrSEXP) {
@@ -76,6 +106,8 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_fast_cpp", (DL_FUNC) &_genpca_gmd_fast_cpp, 7},
+    {"_genpca_gmd_fast_cpp_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dn, 5},
+    {"_genpca_gmd_fast_cpp_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_sp, 5},
     {"_genpca_gmd_deflation_cpp", (DL_FUNC) &_genpca_gmd_deflation_cpp, 5},
     {"_genpca_sgmd_deflation_cpp", (DL_FUNC) &_genpca_sgmd_deflation_cpp, 5},
     {"_genpca_gmdLA_cpp", (DL_FUNC) &_genpca_gmdLA_cpp, 4},

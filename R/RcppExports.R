@@ -5,6 +5,14 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L) {
     .Call(`_genpca_gmd_fast_cpp`, X, Q, R, k, tol, maxit, seed)
 }
 
+gmd_fast_cpp_dn <- function(X, Q, R, k, tol = 1e-8) {
+    .Call(`_genpca_gmd_fast_cpp_dn`, X, Q, R, k, tol)
+}
+
+gmd_fast_cpp_sp <- function(X, Q, R, k, tol = 1e-8) {
+    .Call(`_genpca_gmd_fast_cpp_sp`, X, Q, R, k, tol)
+}
+
 gmd_deflation_cpp <- function(X, Q, R, k, thr = 1e-7) {
     .Call(`_genpca_gmd_deflation_cpp`, X, Q, R, k, thr)
 }
