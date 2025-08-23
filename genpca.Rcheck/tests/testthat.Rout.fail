@@ -1,0 +1,362 @@
+
+R version 4.3.2 (2023-10-31) -- "Eye Holes"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(testthat)
+Warning message:
+package 'testthat' was built under R version 4.3.3 
+> library(genpca)
+Registered S3 method overwritten by 'genpca':
+  method                   from        
+  transfer.cross_projector multivarious
+
+Attaching package: 'genpca'
+
+The following object is masked from 'package:base':
+
+    truncate
+
+> 
+> test_check("genpca")
+begin 
+assign Xhat 
+qrnorm 
+begin loop 
+k= 0
+k= 1
+k= 2
+k= 3
+k= 4
+k= 5
+k= 6
+k= 7
+k= 8
+begin 
+assign Xhat 
+qrnorm 
+begin loop 
+k= 0
+k= 1
+k= 2
+k= 3
+k= 4
+Starting Spectra eigen solver (k=4, ncv=20)...
+Spectra finished. Converged components: 4
+Starting Spectra eigen solver (k=4, ncv=20)...
+Spectra finished. Converged components: 4
+Starting Spectra eigen solver (k=1, ncv=8)...
+Spectra finished. Converged components: 1
+Starting Spectra eigen solver (k=8, ncv=10)...
+Spectra finished. Converged components: 8
+[ FAIL 34 | WARN 31 | SKIP 1 | PASS 212 ]
+
+══ Skipped tests (1) ═══════════════════════════════════════════════════════════
+• On CRAN (1): 'test_gpca.R:439:3'
+
+══ Failed tests ════════════════════════════════════════════════════════════════
+── Failure ('test_gep_subspace.R:43:3'): solve_gep_subspace matches direct solution for largest eigenvalues ──
+as.matrix(gram) not equal to diag(length(lambda)).
+3/9 mismatches (average diff: 1.18)
+[1] 0.375 - 1 == -0.625
+[5] 0.581 - 1 == -0.419
+[9] 3.496 - 1 ==  2.496
+Backtrace:
+    ▆
+ 1. └─genpca (local) check_gep(S1, S2, res_largest$vectors, res_largest$values, tol = 0.3) at test_gep_subspace.R:43:3
+ 2.   └─testthat::expect_equal(...) at test_gep_subspace.R:12:3
+── Failure ('test_gep_subspace.R:53:3'): solve_gep_subspace matches direct solution for smallest eigenvalues ──
+as.matrix(gram) not equal to diag(length(lambda)).
+9/9 mismatches (average diff: 2.57)
+[1]  4.233 - 1 == 3.233
+[2]  1.537 - 0 == 1.537
+[3]  0.510 - 0 == 0.510
+[4]  1.537 - 0 == 1.537
+[5]  6.251 - 1 == 5.251
+[6]  0.747 - 0 == 0.747
+[7]  0.510 - 0 == 0.510
+[8]  0.747 - 0 == 0.747
+[9] 10.084 - 1 == 9.084
+Backtrace:
+    ▆
+ 1. └─genpca (local) check_gep(...) at test_gep_subspace.R:53:3
+ 2.   └─testthat::expect_equal(...) at test_gep_subspace.R:12:3
+── Failure ('test_gpca.R:29:3'): gen_pca with column variances is equivalent to a scaled pca ──
+abs(as.matrix(multivarious::scores(res1))) not equal to abs(as.matrix(multivarious::scores(res2))).
+Attributes: < Length mismatch: comparison on first 1 components >
+── Error ('test_gpca.R:82:3'): gen_pca with sparse column and row constraints works ──
+Error in `prep_constraints(X, A, M, remedy = constraints_remedy, verbose = verbose)`: Matrix M must be positive semi-definite (smallest eigenvalue >= -tol). Error was: -0.0283834767954287
+Backtrace:
+    ▆
+ 1. └─genpca::genpca(mat_10_10, A = A, M = M, preproc = multivarious::center()) at test_gpca.R:82:3
+ 2.   └─genpca:::prep_constraints(...)
+── Error ('test_gpca.R:129:3'): can run genpca with sparse weighting matrix ────
+Error in `prep_constraints(X, A, M, remedy = constraints_remedy, verbose = verbose)`: Matrix M must be positive semi-definite (smallest eigenvalue >= -tol). Error was: NA (eigenvalue computation failed)
+Backtrace:
+    ▆
+ 1. └─genpca::genpca(...) at test_gpca.R:129:3
+ 2.   └─genpca:::prep_constraints(...)
+── Error ('test_gpca.R:144:3'): can run genpca on a largeish matrix with deflation ──
+Error in `prep_constraints(X, A, M, remedy = constraints_remedy, verbose = verbose)`: Matrix A must be positive semi-definite (smallest eigenvalue >= -tol). Error was: NA (eigenvalue computation failed)
+Backtrace:
+    ▆
+ 1. └─genpca::genpca(...) at test_gpca.R:144:3
+ 2.   └─genpca:::prep_constraints(...)
+── Error ('test_gpca.R:243:3'): genpca with spatial adjacency recovers a smooth temporal blob better than no constraints ──
+Error in `prep_constraints(X, A, M, remedy = constraints_remedy, verbose = verbose)`: Matrix A must be positive semi-definite (smallest eigenvalue >= -tol). Error was: -3.75877048314363
+Backtrace:
+    ▆
+ 1. └─genpca::genpca(...) at test_gpca.R:243:3
+ 2.   └─genpca:::prep_constraints(...)
+── Error ('test_gpca.R:309:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ──
+<Rcpp::exception/C++Error/error/condition>
+Error: dsyMatrix is not supported.
+Backtrace:
+    ▆
+ 1. └─genpca:::gmd_fast_cpp(...) at test_gpca.R:309:3
+── Error ('test_gpca.R:329:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ──
+<Rcpp::exception/C++Error/error/condition>
+Error: dsyMatrix is not supported.
+Backtrace:
+    ▆
+ 1. └─genpca:::gmd_fast_cpp(...) at test_gpca.R:329:3
+── Failure ('test_gpca.R:352:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+res_cpp$d not equal to multivarious::sdev(res_r).
+Attributes: < Modes: list, NULL >
+Attributes: < Lengths: 1, 0 >
+Attributes: < names for target but not for current >
+Attributes: < current is not list-like >
+── Failure ('test_gpca.R:354:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:354:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:354:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:354:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:354:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:354:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_gpca.R:355:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:355:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:355:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:355:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:355:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ──
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:355:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_gpca.R:372:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+res_cpp$d not equal to multivarious::sdev(res_r).
+Attributes: < Modes: list, NULL >
+Attributes: < Lengths: 1, 0 >
+Attributes: < names for target but not for current >
+Attributes: < current is not list-like >
+── Failure ('test_gpca.R:374:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:374:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:374:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:374:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:374:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:374:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_gpca.R:375:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:375:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:375:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:375:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:375:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ──
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:375:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_gpca.R:391:3'): gmd_fast_cpp handles k=1 correctly ───────────
+res_cpp$d not equal to multivarious::sdev(res_r).
+Attributes: < Modes: list, NULL >
+Attributes: < Lengths: 1, 0 >
+Attributes: < names for target but not for current >
+Attributes: < current is not list-like >
+── Failure ('test_gpca.R:395:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:395:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:395:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:395:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:395:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(res_cpp$u, multivarious::scores(res_r), tol = 1e-05) at test_gpca.R:395:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_gpca.R:396:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`row_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per row not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:396:3
+ 2.   └─testthat::expect_true(row_max_close_to_1, info = "Max correlation per row not close to 1") at test_gpca.R:290:3
+── Failure ('test_gpca.R:396:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`col_max_close_to_1` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Max correlation per col not close to 1
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:396:3
+ 2.   └─testthat::expect_true(col_max_close_to_1, info = "Max correlation per col not close to 1") at test_gpca.R:291:3
+── Failure ('test_gpca.R:396:3'): gmd_fast_cpp handles k=1 correctly ───────────
+`sum_sq_corr_close_to_k` is not TRUE
+
+`actual`:   FALSE
+`expected`: TRUE 
+Sum of squared correlations not close to k
+Backtrace:
+    ▆
+ 1. └─genpca (local) compare_subspaces(...) at test_gpca.R:396:3
+ 2.   └─testthat::expect_true(sum_sq_corr_close_to_k, info = "Sum of squared correlations not close to k") at test_gpca.R:292:3
+── Failure ('test_rpls.R:176:3'): rpls partial projection works if partial cols are requested ──
+dim(Fx_part) not equal to c(n, length(part_cols)).
+1/2 mismatches
+[2] 3 - 2 == 1
+── Failure ('test_sfpca.R:28:3'): Rank-1 matrix is recovered correctly ─────────
+`u_est` not equal to `u_true`.
+9/10 mismatches (average diff: 0.619)
+[1] -0.2186 - -0.5605 ==  0.342
+[2]  0.0554 - -0.2302 ==  0.286
+[3]  0.2881 -  1.5587 == -1.271
+[4]  0.3384 -  0.0705 ==  0.268
+[5]  0.3597 -  0.1293 ==  0.230
+[6]  0.3419 -  1.7151 == -1.373
+[7]  0.1166 -  0.4609 == -0.344
+[8] -0.1740 - -1.2651 ==  1.091
+[9] -0.3230 - -0.6869 ==  0.364
+── Failure ('test_sfpca.R:29:3'): Rank-1 matrix is recovered correctly ─────────
+`v_est` not equal to `v_true`.
+3/5 mismatches (average diff: 0.705)
+[1] 0.447 -  1.224 == -0.777
+[4] 0.447 -  0.111 ==  0.337
+[5] 0.447 - -0.556 ==  1.003
+── Failure ('test_sfpca.R:30:3'): Rank-1 matrix is recovered correctly ─────────
+abs(d_est) not equal to abs(as.numeric(crossprod(u_true, X %*% v_true))).
+1/1 mismatches
+[1] 1.3 - 17.4 == -16.1
+
+[ FAIL 34 | WARN 31 | SKIP 1 | PASS 212 ]
+Error: Test failures
+Execution halted

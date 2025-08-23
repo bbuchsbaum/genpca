@@ -15,7 +15,7 @@ genpca(
   M = NULL,
   ncomp = NULL,
   method = c("eigen", "spectra", "deflation"),
-  constraints_remedy = c("error", "ridge", "clip", "identity"),
+  constraints_remedy = c("ridge", "error", "clip", "identity"),
   preproc = multivarious::pass(),
   threshold = 1e-06,
   use_cpp = TRUE,

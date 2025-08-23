@@ -1,0 +1,281 @@
+diff --git a/src/gmd_fast.cpp b/src/gmd_fast.cpp
+index 0b9f7d2..7f6c4a1 100644
+--- a/src/gmd_fast.cpp
++++ b/src/gmd_fast.cpp
+@@ -1,158 +1,240 @@
+-// Copyright (c) 2025 genpca contributors
+-#include <RcppArmadillo.h>
+-// [[Rcpp::depends(RcppArmadillo)]]
+-
+-// Solve generalized PCA via eigen on (X^T Q X, R), return top-k.
+-// Templated on Q and R to support arma::mat and arma::sp_mat.
+-template <typename MatQ, typename MatR>
+-Rcpp::List gmd_fast_impl(const arma::mat& X,
+-                         const MatQ& Q,
+-                         const MatR& R,
+-                         const int k,
+-                         const double tol) {
+-  const int p = (int)X.n_cols;
+-  const int k_use = std::min(k, p);
+-
+-  // A = X^T Q X
+-  arma::mat A = X.t() * (Q * X);
+-
+-  // Cholesky of R (must be SPD). Use lower-triangular L: R = L L^T
+-  arma::mat Rdense(R);
+-  arma::mat L;
+-  if (!arma::chol(L, Rdense, "lower")) {
+-    Rcpp::stop("Cholesky of R failed (R not SPD?).");
+-  }
+-  arma::mat Linv = arma::inv(arma::trimatl(L));
+-
+-  // Reduce to standard symmetric eigenproblem: M = L^{-1} A L^{-T}
+-  arma::mat M = Linv * A * Linv.t();
+-
+-  arma::vec eval;
+-  arma::mat Z;
+-  if (!arma::eig_sym(eval, Z, M)) {
+-    Rcpp::stop("eig_sym failed on transformed problem.");
+-  }
+-
+-  // Take top-k eigenpairs
+-  arma::uvec ord = arma::sort_index(eval, "descend");
+-  ord = ord.head(k_use);
+-  arma::vec lam = eval.elem(ord);
+-  arma::mat Zk  = Z.cols(ord);
+-
+-  // Back-transform generalized eigenvectors: v = L^{-T} z
+-  arma::mat V = Linv.t() * Zk;
+-
+-  // singular values are sqrt(lambda) (clamp negatives due to round-off)
+-  lam.transform( [&](double val){ return (val > 0.0) ? std::sqrt(val) : 0.0; } );
+-
+-  // U = X V / d
+-  arma::mat U = X * V;
+-  for (int i = 0; i < k_use; ++i) {
+-    if (lam(i) > tol) U.col(i) /= lam(i); else U.col(i).zeros();
+-  }
+-
+-  // Q-orthonormalize U (modified Gram-Schmidt under Q)
+-  for (int j = 0; j < k_use; ++j) {
+-    for (int i = 0; i < j; ++i) {
+-      double alpha = arma::as_scalar(U.col(i).t() * (Q * U.col(j)));
+-      U.col(j) -= alpha * U.col(i);
+-    }
+-    double nrm = std::sqrt( std::max(tol, arma::as_scalar(U.col(j).t() * (Q * U.col(j))) ) );
+-    if (nrm > tol) U.col(j) /= nrm;
+-  }
+-
+-  return Rcpp::List::create(
+-    Rcpp::Named("u") = U,
+-    Rcpp::Named("v") = V,
+-    Rcpp::Named("d") = lam
+-  );
+-}
+-
+-// [[Rcpp::export]]
+-Rcpp::List gmd_fast_cpp_dn(const arma::mat& X,
+-                           const arma::mat& Q,
+-                           const arma::mat& R,
+-                           const int k,
+-                           const double tol = 1e-8) {
+-  return gmd_fast_impl(X, Q, R, k, tol);
+-}
+-
+-// [[Rcpp::export]]
+-Rcpp::List gmd_fast_cpp_sp(const arma::mat& X,
+-                           const arma::sp_mat& Q,
+-                           const arma::sp_mat& R,
+-                           const int k,
+-                           const double tol = 1e-8) {
+-  return gmd_fast_impl(X, Q, R, k, tol);
+-}
++// Copyright (c) 2025 genpca contributors
++#include <RcppArmadillo.h>
++// [[Rcpp::depends(RcppArmadillo)]]
++
++// Fast GMD via the SVD of Y = M^{1/2} X A^{1/2}.
++// Returns:
++//   u : "scores"  = M * u_gmd * diag(d)  (n x k)
++//   v : "components" = A * v_gmd         (p x k)
++//   d : singular values (length k)
++//   k : number of returned components
++//
++// This matches the objects produced by genpca(..., method="eigen") and
++// multivarious::bi_projector (scores/components/sdev), so the tests compare
++// res_cpp$u to multivarious::scores(res_r) and res_cpp$v to components(res_r).
++template <typename MatM, typename MatA>
++Rcpp::List gmd_fast_impl(const arma::mat& X,
++                         const MatM& M_in,
++                         const MatA& A_in,
++                         const int k,
++                         const double tol) {
++  const int n = static_cast<int>(X.n_rows);
++  const int p = static_cast<int>(X.n_cols);
++  int k_req = std::max(0, std::min(k, std::min(n, p)));
++
++  // Dense, symmetric copies
++  arma::mat M = arma::symmatu(arma::mat(M_in));
++  arma::mat A = arma::symmatu(arma::mat(A_in));
++
++  // Cholesky factors: M = Lm Lm^T, A = La La^T (lower)
++  arma::mat Lm, La;
++  if (!arma::chol(Lm, M, "lower")) Rcpp::stop("Cholesky(M) failed; M not SPD.");
++  if (!arma::chol(La, A, "lower")) Rcpp::stop("Cholesky(A) failed; A not SPD.");
++
++  // Form Y = M^{1/2} X A^{1/2}  using the lower factors (Lm, La).
++  arma::mat Y = Lm * X * La;               // n x p
++
++  arma::vec eval;                          // eigenvalues of Y^T Y or Y Y^T
++  arma::mat Vt;                            // right singular vectors (tilde), p x r
++  arma::mat Ut;                            // left singular vectors (tilde),  n x r
++
++  // Compute via the smaller side
++  if (p <= n) {
++    // S = Y^T Y = A^{1/2} X^T M X A^{1/2}
++    arma::mat S = arma::symmatu(Y.t() * Y);      // p x p
++    if (!arma::eig_sym(eval, Vt, S)) {
++      Rcpp::stop("eig_sym failed on Y^T Y.");
++    }
++    // sort descending
++    arma::uvec ord = arma::sort_index(eval, "descend");
++    // keep only strictly positive (above tol^2) and up to k_req
++    arma::uvec keep = ord;
++    if (keep.n_elem > static_cast<size_t>(k_req)) keep = keep.head(k_req);
++    arma::vec evalk = eval.elem(keep);
++
++    // singular values
++    arma::vec d = arma::sqrt(arma::clamp(evalk, 0.0, arma::datum::inf));
++    // filter by tol
++    arma::uvec nz = arma::find(d > tol);
++    if (nz.n_elem < keep.n_elem) {
++      keep = keep.elem(nz);
++      d = d.elem(nz);
++    }
++    int k_use = static_cast<int>(keep.n_elem);
++    if (k_use == 0) {
++      return Rcpp::List::create(
++        Rcpp::Named("u") = arma::mat(n, 0),
++        Rcpp::Named("v") = arma::mat(p, 0),
++        Rcpp::Named("d") = arma::vec(),
++        Rcpp::Named("k") = 0
++      );
++    }
++    arma::mat Vt_k = Vt.cols(keep);                // p x k
++
++    // Components: A * v = A^{1/2} * Vtilde  (p x k)
++    arma::mat components = La * Vt_k;
++
++    // Scores: M * X * A * v  = M * X * components  (n x k)
++    arma::mat scores = M * (X * components);
++
++    return Rcpp::List::create(
++      Rcpp::Named("u") = scores,
++      Rcpp::Named("v") = components,
++      Rcpp::Named("d") = d,
++      Rcpp::Named("k") = k_use
++    );
++  } else {
++    // n < p: compute on Y Y^T to get left singular vectors first
++    arma::mat S = arma::symmatu(Y * Y.t());       // n x n
++    if (!arma::eig_sym(eval, Ut, S)) {
++      Rcpp::stop("eig_sym failed on Y Y^T.");
++    }
++    arma::uvec ord = arma::sort_index(eval, "descend");
++    arma::uvec keep = ord;
++    if (keep.n_elem > static_cast<size_t>(k_req)) keep = keep.head(k_req);
++    arma::vec evalk = eval.elem(keep);
++
++    arma::vec d = arma::sqrt(arma::clamp(evalk, 0.0, arma::datum::inf));
++    arma::uvec nz = arma::find(d > tol);
++    if (nz.n_elem < keep.n_elem) {
++      keep = keep.elem(nz);
++      d = d.elem(nz);
++    }
++    int k_use = static_cast<int>(keep.n_elem);
++    if (k_use == 0) {
++      return Rcpp::List::create(
++        Rcpp::Named("u") = arma::mat(n, 0),
++        Rcpp::Named("v") = arma::mat(p, 0),
++        Rcpp::Named("d") = arma::vec(),
++        Rcpp::Named("k") = 0
++      );
++    }
++    arma::mat Ut_k = Ut.cols(keep);               // n x k
++
++    // Right singular vectors (tilde): Vtilde = Y^T Ut / d
++    arma::mat Vt_k = Y.t() * Ut_k;                // p x k
++    for (int j = 0; j < k_use; ++j) {
++      double dj = d(j);
++      if (dj > tol) Vt_k.col(j) /= dj; else Vt_k.col(j).zeros();
++    }
++
++    // Components = A * v = A^{1/2} * Vtilde
++    arma::mat components = La * Vt_k;             // p x k
++
++    // Scores = M * X * components
++    arma::mat scores = M * (X * components);      // n x k
++
++    return Rcpp::List::create(
++      Rcpp::Named("u") = scores,
++      Rcpp::Named("v") = components,
++      Rcpp::Named("d") = d,
++      Rcpp::Named("k") = k_use
++    );
++  }
++}
++
++// [[Rcpp::export]]
++Rcpp::List gmd_fast_cpp_dn(const arma::mat& X,
++                           const arma::mat& M,
++                           const arma::mat& A,
++                           const int k,
++                           const double tol = 1e-8) {
++  return gmd_fast_impl(X, M, A, k, tol);
++}
++
++// [[Rcpp::export]]
++Rcpp::List gmd_fast_cpp_sp(const arma::mat& X,
++                           const arma::sp_mat& M,
++                           const arma::sp_mat& A,
++                           const int k,
++                           const double tol = 1e-8) {
++  return gmd_fast_impl(X, M, A, k, tol);
++}
+diff --git a/R/gmd_fast.R b/R/gmd_fast.R
+index bc3e0e1..2a2b4b3 100644
+--- a/R/gmd_fast.R
++++ b/R/gmd_fast.R
+@@ -1,41 +1,61 @@
+ #' Fast generalized matrix decomposition (dense/sparse dispatch)
+ #' @param X numeric matrix (n x p)
+ #' @param Q,R constraints (weights/metrics) for rows/cols
+ #' @param k number of components
+ #' @param tol tolerance
+ #' @export
+ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-8) {
+   if (!inherits(Q, "Matrix")) Q <- Matrix::Matrix(Q, sparse = FALSE)
+   if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
+
+   # coerce symmetric dense forms that trip Rcpp
+   if (inherits(Q, "dsyMatrix")) Q <- methods::as(Q, "dgeMatrix")
+   if (inherits(R, "dsyMatrix")) R <- methods::as(R, "dgeMatrix")
+
+   if (Matrix::isSparse(Q) || Matrix::isSparse(R)) {
+     Q <- methods::as(Q, "dgCMatrix")
+     R <- methods::as(R, "dgCMatrix")
+-    return(gmd_fast_cpp_sp(X, Q, R, k, tol))
++    res <- gmd_fast_cpp_sp(X, Q, R, k, tol)
+   } else {
+-    return(gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol))
++    res <- gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol)
+   }
++  # Name outputs to match multivarious::bi_projector conventions
++  k_use <- res$k
++  pcs <- paste0("PC", seq_len(k_use))
++  colnames(res$u) <- pcs
++  colnames(res$v) <- pcs
++  names(res$d) <- pcs
++  res
+ }
+

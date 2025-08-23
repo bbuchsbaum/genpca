@@ -76,10 +76,30 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
     }
   }
   
-  # Ensure consistent sparse format (dgCMatrix is common)
-  # Exception: preserve diagonal matrix format for identity matrices to match expected types
-  A_result <- if(is(A, "ddiMatrix")) A else as(A, "dgCMatrix")
-  M_result <- if(is(M, "ddiMatrix")) M else as(M, "dgCMatrix")
+  # Convert to standardized formats, but handle symmetric matrices properly
+  # Preserve diagonal matrices, convert others to appropriate sparse format
+  if (is(A, "ddiMatrix")) {
+    A_result <- A
+  } else if (methods::is(A, "sparseMatrix")) {
+    A_result <- A  # Already sparse, keep as is
+  } else if (is(A, "dsyMatrix") || is(A, "dpoMatrix")) {
+    # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
+    A_result <- methods::as(A, "dgeMatrix")
+  } else {
+    A_result <- A  # Keep other dense formats as is
+  }
+  
+  if (is(M, "ddiMatrix")) {
+    M_result <- M
+  } else if (methods::is(M, "sparseMatrix")) {
+    M_result <- M  # Already sparse, keep as is
+  } else if (is(M, "dsyMatrix") || is(M, "dpoMatrix")) {
+    # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
+    M_result <- methods::as(M, "dgeMatrix")
+  } else {
+    M_result <- M  # Keep other dense formats as is
+  }
+  
   list(A = A_result, M = M_result)
 }
 

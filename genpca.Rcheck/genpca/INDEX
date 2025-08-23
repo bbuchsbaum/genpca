@@ -1,0 +1,6 @@
+genpca_cov              Generalized PCA on a covariance matrix
+reconstruct             Reconstruct data from a projection
+transfer.cross_projector
+                        Compatibility wrapper for
+                        multivarious::transfer
+truncate                Truncate a projection to fewer components

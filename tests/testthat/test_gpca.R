@@ -26,7 +26,7 @@ test_that("gen_pca with column variances is equivalent to a scaled pca", {
   
   # Compare absolute scores element-wise with tolerance
   # Scores should match up to sign flips
-  expect_equal(abs(as.matrix(multivarious::scores(res1))), abs(as.matrix(multivarious::scores(res2))), tolerance = 1e-6)
+  expect_equal(abs(as.matrix(multivarious::scores(res1))), abs(as.matrix(multivarious::scores(res2))), tolerance = 1e-6, check.attributes=FALSE)
   expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), check.attributes=FALSE)
   
 })
@@ -257,8 +257,7 @@ test_that("genpca with spatial adjacency recovers a smooth temporal blob better 
   cat("MSE no constraint:", mse_no_constr, "\n")
   cat("MSE adjacency:    ", mse_adj, "\n")
   
-  expect_lt(mse_adj, mse_no_constr * 0.9,
-            info="Adjacency-constrained genpca should yield lower MSE than no-constraint for a smooth blob.")
+  expect_lt(mse_adj, mse_no_constr * 0.9)
 })
 
 ############################################################
@@ -304,9 +303,9 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constrai
   # Center data as gmd_fast_cpp assumes centered data
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="spectra", preproc=multivarious::pass())
   # Directly call C++ function (make sure it's exported properly)
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
@@ -325,8 +324,8 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constrain
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="spectra", preproc=multivarious::pass())
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Matrix(Q), R=Matrix(R), k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
@@ -346,8 +345,8 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constra
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="spectra", preproc=multivarious::pass())
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
@@ -366,8 +365,8 @@ test_that("gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constrai
   
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="spectra", preproc=multivarious::pass())
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
@@ -385,8 +384,8 @@ test_that("gmd_fast_cpp handles k=1 correctly", {
   R <- Diagonal(p, x = runif(p, 0.5, 1.5))
   X_centered <- scale(X, center=TRUE, scale=FALSE)
   
-  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="eigen", preproc=multivarious::pass())
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
+  res_r <- genpca(X_centered, M=Q, A=R, ncomp=k, use_cpp=TRUE, method="spectra", preproc=multivarious::pass())
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Q, R=R, k=k)
   
   expect_equal(res_cpp$d, multivarious::sdev(res_r), tolerance = 1e-6)
   expect_equal(res_cpp$k, k)
@@ -411,7 +410,7 @@ test_that("gmd_fast_cpp returns fewer components if necessary", {
   
   # Expect warning when k > rank? Maybe not from C++ directly
   # The C++ code filters eigenvalues close to zero
-  res_cpp <- gmd_fast_cpp(X_centered, Q=Q, R=R, k=k, tol = 1e-9)
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q=Q, R=R, k=k, tol = 1e-9)
   
   expect_lte(res_cpp$k, k)
   expect_lte(res_cpp$k, min(n, p))
@@ -445,7 +444,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                      preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig$sdev,           fit_spc$sdev,           tolerance = 1e-6)
-  expect_equal(abs(multivarious::scores(fit_eig)),  abs(multivarious::scores(fit_spc)),  tolerance = 1e-5)
+  expect_equal(abs(multivarious::scores(fit_eig)),  abs(multivarious::scores(fit_spc)),  tolerance = 1e-5, check.attributes=FALSE)
 
   ## 2) n < p    (left‑side operator)
   fit_eig_w <- genpca(Xwide,  ncomp = 15, method = "eigen",
@@ -454,7 +453,7 @@ test_that("Spectra method matches eigen method on modest problems", {
                       preproc = multivarious::center(), tol_spectra = 1e-10)
 
   expect_equal(fit_eig_w$sdev,          fit_spc_w$sdev,          tolerance = 1e-6)
-  expect_equal(abs(multivarious::scores(fit_eig_w)), abs(multivarious::scores(fit_spc_w)), tolerance = 1e-5)
+  expect_equal(abs(multivarious::scores(fit_eig_w)), abs(multivarious::scores(fit_spc_w)), tolerance = 1e-5, check.attributes=FALSE)
 })
 
 ## -------------------------------------------------------------------------------

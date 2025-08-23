@@ -18,7 +18,8 @@ Imports:
     multivarious,
     assertthat,
     methods,
-    PRIMME
+    PRIMME,
+    digest
 LinkingTo:
     Rcpp,
     RcppArmadillo,

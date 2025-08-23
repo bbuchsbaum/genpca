@@ -1,0 +1,20 @@
+Package: genpca
+Type: Package
+Title: Generalized Principal Component Analysis
+Version: 0.1.0
+Authors@R: c(
+    person("Brad", "Buchsbaum", 
+           email = "brad.buchsbaum@gmail.com", 
+           role = c("aut", "cre")))
+Description: Generalized PCA and related matrix decompositions.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports: Rcpp, RSpectra, FNN, Matrix, multivarious, assertthat,
+        methods, PRIMME
+LinkingTo: Rcpp, RcppArmadillo, RcppEigen, RSpectra
+Suggests: testthat, microbenchmark
+RoxygenNote: 7.3.2.9000
+NeedsCompilation: yes
+Packaged: 2025-08-22 16:32:51 UTC; bbuchsbaum
+Author: Brad Buchsbaum [aut, cre]
+Maintainer: Brad Buchsbaum <brad.buchsbaum@gmail.com>

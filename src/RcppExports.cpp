@@ -12,26 +12,9 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// gmd_fast_cpp
-List gmd_fast_cpp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, int k, double tol, int maxit, int seed);
-RcppExport SEXP _genpca_gmd_fast_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP maxitSEXP, SEXP seedSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
-    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
-    Rcpp::traits::input_parameter< int >::type seed(seedSEXP);
-    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp(X, Q, R, k, tol, maxit, seed));
-    return rcpp_result_gen;
-END_RCPP
-}
 // gmd_fast_cpp_dn
-Rcpp::List gmd_fast_cpp_dn(const arma::mat& X, const arma::mat& Q, const arma::mat& R, const int k, const double tol);
-RcppExport SEXP _genpca_gmd_fast_cpp_dn(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP) {
+Rcpp::List gmd_fast_cpp_dn(const arma::mat& X, const arma::mat& Q, const arma::mat& R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_dn(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -40,13 +23,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type R(RSEXP);
     Rcpp::traits::input_parameter< const int >::type k(kSEXP);
     Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_dn(X, Q, R, k, tol));
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_dn(X, Q, R, k, tol, topk));
     return rcpp_result_gen;
 END_RCPP
 }
 // gmd_fast_cpp_sp
-Rcpp::List gmd_fast_cpp_sp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, const int k, const double tol);
-RcppExport SEXP _genpca_gmd_fast_cpp_sp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP) {
+Rcpp::List gmd_fast_cpp_sp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_sp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -55,7 +39,72 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
     Rcpp::traits::input_parameter< const int >::type k(kSEXP);
     Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_sp(X, Q, R, k, tol));
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_sp(X, Q, R, k, tol, topk));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_fast_cpp_primal_dn
+Rcpp::List gmd_fast_cpp_primal_dn(const arma::mat& X, const arma::mat& Q, const arma::mat& L_R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_primal_dn(SEXP XSEXP, SEXP QSEXP, SEXP L_RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type L_R(L_RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_primal_dn(X, Q, L_R, k, tol, topk));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_fast_cpp_primal_sp
+Rcpp::List gmd_fast_cpp_primal_sp(const arma::mat& X, const arma::sp_mat& Q, const arma::mat& L_R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_primal_sp(SEXP XSEXP, SEXP QSEXP, SEXP L_RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type L_R(L_RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_primal_sp(X, Q, L_R, k, tol, topk));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_fast_cpp_dual_dn
+Rcpp::List gmd_fast_cpp_dual_dn(const arma::mat& X, const arma::mat& L_Q, const arma::mat& R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_dual_dn(SEXP XSEXP, SEXP L_QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type L_Q(L_QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_dual_dn(X, L_Q, R, k, tol, topk));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_fast_cpp_dual_sp
+Rcpp::List gmd_fast_cpp_dual_sp(const arma::mat& X, const arma::mat& L_Q, const arma::sp_mat& R, const int k, const double tol, const bool topk);
+RcppExport SEXP _genpca_gmd_fast_cpp_dual_sp(SEXP XSEXP, SEXP L_QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP tolSEXP, SEXP topkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type L_Q(L_QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const bool >::type topk(topkSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_fast_cpp_dual_sp(X, L_Q, R, k, tol, topk));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -105,9 +154,12 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_genpca_gmd_fast_cpp", (DL_FUNC) &_genpca_gmd_fast_cpp, 7},
-    {"_genpca_gmd_fast_cpp_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dn, 5},
-    {"_genpca_gmd_fast_cpp_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_sp, 5},
+    {"_genpca_gmd_fast_cpp_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dn, 6},
+    {"_genpca_gmd_fast_cpp_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_sp, 6},
+    {"_genpca_gmd_fast_cpp_primal_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_primal_dn, 6},
+    {"_genpca_gmd_fast_cpp_primal_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_primal_sp, 6},
+    {"_genpca_gmd_fast_cpp_dual_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dual_dn, 6},
+    {"_genpca_gmd_fast_cpp_dual_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_dual_sp, 6},
     {"_genpca_gmd_deflation_cpp", (DL_FUNC) &_genpca_gmd_deflation_cpp, 5},
     {"_genpca_sgmd_deflation_cpp", (DL_FUNC) &_genpca_sgmd_deflation_cpp, 5},
     {"_genpca_gmdLA_cpp", (DL_FUNC) &_genpca_gmdLA_cpp, 4},
