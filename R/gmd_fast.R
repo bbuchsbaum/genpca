@@ -68,22 +68,14 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L, to
     res$d <- res$d[keep]
   }
   
-  # IMPORTANT: The C++ implementation returns scores as U*D, but gpca.R expects orthonormal U
-  # We need to normalize the scores to get orthonormal U
-  if (length(res$d) > 0) {
-    # Divide each column by its corresponding singular value to get orthonormal U
-    res$u <- sweep(res$u, 2, res$d, "/")
-  }
-  
+  # Name outputs like multivarious
   k_use <- length(res$d)
   if (k_use > 0) {
     pcs <- paste0("PC", seq_len(k_use))
     colnames(res$u) <- pcs
     colnames(res$v) <- pcs
-    # Don't set names on d to match multivarious::sdev() behavior
-    # names(res$d) <- pcs
+    names(res$d) <- pcs
   }
-  
   res$k <- k_use
   res
 }

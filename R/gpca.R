@@ -338,12 +338,19 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
       cumv <- cumsum(propv)
       
       # Map results to the svdfit structure
+      # IMPORTANT: spectra_res returns scores and components, not orthonormal eigenvectors!
+      # We need to back-calculate the orthonormal eigenvectors for consistency
+      # scores = M * ou * D, so ou = M^{-1} * scores / D
+      # components = A * ov, so ov = A^{-1} * components
+      
+      # For now, set a flag to handle this differently later
       svdfit <- list(d = spectra_res$d,
-                     u = spectra_res$u, # ou
-                     v = spectra_res$v, # ov
+                     u = spectra_res$u, # These are actually scores/D, not ou!
+                     v = spectra_res$v, # These are actually components, not ov!
                      k = spectra_res$k,
                      propv = propv,
-                     cumv = cumv)
+                     cumv = cumv,
+                     is_spectra = TRUE) # Flag to indicate special handling needed
   } else {
       stop("Internal error: Unknown method specified.") # Should not happen due to match.arg
   }
@@ -377,12 +384,24 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 
   # Scores: F = X V (where V is ov) or F = M U D (where U is ou)
   # Use F = M U D form for consistency with paper's U definition
-
- 
-
-  M_ou <- M %*% svdfit$u
-  # Use sweep for element-wise multiplication D onto columns of M_ou
-  scores_mat <- sweep(M_ou, 2, svdfit$d, `*`)
+  
+  # SPECIAL CASE: spectra method returns scores directly!
+  if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
+    # spectra_res$u are already scores/d, just need to scale by d
+    scores_mat <- sweep(svdfit$u, 2, svdfit$d, `*`)
+    # For bi_projector, we need the orthonormal eigenvectors
+    # Back-calculate: ou = M^{-1} * (scores/d)
+    # But M may not be invertible, so we keep the scores/d as is
+    ou <- svdfit$u  # scores/d
+    ov <- svdfit$v  # components
+  } else {
+    # Standard path for eigen/deflation methods
+    M_ou <- M %*% svdfit$u
+    # Use sweep for element-wise multiplication D onto columns of M_ou
+    scores_mat <- sweep(M_ou, 2, svdfit$d, `*`)
+    ou <- svdfit$u
+    ov <- svdfit$v
+  }
 
   # Assign row/col names if available from original X
   # Get original indices if preproc modified them
@@ -397,7 +416,12 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   colnames(scores_mat) <- paste0("PC", 1:ncomp)
 
   # Loadings (components): v = A V (where V is ov)
-  loadings_mat <- A %*% svdfit$v
+  if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
+    # spectra_res$v are already components (A*V)
+    loadings_mat <- svdfit$v
+  } else {
+    loadings_mat <- A %*% svdfit$v
+  }
   if (!is.null(colnames(X))) {
       rownames(loadings_mat) <- colnames(X)[col_indices]
   } else {
@@ -406,14 +430,22 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   colnames(loadings_mat) <- paste0("PC", 1:ncomp)
 
   # Create the S3 object using the multivarious constructor
+  # Compute M_ou if not already done
+  if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
+    M_ou <- svdfit$u  # For spectra, this is already scores/d
+  } else {
+    # Already computed above in the else branch
+    # M_ou is already set
+  }
+  
   ret <- multivarious::bi_projector(
-    v = loadings_mat,     # Loadings = A %*% ov
-    s = scores_mat,       # Scores = M %*% ou %*% D
+    v = loadings_mat,     # Loadings = A %*% ov (or components for spectra)
+    s = scores_mat,       # Scores = M %*% ou %*% D (or direct scores for spectra)
     sdev = svdfit$d,      # Singular values
     preproc = procres,    # Preprocessing object
-    ov = svdfit$v,        # Orthonormal V in A metric
-    ou = svdfit$u,        # Orthonormal U in M metric
-    u = M_ou,             # U scaled by M metric (M %*% ou)
+    ov = ov,              # Orthonormal V in A metric (or components for spectra)
+    ou = ou,              # Orthonormal U in M metric (or scores/d for spectra)
+    u = M_ou,             # U scaled by M metric (M %*% ou or scores/d for spectra)
     classes = "genpca",   # Specific class first
     A = A,                # Store constraint matrices
     M = M,
