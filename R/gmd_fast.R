@@ -68,14 +68,7 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L, to
     res$d <- res$d[keep]
   }
   
-  # Name outputs like multivarious
-  k_use <- length(res$d)
-  if (k_use > 0) {
-    pcs <- paste0("PC", seq_len(k_use))
-    colnames(res$u) <- pcs
-    colnames(res$v) <- pcs
-    names(res$d) <- pcs
-  }
-  res$k <- k_use
+  # Set k to the number of components found
+  res$k <- length(res$d)
   res
 }

@@ -20,9 +20,9 @@
 
 \item{new_data}{New data to transfer.}
 
-\item{from}{Source space ("X" or "Y"). Also accepts legacy `source` parameter.}
+\item{from}{Source space ("X" or "Y").}
 
-\item{to}{Target space ("X" or "Y"). Also accepts legacy `target` parameter.}
+\item{to}{Target space ("X" or "Y").}
 
 \item{source}{Legacy parameter name for `from`. Deprecated, use `from` instead.}
 
@@ -39,4 +39,21 @@ Matrix with transferred data.
 Provides a transfer method that accepts `source`/`target` arguments
 used in the tests. The method forwards to `multivarious`'s
 transfer method which expects `from`/`to`.
+}
+\examples{
+\donttest{
+# Generate sample data
+set.seed(123)
+n <- 50
+X <- matrix(rnorm(n * 10), n, 10)
+Y <- matrix(rnorm(n * 8), n, 8)
+
+# Create a cross projector using rpls
+fit <- rpls(X, Y, K = 2)
+
+# Transfer new X data to Y space
+new_X <- matrix(rnorm(10 * 10), 10, 10)
+transferred <- transfer(fit, new_X, from = "X", to = "Y")
+}
+
 }

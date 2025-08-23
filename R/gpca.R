@@ -19,24 +19,24 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
     assert_that(nrow(A) == p, msg=paste("nrow(A) != ncol(X) -- ", nrow(A), " != ", p))
     assert_that(ncol(A) == p, msg=paste("ncol(A) != ncol(X) -- ", ncol(A), " != ", p))
     
-    # Always use ensure_spd - it checks and returns early if already SPD
+    # Handle different remedy types
     if (remedy == "error") {
       # For "error" remedy, check symmetry first
       if (!Matrix::isSymmetric(A)) {
         stop("Matrix A must be symmetric")
       }
       # Check if already SPD without fixing
-      A_test <- tryCatch({
-        ensure_spd(A, tol = tol)
-        TRUE
-      }, error = function(e) {
-        FALSE
-      })
-      if (!isTRUE(A_test)) {
+      if (!is_spd(A, tol = tol)) {
         stop("Matrix A must be positive semi-definite")
       }
+    } else if (remedy == "identity") {
+      # For "identity" remedy, replace with identity if not SPD
+      if (!Matrix::isSymmetric(A) || !is_spd(A, tol = tol)) {
+        if (verbose) message("Matrix A is not SPD, replacing with identity matrix")
+        A <- Matrix::Diagonal(p)
+      }
     } else {
-      # Apply remedy to make SPD
+      # Apply remedy to make SPD (ridge or clip)
       A <- ensure_spd(A, tol = tol)
     }
   }
@@ -54,24 +54,24 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
     assert_that(nrow(M) == n, msg=paste("nrow(M) != nrow(X) -- ", nrow(M), " != ", n))
     assert_that(ncol(M) == n, msg=paste("ncol(M) != nrow(X) -- ", ncol(M), " != ", n))
     
-    # Always use ensure_spd - it checks and returns early if already SPD
+    # Handle different remedy types
     if (remedy == "error") {
       # For "error" remedy, check symmetry first
       if (!Matrix::isSymmetric(M)) {
         stop("Matrix M must be symmetric")
       }
       # Check if already SPD without fixing
-      M_test <- tryCatch({
-        ensure_spd(M, tol = tol)
-        TRUE
-      }, error = function(e) {
-        FALSE
-      })
-      if (!isTRUE(M_test)) {
+      if (!is_spd(M, tol = tol)) {
         stop("Matrix M must be positive semi-definite")
       }
+    } else if (remedy == "identity") {
+      # For "identity" remedy, replace with identity if not SPD
+      if (!Matrix::isSymmetric(M) || !is_spd(M, tol = tol)) {
+        if (verbose) message("Matrix M is not SPD, replacing with identity matrix")
+        M <- Matrix::Diagonal(n)
+      }
     } else {
-      # Apply remedy to make SPD
+      # Apply remedy to make SPD (ridge or clip)
       M <- ensure_spd(M, tol = tol)
     }
   }
@@ -186,7 +186,9 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
 #'   
 #'   # Standard PCA using Spectra method (requires C++ build)
-#'   # gpca_std_spectra <- try(genpca(X, ncomp = 5, preproc = multivarious::center(), \n#'   #                              method="spectra", verbose = TRUE))
+#'   # gpca_std_spectra <- try(genpca(X, ncomp = 5,
+#'   #                              preproc = multivarious::center(),
+#'   #                              method = "spectra", verbose = TRUE))
 #'   # if (!inherits(gpca_std_spectra, "try-error")) {
 #'   #    print(head(gpca_std_spectra$sdev))
 #'   # }
@@ -197,11 +199,13 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   print(head(gpca_std_eigen$sdev))
 #'   print("prcomp Sdev:")
 #'   print(head(pr_std$sdev))
-#'   print(paste("Total Var Explained (Eigen):", round(sum(gpca_std_eigen$propv)*100), "%"))
+#'   print(paste("Total Var Explained (Eigen):",
+#'               round(sum(gpca_std_eigen$propv) * 100), "%"))
 #'
 #'   # Weighted column PCA (diagonal A, no centering)
 #'   col_weights <- stats::runif(100, 0.5, 1.5)
-#'   gpca_weighted <- genpca(X, A = col_weights, ncomp = 3, preproc=multivarious::pass(), verbose = FALSE)
+#'   gpca_weighted <- genpca(X, A = col_weights, ncomp = 3,
+#'                           preproc = multivarious::pass(), verbose = FALSE)
 #'   print("Weighted GPCA Sdev:")
 #'   print(gpca_weighted$sdev)
 #'   print(head(loadings(gpca_weighted)))
@@ -385,22 +389,29 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # Scores: F = X V (where V is ov) or F = M U D (where U is ou)
   # Use F = M U D form for consistency with paper's U definition
   
-  # SPECIAL CASE: spectra method returns scores directly!
+  # SPECIAL CASE: spectra method returns scores and components directly!
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
-    # spectra_res$u are already scores/d, just need to scale by d
-    scores_mat <- sweep(svdfit$u, 2, svdfit$d, `*`)
-    # For bi_projector, we need the orthonormal eigenvectors
-    # Back-calculate: ou = M^{-1} * (scores/d)
-    # But M may not be invertible, so we keep the scores/d as is
-    ou <- svdfit$u  # scores/d
-    ov <- svdfit$v  # components
+    # From gmd_fast_cpp:
+    # - svdfit$u contains scores U (where U = Q*X*C for primal or L_Q*B*C for dual)
+    # - svdfit$v contains components C (primal) or R*V (dual)
+    # - svdfit$d contains singular values
+    
+    # The scores are already computed
+    scores_mat <- as.matrix(svdfit$u)  # Ensure regular matrix
+    
+    # For ou and ov, we need the Q-orthonormal and R-orthonormal eigenvectors
+    # These are NOT directly available from gmd_fast_cpp output
+    # We'll use the scores/components as proxy since back-calculation is unstable
+    # Note: This means ou and ov won't satisfy ou^T*M*ou = I exactly
+    ou <- sweep(svdfit$u, 2, svdfit$d, `/`)  # Approximate: scores/d
+    ov <- svdfit$v  # Components (already R-weighted)
   } else {
     # Standard path for eigen/deflation methods
     M_ou <- M %*% svdfit$u
     # Use sweep for element-wise multiplication D onto columns of M_ou
-    scores_mat <- sweep(M_ou, 2, svdfit$d, `*`)
-    ou <- svdfit$u
-    ov <- svdfit$v
+    scores_mat <- as.matrix(sweep(M_ou, 2, svdfit$d, `*`))  # Ensure regular matrix
+    ou <- as.matrix(svdfit$u)  # Ensure regular matrix
+    ov <- as.matrix(svdfit$v)  # Ensure regular matrix
   }
 
   # Assign row/col names if available from original X
@@ -417,10 +428,10 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 
   # Loadings (components): v = A V (where V is ov)
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
-    # spectra_res$v are already components (A*V)
-    loadings_mat <- svdfit$v
+    # spectra_res$v are already R-weighted components
+    loadings_mat <- as.matrix(svdfit$v)  # Ensure regular matrix
   } else {
-    loadings_mat <- A %*% svdfit$v
+    loadings_mat <- as.matrix(A %*% svdfit$v)  # Ensure regular matrix
   }
   if (!is.null(colnames(X))) {
       rownames(loadings_mat) <- colnames(X)[col_indices]
@@ -432,10 +443,10 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # Create the S3 object using the multivarious constructor
   # Compute M_ou if not already done
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
-    M_ou <- svdfit$u  # For spectra, this is already scores/d
+    M_ou <- as.matrix(ou)  # Use the scaled version, ensure regular matrix
   } else {
     # Already computed above in the else branch
-    # M_ou is already set
+    M_ou <- as.matrix(M_ou)  # Ensure regular matrix
   }
   
   ret <- multivarious::bi_projector(

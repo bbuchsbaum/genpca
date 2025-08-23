@@ -108,6 +108,24 @@ with \eqn{Q = I_p} for standard RPLS. The alternating updates are:
 \eqn{Q}-norm.
 }
 
+\examples{
+# Generate sample data
+set.seed(123)
+n <- 50
+p <- 20
+q <- 10
+X <- matrix(rnorm(n * p), n, p)
+Y <- X[, 1:5] \%*\% matrix(rnorm(5 * q), 5, q) + matrix(rnorm(n * q), n, q)
+
+# Fit regularized PLS with L1 penalty
+fit_l1 <- rpls(X, Y, K = 3, lambda = 0.1, penalty = "l1")
+print(fit_l1)
+
+# Fit regularized PLS with ridge penalty
+fit_ridge <- rpls(X, Y, K = 3, lambda = 0.1, penalty = "ridge")
+print(fit_ridge)
+
+}
 \references{
 Allen, G. I., Peterson, C., Vannucci, M., &
   Maletić-Savatić, M. (2013). *Regularized Partial Least Squares with

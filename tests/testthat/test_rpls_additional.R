@@ -6,8 +6,8 @@ test_that("rpls errors when lambda vector shorter than K", {
   set.seed(1)
   X <- matrix(rnorm(10 * 3), 10, 3)
   Y <- matrix(rnorm(10 * 2), 10, 2)
-  lambda_vec <- c(0.1)  # length 1
-  expect_error(rpls(X, Y, K = 2, lambda = lambda_vec), "lambda must be either")
+  lambda_vec <- c(0.1, 0.2)  # length 2, but K=3
+  expect_error(rpls(X, Y, K = 3, lambda = lambda_vec), "lambda must be either")
 })
 
 test_that("nonneg flag warns when penalty is ridge", {

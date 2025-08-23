@@ -31,7 +31,17 @@ get_chol_lower_dense <- function(A) {
   L
 }
 
-#' @title Optionally clear the cache
+#' Clear internal cache for matrix decompositions
+#'
+#' @description Clears the internal cache used by generalized matrix decomposition functions.
+#' This can be useful to free up memory or when working with different datasets.
+#'
+#' @return Invisibly returns TRUE after clearing the cache.
+#'
+#' @examples
+#' # Clear the internal cache
+#' gmd_clear_cache()
+#'
 #' @export
 gmd_clear_cache <- function() {
   rm(list = ls(envir = .gmd_cache, all.names = TRUE), envir = .gmd_cache)

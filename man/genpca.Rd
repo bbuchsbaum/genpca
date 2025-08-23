@@ -149,7 +149,9 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
   gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
   
   # Standard PCA using Spectra method (requires C++ build)
-  # gpca_std_spectra <- try(genpca(X, ncomp = 5, preproc = multivarious::center(), \n#'   #                              method="spectra", verbose = TRUE))
+  # gpca_std_spectra <- try(genpca(X, ncomp = 5,
+  #                              preproc = multivarious::center(),
+  #                              method = "spectra", verbose = TRUE))
   # if (!inherits(gpca_std_spectra, "try-error")) {
   #    print(head(gpca_std_spectra$sdev))
   # }
@@ -160,11 +162,13 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
   print(head(gpca_std_eigen$sdev))
   print("prcomp Sdev:")
   print(head(pr_std$sdev))
-  print(paste("Total Var Explained (Eigen):", round(sum(gpca_std_eigen$propv)*100), "\%"))
+  print(paste("Total Var Explained (Eigen):",
+              round(sum(gpca_std_eigen$propv) * 100), "\%"))
 
   # Weighted column PCA (diagonal A, no centering)
   col_weights <- stats::runif(100, 0.5, 1.5)
-  gpca_weighted <- genpca(X, A = col_weights, ncomp = 3, preproc=multivarious::pass(), verbose = FALSE)
+  gpca_weighted <- genpca(X, A = col_weights, ncomp = 3,
+                          preproc = multivarious::pass(), verbose = FALSE)
   print("Weighted GPCA Sdev:")
   print(gpca_weighted$sdev)
   print(head(loadings(gpca_weighted)))

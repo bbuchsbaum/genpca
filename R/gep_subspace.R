@@ -58,23 +58,21 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
   which <- match.arg(which)
   d <- nrow(S1)
   
-  # Depending on which eigenvalues we want:
+  # Choose operator (avoid explicit inverse)
   # If largest: we iterate with S2^-1 S1 (i.e. solve S2 * V_hat = S1 * V)
   # If smallest: we iterate with S1^-1 S2 (i.e. solve S1 * V_hat = S2 * V)
   
   if (which == "largest") {
     # Factor S2 once
     s_fact <- factor_mat(S2, reg=reg_S)
-    # Pre-compute inverse factor L^-1 where S2 ~ LL'
-    Linv <- solve(s_fact$ch, Diagonal(d))
-    solve_step <- function(V) Linv %*% (S1 %*% V)
+    # S2^{-1} S1 V via triangular solves on the Cholesky of S2
+    solve_step <- function(V) solve(s_fact$ch, S1 %*% V)
     final_reg_S <- s_fact$final_reg # Store the final reg used
   } else {
     # smallest
     s_fact <- factor_mat(S1, reg=reg_S)
-    # Pre-compute inverse factor L^-1 where S1 ~ LL'
-    Linv <- solve(s_fact$ch, Diagonal(d))
-    solve_step <- function(V) Linv %*% (S2 %*% V)
+    # S1^{-1} S2 V via triangular solves on the Cholesky of S1
+    solve_step <- function(V) solve(s_fact$ch, S2 %*% V)
     final_reg_S <- s_fact$final_reg # Store the final reg used
   }
   
@@ -90,62 +88,54 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
   lambda_old <- NULL
   
   for (iter in seq_len(max_iter)) {
-    V_hat <- solve_step(V)
+    Y <- solve_step(V)
     
-    # Orthonormalize V_hat
-    V_hat <- orthonormalize(V_hat)
+    # Orthonormalize Y
+    Y <- orthonormalize(Y)
     
     # Form S and T efficiently (avoid d x d intermediate products)
-    S1_Vhat <- S1 %*% V_hat         # d x q
-    S2_Vhat <- S2 %*% V_hat         # d x q
-    S_mat <- t(V_hat) %*% S1_Vhat # q x q
-    T_mat <- t(V_hat) %*% S2_Vhat # q x q
+    S_mat <- t(Y) %*% (S1 %*% Y)  # q x q
+    T_mat <- t(Y) %*% (S2 %*% Y)  # q x q (always S2 here)
     
-    # Regularize T if needed
-    T_mat_reg <- T_mat + Diagonal(q, reg_T)
+    # Symmetrize numerically
+    S_mat <- Matrix::forceSymmetric(S_mat)
+    T_mat <- Matrix::forceSymmetric(T_mat)
     
-    # Ensure invertibility
-    tries <- 0
-    success <- FALSE
-    while (tries < 5 && !success) {
-      cond_num <- try({
-        T_inv <- solve(as.matrix(T_mat_reg))
-        TRUE
-      }, silent=TRUE)
-      
-      if (inherits(cond_num, "try-error")) {
-        T_mat_reg <- T_mat_reg + Diagonal(q, reg_T * 10^(tries+1))
-        tries <- tries + 1
-      } else {
-        success <- TRUE
-      }
+    # Robust Cholesky-whitening of T
+    reg <- reg_T
+    R <- NULL
+    for (tries in 0:5) {
+      T_reg <- as.matrix(T_mat) + diag(reg, ncol(T_mat))
+      ok <- TRUE
+      R <- try(chol(T_reg), silent = TRUE)
+      if (inherits(R, "try-error")) { ok <- FALSE }
+      if (ok) break
+      reg <- reg * 10
     }
-    if (!success) {
-      stop("Unable to invert T_mat even after increasing reg. Possibly q too large or data ill-conditioned.")
-    }
+    if (!is.numeric(R)) stop("Unable to chol() the T matrix even after regularization.")
     
-    T_inv <- solve(T_mat_reg)
-    M <- T_inv %*% S_mat
+    # C = R^{-T} S R^{-1} (symmetric)
+    C <- backsolve(R, t(backsolve(R, t(as.matrix(S_mat)), transpose = TRUE)))
+    C <- (C + t(C))/2  # Symmetrize
     
-    # The eigenvalues of M are the generalized eigenvalues
-    # largest/smallest:
-    # If largest: just eigen(M)
-    # If smallest: eigen(M) but we want the smallest generalized eigenvalues.
-    # Actually, since eigen(...) returns descending order:
-    # For largest: top q from eigen(M) are largest
-    # For smallest: top q from eigen(-M) are smallest eigenvals
-    if (which == "smallest") {
-      eig_res <- eigen(-M, symmetric = TRUE)
-      lambda <- -eig_res$values[1:q]
-      W <- eig_res$vectors[,1:q]
+    # Eigen decomposition of whitened matrix
+    E <- eigen(C, symmetric = TRUE)
+    
+    # Select eigenvalues/vectors based on which
+    ord <- if (which == "largest") {
+      order(E$values, decreasing = TRUE)
     } else {
-      eig_res <- eigen(M, symmetric = TRUE)
-      lambda <- eig_res$values[1:q]
-      W <- eig_res$vectors[,1:q]
+      order(E$values, decreasing = FALSE)
     }
+    ord <- ord[seq_len(q)]
     
-    V_new <- V_hat %*% W
-    V_new <- orthonormalize(V_new)
+    lambda <- E$values[ord]
+    U <- E$vectors[, ord, drop = FALSE]
+    
+    # Transform back: W = R^{-1} U
+    W <- backsolve(R, U)
+    
+    V_new <- Y %*% W
     
     if (!is.null(lambda_old)) {
       rel_change <- max(abs(lambda - lambda_old) / pmax(abs(lambda), 1e-12))
@@ -164,7 +154,16 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
     warning("Reached max_iter without convergence (delta_lambda > tol)")
   }
   
-  list(values = lambda, vectors = V, final_reg_S = final_reg_S)
+  # Optional but recommended: enforce S2-orthonormality again
+  G <- crossprod(V, S2 %*% V)
+  G <- (G + t(G))/2  # Symmetrize
+  Rg <- chol(as.matrix(G) + diag(reg_T, q))
+  V <- V %*% solve(Rg)
+  
+  # Recompute lambda as Rayleigh quotients in the now S2-orthonormal basis
+  lambda <- diag(crossprod(V, S1 %*% V))
+  
+  list(values = as.numeric(lambda), vectors = V, final_reg_S = final_reg_S)
 }
 
 ##############################################

@@ -8,6 +8,7 @@ check_gep <- function(S1, S2, V, lambda, tol=1e-6) {
   left <- S1 %*% V
   right <- S2 %*% (V %*% diag(lambda))
   expect_equal(left, right, tolerance = tol)
+  # Check S2-orthogonality: V^T S2 V = I
   gram <- t(V) %*% S2 %*% V
   expect_equal(as.matrix(gram), diag(length(lambda)), tolerance = tol)
 }

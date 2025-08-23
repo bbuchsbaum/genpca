@@ -1,6 +1,7 @@
 # File: tests/testthat/test-rpls.R
 
 library(testthat)
+library(multivarious)
 
 test_that("rpls validates input dimensions and lambda", {
   set.seed(1)
@@ -171,9 +172,9 @@ test_that("rpls partial projection works if partial cols are requested", {
                              new_data = X_sub,
                              colind   = part_cols,
                              source   = "X")
-  # Now reprocess() sees ncol(X_sub)==2, length(part_cols)==2 => no mismatch
+  # partial_project returns projection to full K-dimensional space
   
-  expect_equal(dim(Fx_part), c(n, length(part_cols)))
+  expect_equal(dim(Fx_part), c(n, fit_l1$ncomp))
   
   # (You can do further checks, e.g. partial inverse projection, etc.)
 })

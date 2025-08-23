@@ -2,10 +2,19 @@
 % Please edit documentation in R/gmd_cache.R
 \name{gmd_clear_cache}
 \alias{gmd_clear_cache}
-\title{Optionally clear the cache}
+\title{Clear internal cache for matrix decompositions}
 \usage{
 gmd_clear_cache()
 }
+\value{
+Invisibly returns TRUE after clearing the cache.
+}
 \description{
-Optionally clear the cache
+Clears the internal cache used by generalized matrix decomposition functions.
+This can be useful to free up memory or when working with different datasets.
+}
+\examples{
+# Clear the internal cache
+gmd_clear_cache()
+
 }

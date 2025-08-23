@@ -1,7 +1,28 @@
 #' @title Utilities for constraints
 #' @description Helpers to make constraint matrices symmetric positive definite (SPD).
+#' @name constraints_utils
 #' @keywords internal
 NULL
+
+#' @title Check if matrix is SPD
+#' @description Check if a matrix is symmetric positive semi-definite using Cholesky decomposition
+#' @param A numeric matrix or Matrix::Matrix
+#' @param tol tolerance for numerical checks (unused but kept for compatibility)
+#' @return logical TRUE if SPD, FALSE otherwise
+#' @keywords internal
+is_spd <- function(A, tol = 1e-6) {
+  if (!inherits(A, "Matrix")) {
+    A <- Matrix::Matrix(A, sparse = FALSE)
+  }
+  if (!Matrix::isSymmetric(A)) {
+    return(FALSE)
+  }
+  ok <- TRUE
+  tryCatch({
+    Matrix::Cholesky(A, LDL = FALSE, Imult = 0, super = TRUE)
+  }, error = function(e) ok <<- FALSE)
+  ok
+}
 
 #' @title Ensure SPD (sparse-friendly)
 #' @description Force a symmetric matrix to be symmetric positive definite (SPD).
@@ -20,15 +41,6 @@ ensure_spd <- function(M, tol = 1e-6, nearpd_maxn = 2000L) {
   M <- Matrix::forceSymmetric(M, uplo = "U")
   
   n <- nrow(M)
-  
-  # Quick SPD probe via Cholesky (fast if already SPD)
-  is_spd <- function(A) {
-    ok <- TRUE
-    tryCatch({
-      Matrix::Cholesky(A, LDL = FALSE, Imult = 0, super = TRUE)
-    }, error = function(e) ok <<- FALSE)
-    ok
-  }
   
   if (is_spd(M)) return(M)
   

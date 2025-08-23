@@ -3,7 +3,8 @@
 #' These functions are used by both \code{genpls} and \code{genplscorr} to handle
 #' partial eigen expansions, diagonal/identity shortcuts, adaptive rank selection,
 #' and row/column transformations for data embeddings.
-
+#'
+#' @name plsutils
 #' @keywords internal
 #' @importFrom Matrix diag isDiagonal crossprod
 NULL

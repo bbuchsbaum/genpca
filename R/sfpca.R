@@ -304,10 +304,6 @@ sfpca_rank1 <- function(X,
   # Precompute S matrices and Lipschitz constants
   S_u <- Matrix::Diagonal(n) + alpha_u * Omega_u
   S_v <- Matrix::Diagonal(p) + alpha_v * Omega_v
-
-  # Precompute Cholesky factorizations for proximal updates
-  S_u_chol <- Matrix::Cholesky(S_u + Matrix::Diagonal(n) * 1e-6)
-  S_v_chol <- Matrix::Cholesky(S_v + Matrix::Diagonal(p) * 1e-6)
   
   # Compute the largest eigenvalues using eigs_sym
   L_u <- eigs_sym(S_u, 1, which = "LM")$values  
@@ -328,17 +324,19 @@ sfpca_rank1 <- function(X,
   obj_old <- -Inf
   repeat {
     iter <- iter + 1
-    # Update u with fixed v
-    u <- sfpca_proximal_operator(as.vector(X %*% v), S_u_chol, lambda_u, L_u, penalty_u)
+    # --- u-update: ISTA on 0.5||Xv - u||^2 + (alpha_u/2) u'Ωu + λ_u P(u)
+    b_u <- as.vector(X %*% v)
+    u <- sfpca_ista_update(u, b_u, S_u, L_u, lambda_u, penalty_u, n_inner = 10L)
     u_norm <- sqrt(as.numeric(Matrix::crossprod(u, S_u %*% u)))
     if (u_norm > 0) u <- u / u_norm else u <- rep(0, n)
     
-    # Update v with fixed u
-    v <- sfpca_proximal_operator(as.vector(Matrix::crossprod(X, u)), S_v_chol, lambda_v, L_v, penalty_v)
+    # --- v-update: ISTA on 0.5||X^T u - v||^2 + (alpha_v/2) v'Ωv + λ_v P(v)
+    b_v <- as.vector(Matrix::crossprod(X, u))
+    v <- sfpca_ista_update(v, b_v, S_v, L_v, lambda_v, penalty_v, n_inner = 10L)
     v_norm <- sqrt(as.numeric(Matrix::crossprod(v, S_v %*% v)))
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
     
-    # Compute objective value
+    # Compute objective value (monitoring)
     obj <- as.numeric(
       Matrix::crossprod(u, X %*% v) -
         lambda_u * penalty_function(u, penalty_u, lambda_u) -
@@ -350,9 +348,30 @@ sfpca_rank1 <- function(X,
     if (abs(obj - obj_old) < tol || iter >= max_iter) break
     obj_old <- obj
   }
-  # Final scaling
+  # Final Euclidean normalization (Algorithm 1, Step 3)
+  if (sum(u) < 0) { u <- -u; v <- -v }
+  u <- u / sqrt(sum(u^2))
+  v <- v / sqrt(sum(v^2))
   d <- as.numeric(Matrix::crossprod(u, X %*% v))
   return(list(u = u, v = v, d = d))
+}
+
+# --- NEW: ISTA update for quadratic + sparsity under SPD S (Algorithm 1, Step 2) ---
+#' @noRd
+sfpca_ista_update <- function(x, b, S, L, lambda, penalty = "l1", n_inner = 5L) {
+  for (t in seq_len(n_inner)) {
+    # Gradient step: x - (Sx - b)/L
+    y <- x - as.vector(S %*% x - b) / L
+    # Prox step
+    if (penalty == "l1") {
+      x <- soft_threshold(y, lambda / L)
+    } else if (penalty == "scad") {
+      x <- scad_proximal(y, lambda / L)
+    } else {
+      stop("Unsupported penalty function.")
+    }
+  }
+  x
 }
 
 #' @noRd
