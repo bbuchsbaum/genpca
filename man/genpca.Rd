@@ -135,6 +135,9 @@ Three methods are available via the `method` argument:
  \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 }
+
+For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which 
+performs GPCA directly on C with column constraint R (equivalent to A).
 }
 
 \examples{
@@ -181,7 +184,8 @@ Journal of the American Statistical Association, 109(505), 145‑159.
 arXiv:1102.3074.
 }
 \seealso{
-\code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
+\code{\link{genpca_cov}} for GPCA on pre-computed covariance matrices,
+  \code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
   `multivarious::bi_projector`, `multivarious::project`, `multivarious::scores`,
   `multivarious::loadings`, `multivarious::reconstruct`.
 }

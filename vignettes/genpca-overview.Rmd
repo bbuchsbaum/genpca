@@ -1,0 +1,421 @@
+---
+title: "genpca: Generalized PCA and Related Decompositions"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{genpca: Generalized PCA and Related Decompositions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Introduction
+------------
+
+### Why Generalized PCA?
+
+Standard Principal Component Analysis (PCA) assumes that all variables and observations are equally important and that Euclidean distance captures the relevant notion of similarity. However, many real-world applications violate these assumptions:
+
+- **Weighted observations**: In survey data, observations may represent different population sizes requiring row weighting.
+- **Non-uniform measurement precision**: Variables measured with different accuracies need appropriate weighting.
+- **Correlated features**: Variables with known correlation structure (e.g., spatial or temporal data) require metrics that account for these dependencies.
+- **Domain-specific geometry**: Functional data, shape analysis, and other specialized domains have natural non-Euclidean metrics.
+
+Generalized PCA (GPCA) extends standard PCA to handle these scenarios by incorporating row and column metric constraints that encode prior knowledge about the data structure.
+
+### What is Generalized PCA?
+
+The `genpca` package implements Generalized PCA and related matrix decompositions for data observed in non‑Euclidean inner‑product spaces. Given an `n × p` data matrix `X`, GPCA incorporates two symmetric positive semi‑definite (PSD) matrices that define the geometry:
+
+- **Row metric `M`** (`n × n`): Defines the inner product on the observation space. It induces the M‑norm `||x||_M^2 = x^T M x` and the squared distance `d_M(x, y)^2 = (x − y)^T M (x − y)`. Common choices include identity or diagonal weights (unequal sampling), covariance/precision‑based metrics (to reflect correlation structure), or kernels (e.g., temporal/spatial smoothness).
+- **Column metric `A`** (`p × p`): Defines the inner product on the variable space. It similarly induces `||v||_A^2 = v^T A v` and `d_A(v, w)^2 = (v − w)^T A (v − w)`. Typical choices include feature weights, covariance/precision on variables, graph‑based kernels, or Laplacian‑like structures (PSD).
+
+In short: correlations/similarities are encoded via the metric (inner product); dissimilarities are measured via the induced distance from that metric. Standard PCA is recovered when `M = I_n` and `A = I_p`.
+
+### Package Capabilities
+
+The `genpca` package provides:
+
+- **`genpca()`**: Core GPCA implementation with multiple computational backends
+  - `method = "eigen"`: Direct eigendecomposition (good for small-to-medium problems)
+  - `method = "spectra"`: Matrix-free iterative solver via C++ Spectra (scalable)
+  - `method = "deflation"`: Sequential component extraction (memory-efficient)
+  
+- **Constraint handling**: Automatic validation and repair of metric matrices to ensure positive semi-definiteness
+
+- **Integration with `multivarious`**: Seamless workflow for preprocessing, projection, reconstruction, and transfer learning
+
+- **Generalized PLS**: Extensions to Partial Least Squares including `genpls()` for canonical correlation analysis with metrics
+
+This vignette introduces GPCA concepts and demonstrates basic usage patterns. For theoretical details on PLS-SVD, see the companion vignette "Generalized PLS-SVD: Explicit Whitening Reference".
+
+Mathematical Formulation
+------------------------
+
+### The Generalized PCA Problem
+
+GPCA seeks a low-rank approximation of `X` that minimizes reconstruction error in a metric-weighted sense. Given row metric `M` and column metric `A`, we find rank-`k` factors by minimizing:
+
+```
+|| X − U D V^T ||_{M,A}^2 = tr( M (X − U D V^T) A (X − U D V^T)^T )
+```
+
+This weighted Frobenius norm incorporates the metrics into the distance calculation. The solution satisfies orthonormality constraints in the respective metrics:
+
+- `U^T M U = I_k` (M-orthonormal scores)
+- `V^T A V = I_k` (A-orthonormal loadings)
+
+### Geometric Interpretation
+
+The metrics `M` and `A` define the inner products—and thus norms and distances—in the observation and variable spaces. This is how weighting, correlation structure, and smoothness are incorporated in a principled way. For example, choosing `M` proportional to a precision (inverse covariance) emphasizes directions with higher effective information, while a diagonal `M` implements row weighting. When `M = I` and `A = I`, we recover ordinary Euclidean geometry and standard PCA.
+
+Getting Started: Standard PCA as GPCA
+--------------------------------------
+
+Let's begin with standard PCA to establish a baseline, then explore how metrics modify the decomposition.
+
+```{r basic-identity}
+set.seed(1)
+# Simulated data: 200 observations, 50 variables
+X <- matrix(rnorm(200 * 50), 200, 50)
+
+library(genpca)
+# Standard PCA via GPCA (identity metrics by default)
+fit <- genpca(X, ncomp = 5, preproc = multivarious::center())
+
+# Extract key components
+cat("Top 5 singular values:\n")
+print(fit$sdev)
+
+cat("\nExplained variance (first 5 components):\n")
+var_explained <- fit$sdev^2 / sum(fit$sdev^2)
+print(round(var_explained[1:5] * 100, 2))
+
+# Scores and loadings follow multivarious conventions
+dim(multivarious::scores(fit))    # n × k matrix
+dim(multivarious::loadings(fit))  # p × k matrix
+```
+
+This recovers standard PCA since we used identity metrics (`M = I`, `A = I`).
+
+Weighted Observations: Row Metrics
+-----------------------------------
+
+Now let's consider a scenario where observations have different importance. For example, in survey data, each row might represent responses from different population sizes.
+
+```{r row-weighting}
+library(Matrix)
+
+# Simulate observation weights (e.g., population sizes)
+n <- nrow(X)
+obs_weights <- rgamma(n, shape = 2, scale = 0.5)
+obs_weights <- obs_weights / mean(obs_weights)  # normalize
+
+# Create diagonal row metric
+M <- Diagonal(n, x = obs_weights)
+
+# GPCA with row weighting
+fit_weighted <- genpca(X, M = M, ncomp = 5, preproc = multivarious::center())
+
+# Compare with unweighted
+cat("Singular values (unweighted vs weighted):\n")
+cbind(Standard = fit$sdev[1:5], Weighted = fit_weighted$sdev[1:5])
+
+# The weighted decomposition emphasizes high-weight observations
+```
+
+Variable Dependencies: Column Metrics
+--------------------------------------
+
+Column metrics encode relationships between variables. This is useful when variables have known correlation structure (e.g., spatial or temporal dependencies).
+
+```{r column-dependencies}
+p <- ncol(X)
+
+# Example: Variables with local correlation structure
+# (e.g., adjacent time points or spatial neighbors)
+A <- bandSparse(p, p, k = -1:1, 
+                diagonals = list(
+                  rep(0.8, p),      # diagonal (self-correlation)
+                  rep(-0.2, p-1),   # off-diagonal (negative correlation with neighbors)
+                  rep(-0.2, p-1)
+                ))
+
+# Ensure positive semi-definiteness
+A <- A + 0.5 * Diagonal(p)  # shift spectrum
+
+# GPCA with column metric
+fit_corr <- genpca(X, A = A, ncomp = 5, preproc = multivarious::center())
+
+# The decomposition now accounts for variable dependencies
+cat("Effect of column metric on first component:\n")
+plot(multivarious::loadings(fit)[,1], 
+     multivarious::loadings(fit_corr)[,1],
+     xlab = "Standard PCA Loading", 
+     ylab = "GPCA Loading (with dependencies)",
+     main = "How column metrics change loadings")
+abline(0, 1, lty = 2, col = "gray")
+```
+
+Computational Methods
+---------------------
+
+The `method` parameter selects the computational backend based on your data size and requirements:
+
+### Method Selection Guide
+
+| Method | Best For | Memory Usage | Speed | Notes |
+|--------|----------|--------------|-------|-------|
+| `eigen` | Small-medium data (n,p < 1000) | High | Fast for small data | Forms full matrices |
+| `spectra` | Large sparse data | Low | Fast iterations | Matrix-free, requires C++ |
+| `deflation` | Few components needed | Minimal | Moderate | Sequential extraction |
+
+```{r methods-comparison}
+# Compare methods on same data
+library(microbenchmark)
+
+# Small dataset for quick comparison
+X_small <- matrix(rnorm(100 * 30), 100, 30)
+
+# Time different methods (eval=FALSE for vignette, but instructive)
+if (FALSE) {
+  microbenchmark(
+    eigen = genpca(X_small, ncomp = 5, method = "eigen"),
+    spectra = genpca(X_small, ncomp = 5, method = "spectra"),
+    deflation = genpca(X_small, ncomp = 5, method = "deflation"),
+    times = 10
+  )
+}
+
+# For large sparse problems, spectra is preferred
+n_large <- 5000
+p_large <- 2000
+X_sparse <- Matrix::rsparsematrix(n_large, p_large, density = 0.01)
+
+# This would be memory-intensive with eigen but efficient with spectra
+fit_large <- genpca(X_sparse, ncomp = 10, method = "spectra")
+```
+
+Preprocessing and Reconstruction
+---------------------------------
+
+The package integrates with `multivarious` for preprocessing pipelines. Centering is typically essential for meaningful PCA.
+
+```{r preproc-recon}
+# Center columns (variables) before decomposition
+fit_c <- genpca(X, ncomp = 10, preproc = multivarious::center())
+
+# Examine reconstruction error vs number of components
+recon_errors <- sapply(1:10, function(k) {
+  Xhat <- reconstruct(fit_c, comp = 1:k)
+  mean((X - Xhat)^2)
+})
+
+plot(1:10, recon_errors, type = "b",
+     xlab = "Number of Components",
+     ylab = "Mean Squared Reconstruction Error",
+     main = "Reconstruction Quality")
+
+# Typical elbow at 3-4 components for random data
+cat("Reconstruction error with 3 components:", recon_errors[3], "\n")
+cat("Percent variance retained:", 
+    100 * (1 - recon_errors[3]/var(as.vector(X))), "%\n")
+```
+
+Out-of-Sample Projection
+-------------------------
+
+GPCA models can project new observations into the learned component space, essential for prediction and validation.
+
+```{r projection}
+# Split data for demonstration
+n_train <- 150
+X_train <- X[1:n_train, ]
+X_test <- X[(n_train+1):nrow(X), ]
+
+# Fit on training data
+fit_train <- genpca(X_train, ncomp = 5, preproc = multivarious::center())
+
+# Project test data into learned space
+scores_test <- multivarious::project(fit_train, X_test)
+
+# Verify dimensions
+cat("Test scores dimensions:", dim(scores_test), "\n")
+
+# Reconstruction of test data
+X_test_recon <- multivarious::reconstruct(fit_train, 
+                                          new_data = X_test, 
+                                          comp = 1:5)
+test_error <- mean((X_test - X_test_recon)^2)
+cat("Test reconstruction error:", test_error, "\n")
+```
+
+Working with Covariance Matrices
+---------------------------------
+
+Sometimes you may have a pre-computed covariance matrix C = X'MX rather than the raw data X. The `genpca_cov()` function performs GPCA directly on covariance matrices:
+
+```{r covariance-gpca}
+# Example: Large dataset where we only store the covariance
+set.seed(789)
+n <- 1000  # Many observations
+p <- 50    # Moderate number of variables
+X_large <- matrix(rnorm(n * p), n, p)
+
+# Row weights (e.g., sample importance)
+M <- diag(runif(n, 0.5, 1.5))
+
+# Compute and store only the covariance
+C <- t(X_large) %*% M %*% X_large  # C = X'MX
+
+# Column constraint
+A <- diag(runif(p, 0.8, 1.2))
+
+# GPCA on covariance (memory-efficient for large n)
+fit_cov <- genpca_cov(C, R = A, ncomp = 10, method = "gmd")
+
+# This is mathematically equivalent to:
+# genpca(X_large, M = M, A = A, ncomp = 10)
+# but doesn't require storing the large X matrix
+
+cat("Singular values from covariance GPCA:\n")
+print(fit_cov$d[1:5])
+```
+
+The `genpca_cov()` function is particularly useful when:
+- The data matrix X is too large to store in memory
+- You receive pre-computed covariance matrices from external sources
+- You need to perform multiple analyses with different column constraints on the same covariance
+
+Generalized Partial Least Squares
+----------------------------------
+
+Beyond single-matrix decomposition, `genpca` extends to two-block methods like Partial Least Squares with metric constraints.
+
+### Canonical Correlation with Metrics
+
+The package provides generalized PLS-SVD (canonical PLS) for finding relationships between two data matrices while respecting their metric structures:
+
+```{r pls-example}
+set.seed(2)
+# Create correlated data blocks
+n <- 200
+# X block: genomic measurements
+X_pls <- matrix(rnorm(n * 50), n, 50)
+
+# Y block: phenotypic outcomes with some correlation to X
+shared_signal <- matrix(rnorm(n * 3), n, 3)
+Y_pls <- shared_signal %*% matrix(rnorm(3 * 20), 3, 20) + 
+         0.5 * matrix(rnorm(n * 20), n, 20)
+
+# Canonical PLS to find shared patterns
+fit_pls <- genpls(X_pls, Y_pls, ncomp = 3,
+                  preproc_x = multivarious::center(),
+                  preproc_y = multivarious::center())
+
+# Examine canonical correlations
+cat("Canonical correlations:\n")
+print(fit_pls$d)
+
+# The weights show which variables contribute to each canonical variate
+cat("\nDimensions of weight matrices:\n")
+cat("X weights:", dim(fit_pls$vx), "\n")
+cat("Y weights:", dim(fit_pls$vy), "\n")
+```
+
+### Low-Level Operator Interface
+
+For advanced users, `gplssvd_op()` provides direct access to the operator-level computations without materializing large intermediate matrices:
+
+```{r operator-interface}
+# Direct operator SVD (useful for very large problems)
+op_result <- gplssvd_op(X_pls, Y_pls, k = 3,
+                        center = TRUE, scale = FALSE)
+
+# Same singular values as high-level interface
+all.equal(op_result$d, fit_pls$d)
+```
+
+Practical Example: Weighted Survey Data
+----------------------------------------
+
+Let's conclude with a realistic example showing when GPCA is preferable to standard PCA.
+
+```{r practical-example}
+# Simulate survey data where observations represent different population sizes
+set.seed(123)
+n_respondents <- 300
+n_questions <- 20
+
+# Survey responses (Likert scale 1-5)
+survey_data <- matrix(sample(1:5, n_respondents * n_questions, replace = TRUE), 
+                     n_respondents, n_questions)
+
+# Population weights (some respondents represent more people)
+# E.g., stratified sampling with different sampling rates
+pop_weights <- c(
+  rep(10, 50),   # Urban areas (undersampled)
+  rep(2, 100),   # Suburban (representative)
+  rep(5, 150)    # Rural (slightly undersampled)
+)
+
+# Standard PCA (treats all respondents equally)
+pca_unweighted <- genpca(survey_data, ncomp = 5, 
+                         preproc = multivarious::center())
+
+# Weighted GPCA (accounts for population representation)
+M_survey <- Diagonal(n_respondents, x = pop_weights / mean(pop_weights))
+pca_weighted <- genpca(survey_data, M = M_survey, ncomp = 5,
+                      preproc = multivarious::center())
+
+# Compare first principal component patterns
+pc1_unweighted <- multivarious::loadings(pca_unweighted)[,1]
+pc1_weighted <- multivarious::loadings(pca_weighted)[,1]
+
+# The weighted analysis gives different importance to questions
+plot(pc1_unweighted, pc1_weighted,
+     xlab = "Unweighted PC1 Loadings",
+     ylab = "Population-Weighted PC1 Loadings",
+     main = "Effect of Population Weighting on Principal Components")
+abline(0, 1, lty = 2, col = "red")
+text(pc1_unweighted[1:5], pc1_weighted[1:5], 
+     labels = paste0("Q", 1:5), pos = 4, cex = 0.8)
+
+cat("\nCorrelation between weighted and unweighted PC1 loadings:", 
+    cor(pc1_unweighted, pc1_weighted), "\n")
+cat("This shows that population weighting can substantially change the analysis.\n")
+```
+
+Best Practices and Performance Tips
+------------------------------------
+
+1. **Matrix Sparsity**: Use sparse `Matrix` objects when possible to reduce memory usage
+2. **Method Selection**: 
+   - Use `eigen` for small dense problems (< 1000 dimensions)
+   - Use `spectra` for large or sparse problems
+   - Use `deflation` when you need only a few components
+3. **Constraint Validation**: The package automatically checks and can repair near-PSD matrices
+4. **Preprocessing**: Always center your data unless you have a specific reason not to
+5. **Memory Management**: For very large datasets, consider the matrix-free `spectra` method
+
+References
+----------
+
+- Allen, G. I., Grosenick, L., & Taylor, J. (2014). A generalized least-square matrix decomposition. *Journal of the American Statistical Association*, 109(505), 145-159.
+
+- Beaton, D., ADNI, et al. (2016). Generalized partial least squares: A framework for simultaneously capturing common and individual variation. *NeuroImage*, 141, 346-363.
+
+- De Leeuw, J. (2007). Derivatives of generalized eigen systems with applications. UCLA Department of Statistics Papers.
+
+Further Resources
+-----------------
+
+- **Companion vignette**: "Generalized PLS-SVD: Explicit Whitening Reference" for detailed mathematical derivations
+- **Package documentation**: `?genpca` for complete function reference
+- **GitHub repository**: Report issues and contribute at https://github.com/yourusername/genpca
+
+```{r session, echo=FALSE}
+sessionInfo()
+```

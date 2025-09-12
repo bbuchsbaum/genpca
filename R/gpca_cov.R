@@ -1,9 +1,11 @@
 #' Generalized PCA on a covariance matrix
 #' 
-#' Performs Generalized PCA directly on a covariance matrix C with a single 
-#' variable-side constraint/metric R. Supports two methods: "gmd" (Allen et al.'s 
-#' GMD approach, default) which matches the two-sided genpca exactly, and "geigen" 
-#' (generalized eigenvalue approach) which solves C v = lambda R v.
+#' Performs Generalized PCA directly on a pre-computed covariance matrix C with a single 
+#' variable-side constraint/metric R. This is useful when you already have C = X'MX 
+#' or when X is too large to store but C is manageable. Supports two methods: 
+#' "gmd" (Allen et al.'s GMD approach, default) which exactly matches the two-sided 
+#' \code{\link{genpca}}, and "geigen" (generalized eigenvalue approach) which solves 
+#' C v = lambda R v.
 #' 
 #' @param C A p x p symmetric positive semi-definite covariance matrix.
 #'   Typically C = X'MX where X is the data matrix and M is a row metric.
@@ -42,6 +44,22 @@
 #'   }
 #' 
 #' @details
+#' \strong{Method Selection Guide:}
+#' 
+#' Use \code{method = "gmd"} when:
+#' \itemize{
+#'   \item You need exact equivalence with \code{\link{genpca}(X, M, A)}
+#'   \item You're following Allen et al.'s GMD framework
+#'   \item You want consistent results with the two-sided decomposition
+#' }
+#' 
+#' Use \code{method = "geigen"} when:
+#' \itemize{
+#'   \item You specifically need the generalized eigenvalue formulation
+#'   \item You're working with legacy code that expects this approach
+#'   \item Computational efficiency is critical and R is well-conditioned
+#' }
+#' 
 #' \strong{Method "gmd" (default):}
 #' 
 #' This method implements Allen et al.'s GMD approach and exactly matches the 
@@ -59,23 +77,43 @@
 #' For exact equivalence with genpca(X, M, A), use method="gmd" with C = X'MX and R = A.
 #' 
 #' @examples
-#' # Standard PCA on covariance (no constraint)
+#' # Example 1: Standard PCA on covariance (no constraint)
 #' C <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
 #' fit0 <- genpca_cov(C, R=NULL, ncomp=3)
 #' print(fit0$d[1:3])       # first 3 singular values
 #' print(fit0$propv[1:3])   # variance explained by first 3 components
 #' 
-#' # Variable weights via a diagonal metric
+#' # Example 2: Demonstrating equivalence with genpca
+#' set.seed(123)
+#' X <- matrix(rnorm(50 * 10), 50, 10)
+#' M_diag <- runif(50, 0.5, 1.5)  # row weights
+#' A_diag <- runif(10, 0.5, 2)    # column weights
+#' 
+#' # Two-sided GPCA
+#' fit_gpca <- genpca(X, M = M_diag, A = A_diag, ncomp = 5,
+#'                    preproc = multivarious::pass())
+#' 
+#' # Equivalent covariance-based GPCA
+#' C <- crossprod(X, diag(M_diag) %*% X)  # C = X'MX
+#' fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
+#' 
+#' # These should match exactly
+#' all.equal(fit_gpca$sdev, fit_cov$d, tolerance = 1e-10)
+#' 
+#' # Example 3: Variable weights via a diagonal metric
 #' w <- c(1, 1, 0.5, 2)  # emphasize Sepal.Width less, Petal.Width more
 #' fitW <- genpca_cov(C, R = w, ncomp=3, method="gmd")
 #' print(fitW$d[1:3])
 #' 
-#' # Compare GMD and generalized eigenvalue approaches
+#' # Example 4: Compare GMD and generalized eigenvalue approaches
 #' fit_gmd <- genpca_cov(C, R = w, ncomp=2, method="gmd")
 #' fit_geigen <- genpca_cov(C, R = w, ncomp=2, method="geigen")
 #' # These will generally differ unless R = I
 #' print(paste("GMD singular values:", paste(round(fit_gmd$d, 3), collapse=", ")))
 #' print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=", ")))
+#' 
+#' @seealso \code{\link{genpca}} for the standard two-sided GPCA on data matrices,
+#'   \code{\link{genpls}} for generalized partial least squares
 #' 
 #' @references
 #' Allen, G. I., Grosenick, L., & Taylor, J. (2014).
