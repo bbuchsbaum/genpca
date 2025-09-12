@@ -75,6 +75,7 @@ test_that("gen_pca with dense column and row constraints works", {
 })
 
 test_that("gen_pca with sparse column and row constraints works", {
+  skip_if_not_installed("neighborweights")
   A <- neighborweights:::adjacency.neighbor_graph(neighborweights::graph_weights(mat_10_10, k=8))
   Matrix::diag(A) <- 1
   M <- neighborweights:::adjacency.neighbor_graph(neighborweights::graph_weights(t(mat_10_10), k=3))
@@ -122,6 +123,7 @@ test_that("can run genpca with deflation", {
 })
 
 test_that("can run genpca with sparse weighting matrix", {
+  skip_if_not_installed("neighborweights")
   X <- matrix(rnorm(10000*20),10000,20)
   A <- neighborweights::temporal_adjacency(1:20)
   A <- cov(as.matrix(A))
@@ -132,6 +134,7 @@ test_that("can run genpca with sparse weighting matrix", {
 })
 
 test_that("can run genpca on a largeish matrix with deflation", {
+  skip_if_not_installed("neighborweights")
   nr <- 1000
   nc <- 500
   X <- matrix(rnorm(nr*nc),nr,nc)
@@ -469,6 +472,7 @@ test_that("Spectra method matches eigen method on modest problems", {
 
 ## -------------------------------------------------------------------------------
 test_that("Orthonormality holds in (M,A) metrics", {
+  skip_if_not_installed("neighborweights")
 
   Mrow <- neighborweights::temporal_adjacency(1:nrow(Xsmall))
   Mrow <- t(Mrow) %*% Mrow                 # PSD & dense

@@ -26,6 +26,12 @@ LinkingTo:
     RcppEigen,
     RSpectra
 Suggests:
-    testthat,
-    microbenchmark
+    testthat (>= 3.0.0),
+    microbenchmark,
+    irlba,
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
 RoxygenNote: 7.3.2.9000
+URL: https://bbuchsbaum.github.io/genpca/

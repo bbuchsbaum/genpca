@@ -166,19 +166,3 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
   list(values = as.numeric(lambda), vectors = V, final_reg_S = final_reg_S)
 }
 
-##############################################
-# Example usage:
-# d <- 50
-# q <- 3
-# 
-# set.seed(1)
-# A <- matrix(rnorm(d*d), d, d)
-# S2 <- crossprod(A) + diag(d)*0.1
-# B <- matrix(rnorm(d*d), d, d)
-# S1 <- crossprod(B) + diag(d)*0.1
-# 
-# res_largest <- solve_gep_subspace(S1, S2, q = q, which = "largest", reg_S = 1e-4, reg_T = 1e-6)
-# cat("Largest 3 eigenvalues:\n", res_largest$values, "\n")
-# 
-# res_smallest <- solve_gep_subspace(S1, S2, q = q, which = "smallest", reg_S = 1e-3, reg_T = 1e-6)
-# cat("Smallest 3 eigenvalues:\n", res_smallest$values, "\n")
