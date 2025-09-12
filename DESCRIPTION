@@ -20,6 +20,8 @@ Imports:
     methods,
     PRIMME,
     digest
+Remotes:
+    bbuchsbaum/multivarious
 LinkingTo:
     Rcpp,
     RcppArmadillo,
