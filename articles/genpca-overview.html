@@ -164,19 +164,30 @@ patterns. For theoretical details on PLS-SVD, see the companion vignette
 <div class="section level3">
 <h3 id="the-generalized-pca-problem">The Generalized PCA Problem<a class="anchor" aria-label="anchor" href="#the-generalized-pca-problem"></a>
 </h3>
-<p>GPCA seeks a low-rank approximation of <code>X</code> that minimizes
-reconstruction error in a metric-weighted sense. Given row metric
-<code>M</code> and column metric <code>A</code>, we find
-rank-<code>k</code> factors by minimizing:</p>
-<pre><code>|| X − U D V^T ||_{M,A}^2 = tr( M (X − U D V^T) A (X − U D V^T)^T )</code></pre>
+<p>GPCA seeks a low‑rank approximation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+that minimizes reconstruction error in a metric‑weighted sense. Given
+row metric
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+and column metric
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>,
+we find
+rank‑<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+factors by minimizing:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">∥</mo><mi>X</mi><mo>−</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup><msubsup><mo stretchy="false" form="postfix">∥</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow><mn>2</mn></msubsup><mo>=</mo><mo>tr</mo><mspace width="-0.167em"></mspace><mo minsize="1.8" maxsize="1.8" stretchy="false" form="prefix">(</mo><mi>M</mi><mspace width="0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mi>X</mi><mo>−</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>A</mi><mspace width="0.167em"></mspace><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>X</mi><mo>−</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mi>⊤</mi></msup><mo minsize="1.8" maxsize="1.8" stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\lVert X - U D V^\top \rVert_{M,A}^2
+= \operatorname{tr}\!\Big( M\, (X - U D V^\top)\, A\, (X - U D V^\top)^\top \Big).
+</annotation></semantics></math></p>
 <p>This weighted Frobenius norm incorporates the metrics into the
 distance calculation. The solution satisfies orthonormality constraints
 in the respective metrics:</p>
 <ul>
 <li>
-<code>U^T M U = I_k</code> (M-orthonormal scores)</li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>U</mi><mi>⊤</mi></msup><mi>M</mi><mi>U</mi><mo>=</mo><msub><mi>I</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">U^\top M U = I_k</annotation></semantics></math>
+(M‑orthonormal scores)</li>
 <li>
-<code>V^T A V = I_k</code> (A-orthonormal loadings)</li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>V</mi><mi>⊤</mi></msup><mi>A</mi><mi>V</mi><mo>=</mo><msub><mi>I</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">V^\top A V = I_k</annotation></semantics></math>
+(A‑orthonormal loadings)</li>
 </ul>
 </div>
 <div class="section level3">
@@ -198,7 +209,7 @@ PCA.</p>
 </h2>
 <p>Let’s begin with standard PCA to establish a baseline, then explore
 how metrics modify the decomposition.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co"># Simulated data: 200 observations, 50 variables</span></span>
 <span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">200</span> <span class="op">*</span> <span class="fl">50</span><span class="op">)</span>, <span class="fl">200</span>, <span class="fl">50</span><span class="op">)</span></span>
@@ -242,7 +253,7 @@ how metrics modify the decomposition.</p>
 <p>Now let’s consider a scenario where observations have different
 importance. For example, in survey data, each row might represent
 responses from different population sizes.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://Matrix.R-forge.R-project.org" class="external-link">Matrix</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Simulate observation weights (e.g., population sizes)</span></span>
@@ -275,7 +286,7 @@ responses from different population sizes.</p>
 <p>Column metrics encode relationships between variables. This is useful
 when variables have known correlation structure (e.g., spatial or
 temporal dependencies).</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Example: Variables with local correlation structure</span></span>
@@ -355,7 +366,7 @@ based on your data size and requirements:</p>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Compare methods on same data</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joshuaulrich/microbenchmark/" class="external-link">microbenchmark</a></span><span class="op">)</span></span>
 <span></span>
@@ -394,7 +405,7 @@ based on your data size and requirements:</p>
 <p>The package integrates with <code>multivarious</code> for
 preprocessing pipelines. Centering is typically essential for meaningful
 PCA.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Center columns (variables) before decomposition</span></span>
 <span><span class="va">fit_c</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, ncomp <span class="op">=</span> <span class="fl">10</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -409,7 +420,7 @@ PCA.</p>
 <span>     ylab <span class="op">=</span> <span class="st">"Mean Squared Reconstruction Error"</span>,</span>
 <span>     main <span class="op">=</span> <span class="st">"Reconstruction Quality"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="genpca-overview_files/figure-html/preproc-recon-1.png" width="700"></p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co"># Typical elbow at 3-4 components for random data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Reconstruction error with 3 components:"</span>, <span class="va">recon_errors</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -423,7 +434,7 @@ PCA.</p>
 </h2>
 <p>GPCA models can project new observations into the learned component
 space, essential for prediction and validation.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Split data for demonstration</span></span>
 <span><span class="va">n_train</span> <span class="op">&lt;-</span> <span class="fl">150</span></span>
 <span><span class="va">X_train</span> <span class="op">&lt;-</span> <span class="va">X</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="va">n_train</span>, <span class="op">]</span></span>
@@ -451,7 +462,7 @@ space, essential for prediction and validation.</p>
 <p>Sometimes you may have a pre-computed covariance matrix C = X’MX
 rather than the raw data X. The <code><a href="../reference/genpca_cov.html">genpca_cov()</a></code> function
 performs GPCA directly on covariance matrices:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example: Large dataset where we only store the covariance</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">789</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">1000</span>  <span class="co"># Many observations</span></span>
@@ -496,7 +507,7 @@ constraints.</p>
 <p>The package provides generalized PLS-SVD (canonical PLS) for finding
 relationships between two data matrices while respecting their metric
 structures:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co"># Create correlated data blocks</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
@@ -534,7 +545,7 @@ structures:</p>
 <p>For advanced users, <code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code> provides direct access
 to the operator-level computations without materializing large
 intermediate matrices:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Direct operator SVD (useful for very large problems)</span></span>
 <span><span class="va">op_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gplssvd_op.html">gplssvd_op</a></span><span class="op">(</span><span class="va">X_pls</span>, <span class="va">Y_pls</span>, k <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>                        center <span class="op">=</span> <span class="cn">TRUE</span>, scale <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
@@ -549,7 +560,7 @@ intermediate matrices:</p>
 </h2>
 <p>Let’s conclude with a realistic example showing when GPCA is
 preferable to standard PCA.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Simulate survey data where observations represent different population sizes</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
 <span><span class="va">n_respondents</span> <span class="op">&lt;-</span> <span class="fl">300</span></span>
@@ -589,7 +600,7 @@ preferable to standard PCA.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/text.html" class="external-link">text</a></span><span class="op">(</span><span class="va">pc1_unweighted</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, <span class="va">pc1_weighted</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, </span>
 <span>     labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"Q"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span>, pos <span class="op">=</span> <span class="fl">4</span>, cex <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span></span></code></pre></div>
 <p><img src="genpca-overview_files/figure-html/practical-example-1.png" width="700"></p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nCorrelation between weighted and unweighted PC1 loadings:"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">pc1_unweighted</span>, <span class="va">pc1_weighted</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
