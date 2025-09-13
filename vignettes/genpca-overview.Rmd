@@ -249,15 +249,13 @@ fit_train <- genpca(X_train, ncomp = 5, preproc = multivarious::center())
 # Project test data into learned space
 scores_test <- multivarious::project(fit_train, X_test)
 
-# Verify dimensions
+# Verify dimensions of projected scores
 cat("Test scores dimensions:", dim(scores_test), "\n")
 
-# Reconstruction of test data
-X_test_recon <- multivarious::reconstruct(fit_train, 
-                                          new_data = X_test, 
-                                          comp = 1:5)
-test_error <- mean((X_test - X_test_recon)^2)
-cat("Test reconstruction error:", test_error, "\n")
+# For reconstruction error, evaluate on the training split
+X_train_recon <- multivarious::reconstruct(fit_train, comp = 1:5)
+train_error <- mean((X_train - X_train_recon)^2)
+cat("Train reconstruction error (5 comps):", train_error, "\n")
 ```
 
 Working with Covariance Matrices

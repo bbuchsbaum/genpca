@@ -4,3 +4,6 @@
 .Ruserdata
 experimental/
 docs
+vignettes/*_files/
+figure/
+genpca-overview.md
