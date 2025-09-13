@@ -155,8 +155,8 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   with slots including:
 #'   \describe{
 #'     \item{u,v}{Left/right singular vectors scaled by the constraint metrics
-#'                (MU, AV). These correspond to loadings/components in the original space's geometry.
-#'                Use `loadings(fit)` or `components(fit)`.} 
+#'                (MU, AV). These correspond to components in the original space's geometry.
+#'                Use `components(fit)`.} 
 #'     \item{ou,ov}{Orthonormal singular vectors in the constraint metric
 #'                  (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
 #'     \item{sdev}{Generalised singular values d_k.}
@@ -176,7 +176,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @seealso \code{\link{genpca_cov}} for GPCA on pre-computed covariance matrices,
 #'   \code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
 #'   `multivarious::bi_projector`, `multivarious::project`, `multivarious::scores`,
-#'   `multivarious::loadings`, `multivarious::reconstruct`.
+#'   `multivarious::components`, `multivarious::reconstruct`.
 #'
 #' @examples
 #' if (requireNamespace("RSpectra", quietly = TRUE) &&
@@ -212,7 +212,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'                           preproc = multivarious::pass(), verbose = FALSE)
 #'   print("Weighted GPCA Sdev:")
 #'   print(gpca_weighted$sdev)
-#'   print(head(loadings(gpca_weighted)))
+#'   print(head(components(gpca_weighted)))
 #' }
 #' @useDynLib genpca, .registration = TRUE 
 #' @importFrom Rcpp sourceCpp

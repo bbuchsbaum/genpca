@@ -93,9 +93,9 @@ cat("\nExplained variance (first 5 components):\n")
 var_explained <- fit$sdev^2 / sum(fit$sdev^2)
 print(round(var_explained[1:5] * 100, 2))
 
-# Scores and loadings follow multivarious conventions
-dim(multivarious::scores(fit))    # n × k matrix
-dim(multivarious::loadings(fit))  # p × k matrix
+# Scores and components follow multivarious conventions
+dim(multivarious::scores(fit))      # n × k matrix
+dim(multivarious::components(fit))  # p × k matrix
 ```
 
 This recovers standard PCA since we used identity metrics (`M = I`, `A = I`).
@@ -151,11 +151,11 @@ fit_corr <- genpca(X, A = A, ncomp = 5, preproc = multivarious::center())
 
 # The decomposition now accounts for variable dependencies
 cat("Effect of column metric on first component:\n")
-plot(multivarious::loadings(fit)[,1], 
-     multivarious::loadings(fit_corr)[,1],
-     xlab = "Standard PCA Loading", 
-     ylab = "GPCA Loading (with dependencies)",
-     main = "How column metrics change loadings")
+plot(multivarious::components(fit)[,1], 
+     multivarious::components(fit_corr)[,1],
+     xlab = "Standard PCA Component", 
+     ylab = "GPCA Component (with dependencies)",
+     main = "How column metrics change components")
 abline(0, 1, lty = 2, col = "gray")
 ```
 
@@ -371,13 +371,13 @@ pca_weighted <- genpca(survey_data, M = M_survey, ncomp = 5,
                       preproc = multivarious::center())
 
 # Compare first principal component patterns
-pc1_unweighted <- multivarious::loadings(pca_unweighted)[,1]
-pc1_weighted <- multivarious::loadings(pca_weighted)[,1]
+pc1_unweighted <- multivarious::components(pca_unweighted)[,1]
+pc1_weighted <- multivarious::components(pca_weighted)[,1]
 
 # The weighted analysis gives different importance to questions
 plot(pc1_unweighted, pc1_weighted,
-     xlab = "Unweighted PC1 Loadings",
-     ylab = "Population-Weighted PC1 Loadings",
+     xlab = "Unweighted PC1 Components",
+     ylab = "Population-Weighted PC1 Components",
      main = "Effect of Population Weighting on Principal Components")
 abline(0, 1, lty = 2, col = "red")
 text(pc1_unweighted[1:5], pc1_weighted[1:5], 
