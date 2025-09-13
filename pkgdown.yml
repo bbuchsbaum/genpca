@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   genpca-overview: genpca-overview.html
   gplssvd-reference: gplssvd-reference.html
-last_built: 2025-09-13T13:26Z
+last_built: 2025-09-13T18:01Z
 urls:
   reference: https://bbuchsbaum.github.io/genpca/reference
   article: https://bbuchsbaum.github.io/genpca/articles
