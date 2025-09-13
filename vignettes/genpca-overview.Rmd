@@ -106,22 +106,27 @@ Having established the baseline with standard PCA, we can now explore how row me
 ```{r row-weighting}
 library(Matrix)
 
-# Simulate observation weights (e.g., population sizes)
+# Simulate observation weights representing different population sizes
+# For example, in a stratified survey where some respondents represent
+# larger population segments than others
 n <- nrow(X)
 obs_weights <- rgamma(n, shape = 2, scale = 0.5)
-obs_weights <- obs_weights / mean(obs_weights)  # normalize
+obs_weights <- obs_weights / mean(obs_weights)  # normalize for numerical stability
 
-# Create diagonal row metric
+# Create diagonal row metric M
+# Each diagonal element represents the importance/weight of that observation
 M <- Diagonal(n, x = obs_weights)
 
-# GPCA with row weighting
+# Perform GPCA with row weighting
+# This finds components that explain variance in the weighted space
 fit_weighted <- genpca(X, M = M, ncomp = 5, preproc = multivarious::center())
 
-# Compare with unweighted
+# Compare singular values between standard and weighted analyses
 cat("Singular values (unweighted vs weighted):\n")
 cbind(Standard = fit$sdev[1:5], Weighted = fit_weighted$sdev[1:5])
 
-# The weighted decomposition emphasizes high-weight observations
+# Note: The weighted decomposition emphasizes patterns in high-weight observations
+# This is crucial for population-representative analyses
 ```
 
 Variable Dependencies: Column Metrics
