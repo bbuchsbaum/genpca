@@ -56,16 +56,17 @@ Mathematical Formulation
 
 ### The Generalized PCA Problem
 
-GPCA seeks a low-rank approximation of `X` that minimizes reconstruction error in a metric-weighted sense. Given row metric `M` and column metric `A`, we find rank-`k` factors by minimizing:
+GPCA seeks a low‑rank approximation of \(X\) that minimizes reconstruction error in a metric‑weighted sense. Given row metric \(M\) and column metric \(A\), we find rank‑\(k\) factors by minimizing:
 
-```
-|| X − U D V^T ||_{M,A}^2 = tr( M (X − U D V^T) A (X − U D V^T)^T )
-```
+$$
+\lVert X - U D V^\top \rVert_{M,A}^2
+= \operatorname{tr}\!\Big( M\, (X - U D V^\top)\, A\, (X - U D V^\top)^\top \Big).
+$$
 
 This weighted Frobenius norm incorporates the metrics into the distance calculation. The solution satisfies orthonormality constraints in the respective metrics:
 
-- `U^T M U = I_k` (M-orthonormal scores)
-- `V^T A V = I_k` (A-orthonormal loadings)
+- \(U^\top M U = I_k\) (M‑orthonormal scores)
+- \(V^\top A V = I_k\) (A‑orthonormal loadings)
 
 ### Geometric Interpretation
 
