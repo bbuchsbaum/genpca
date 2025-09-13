@@ -135,16 +135,20 @@ Column metrics encode relationships between variables. This is useful when varia
 p <- ncol(X)
 
 # Example: Variables with local correlation structure
-# (e.g., adjacent time points or spatial neighbors)
-A <- bandSparse(p, p, k = -1:1, 
-                diagonals = list(
-                  rep(0.8, p),      # diagonal (self-correlation)
-                  rep(-0.2, p-1),   # off-diagonal (negative correlation with neighbors)
-                  rep(-0.2, p-1)
-                ))
+# Create a tridiagonal matrix that is guaranteed to be PSD
+# This represents local smoothness constraints
+library(Matrix)
 
-# Ensure positive semi-definiteness
-A <- A + 0.5 * Diagonal(p)  # shift spectrum
+# Method 1: Simple diagonal weights with small correlations
+# Create a correlation-like structure that's guaranteed PSD
+A <- Diagonal(p)  # Start with identity
+# Add small positive correlations between adjacent variables
+for (i in 1:(p-1)) {
+  A[i, i+1] <- 0.2
+  A[i+1, i] <- 0.2
+}
+# Ensure it's positive definite by adding a small ridge
+A <- A + 0.1 * Diagonal(p)
 
 # GPCA with column metric
 fit_corr <- genpca(X, A = A, ncomp = 5, preproc = multivarious::center())
@@ -190,12 +194,16 @@ if (FALSE) {
 }
 
 # For large sparse problems, spectra is preferred
-n_large <- 5000
-p_large <- 2000
+# Note: When using sparse matrices, skip preprocessing or convert to dense
+n_large <- 500  # Smaller for vignette compilation
+p_large <- 200
 X_sparse <- Matrix::rsparsematrix(n_large, p_large, density = 0.01)
 
-# This would be memory-intensive with eigen but efficient with spectra
-fit_large <- genpca(X_sparse, ncomp = 10, method = "spectra")
+# Convert to regular matrix for preprocessing compatibility
+# In practice, you might use preproc = multivarious::pass() with sparse matrices
+X_dense <- as.matrix(X_sparse)
+fit_large <- genpca(X_dense, ncomp = 10, method = "spectra", 
+                    preproc = multivarious::center())
 ```
 
 Preprocessing and Reconstruction
