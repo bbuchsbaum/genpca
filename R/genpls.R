@@ -121,20 +121,30 @@ genpls <- function(X, Y,
                   mult_sqrt = function(x) Ds %*% x,
                   mult_invsqrt = function(x) Dis %*% x))
     }
-    # General symmetric PSD
+    # General symmetric PSD -> use symmetric sqrt via eigen for robustness
     W <- to_Matrix(W)
     W <- Matrix::forceSymmetric(W, uplo = "U")
-    # Ensure SPD if possible; otherwise error out from Cholesky
-    # (use existing ensure_spd if available)
-    if (exists("ensure_spd", mode = "function")) {
-      W <- ensure_spd(W)
-    }
-    CH <- tryCatch(Matrix::Cholesky(W, LDL = FALSE, Imult = 0, super = TRUE),
-                   error = function(e) stop(sprintf("%s metric not SPD; Cholesky failed: %s", name, e$message)))
-    R <- as(CH, "sparseMatrix")
-    list(mult = function(x) W %*% x,
-         mult_sqrt = function(x) Matrix::crossprod(R, x),
-         mult_invsqrt = function(x) Matrix::solve(R, x))
+    if (exists("ensure_spd", mode = "function")) W <- ensure_spd(W)
+    Wd <- as.matrix(W)
+    es <- eigen(Wd, symmetric = TRUE)
+    lam <- pmax(es$values, 0)
+    Q   <- es$vectors
+    list(
+      mult = function(x) W %*% x,
+      mult_sqrt = function(x) {
+        X <- as.matrix(x)
+        alpha <- crossprod(Q, X)
+        if (length(lam) > 0) alpha <- diag(sqrt(lam), nrow = length(lam)) %*% alpha
+        Matrix::Matrix(Q %*% alpha, sparse = FALSE)
+      },
+      mult_invsqrt = function(x) {
+        X <- as.matrix(x)
+        alpha <- crossprod(Q, X)
+        invs <- ifelse(lam > 0, 1 / sqrt(lam), 0)
+        if (length(invs) > 0) alpha <- diag(invs, nrow = length(invs)) %*% alpha
+        Matrix::Matrix(Q %*% alpha, sparse = FALSE)
+      }
+    )
   }
 
   WX <- build_metric(Ax, px, "Ax")

@@ -322,9 +322,19 @@ fit_pls <- genpls(X_pls, Y_pls, ncomp = 3,
                   preproc_x = multivarious::center(),
                   preproc_y = multivarious::center())
 
-# Examine canonical correlations
-cat("Canonical correlations:\n")
-print(fit_pls$d)
+# Examine PLS-SVD singular values and latent correlations
+cat("PLS-SVD singular values (operator):\n")
+print(round(fit_pls$d, 3))
+
+# If X and Y are standardized, singular values scale with (n-1).
+# Divide by (n-1) to obtain singular values of the cross-correlation operator.
+cat("\nSingular values of cross-correlation (d / (n-1)):\n")
+print(round(fit_pls$d / (n - 1), 3))
+
+# Correlations between paired latent variables (always in [0, 1])
+cc <- sapply(seq_len(3), function(j) cor(fit_pls$lx[, j], fit_pls$ly[, j]))
+cat("\nLatent variable correlations (approx. 'canonical-like'):\n")
+print(round(cc, 3))
 
 # The weights show which variables contribute to each canonical variate
 cat("\nDimensions of weight matrices:\n")
