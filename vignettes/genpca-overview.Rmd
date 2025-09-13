@@ -14,45 +14,42 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 Introduction
 ------------
 
+Principal Component Analysis (PCA) is one of the most widely used techniques in data analysis, providing a foundation for dimensionality reduction, data visualization, and feature extraction. This vignette introduces Generalized PCA (GPCA), a powerful extension that adapts PCA to the natural geometry of your data. Through practical examples and clear explanations, you'll learn when and how to move beyond standard PCA to unlock deeper insights from complex datasets.
+
 ### Why Generalized PCA?
 
-Standard Principal Component Analysis (PCA) assumes that all variables and observations are equally important and that Euclidean distance captures the relevant notion of similarity. However, many real-world applications violate these assumptions:
+Standard Principal Component Analysis (PCA) assumes that all variables and observations are equally important and that Euclidean distance captures the relevant notion of similarity. However, many real-world applications violate these assumptions.
 
-- **Weighted observations**: In survey data, observations may represent different population sizes requiring row weighting.
-- **Non-uniform measurement precision**: Variables measured with different accuracies need appropriate weighting.
-- **Correlated features**: Variables with known correlation structure (e.g., spatial or temporal data) require metrics that account for these dependencies.
-- **Domain-specific geometry**: Functional data, shape analysis, and other specialized domains have natural non-Euclidean metrics.
+Consider survey data where each observation represents responses from populations of vastly different sizes. Standard PCA would treat a response representing 10,000 people identically to one representing 100 people, potentially distorting the true population-level patterns. Similarly, when variables are measured with different precisions—perhaps some through expensive high-accuracy instruments and others through approximate methods—we need a framework that can incorporate these measurement characteristics directly into the analysis.
 
-Generalized PCA (GPCA) extends standard PCA to handle these scenarios by incorporating row and column metric constraints that encode prior knowledge about the data structure.
+The challenge extends beyond simple weighting. In spatial and temporal data, variables often exhibit known correlation structures that should inform the dimensionality reduction. A temperature measurement at one location is naturally correlated with nearby locations, and ignoring this structure can lead to misleading components. Furthermore, many specialized domains such as functional data analysis and shape analysis operate in inherently non-Euclidean spaces where standard PCA's assumptions break down entirely.
+
+Generalized PCA (GPCA) addresses these limitations by extending the PCA framework to incorporate row and column metric constraints that encode prior knowledge about the data structure. This principled approach allows us to perform dimensionality reduction that respects the natural geometry of our problem domain.
 
 ### What is Generalized PCA?
 
-The `genpca` package implements Generalized PCA and related matrix decompositions for data observed in non‑Euclidean inner‑product spaces. Given an `n × p` data matrix `X`, GPCA incorporates two symmetric positive semi‑definite (PSD) matrices that define the geometry:
+The `genpca` package implements Generalized PCA and related matrix decompositions for data observed in non‑Euclidean inner‑product spaces. At its core, GPCA transforms the standard PCA problem by introducing two symmetric positive semi‑definite (PSD) matrices that fundamentally alter how we measure distances and angles in our data space.
 
-- **Row metric `M`** (`n × n`): Defines the inner product on the observation space. It induces the M‑norm `||x||_M^2 = x^T M x` and the squared distance `d_M(x, y)^2 = (x − y)^T M (x − y)`. Common choices include identity or diagonal weights (unequal sampling), covariance/precision‑based metrics (to reflect correlation structure), or kernels (e.g., temporal/spatial smoothness).
-- **Column metric `A`** (`p × p`): Defines the inner product on the variable space. It similarly induces `||v||_A^2 = v^T A v` and `d_A(v, w)^2 = (v − w)^T A (v − w)`. Typical choices include feature weights, covariance/precision on variables, graph‑based kernels, or Laplacian‑like structures (PSD).
+Given an `n × p` data matrix `X`, the row metric `M` (an `n × n` matrix) defines the inner product on the observation space. This metric induces the M‑norm `||x||_M^2 = x^T M x` and determines how we measure distances between observations through `d_M(x, y)^2 = (x − y)^T M (x − y)`. When working with weighted sampling, we might choose `M` to be a diagonal matrix of observation weights. For data with known correlation structure among observations, `M` might encode precision (inverse covariance) relationships. In applications involving temporal or spatial data, `M` could be a kernel matrix capturing smoothness assumptions.
 
-In short: correlations/similarities are encoded via the metric (inner product); dissimilarities are measured via the induced distance from that metric. Standard PCA is recovered when `M = I_n` and `A = I_p`.
+Analogously, the column metric `A` (a `p × p` matrix) defines the inner product on the variable space, inducing `||v||_A^2 = v^T A v` and the distance `d_A(v, w)^2 = (v − w)^T A (v − w)`. This metric might encode feature importance through diagonal weights, capture known relationships between variables through covariance or precision matrices, or represent graph‑based connectivity in network data. The key insight is that correlations and similarities are encoded through these metrics as inner products, while dissimilarities emerge naturally as the induced distances.
+
+When both `M = I_n` and `A = I_p` (identity matrices), we recover standard PCA as a special case, confirming that GPCA is a true generalization that encompasses the familiar while enabling much more.
 
 ### Package Capabilities
 
-The `genpca` package provides:
+The `genpca` package provides a comprehensive toolkit for generalized matrix decompositions. At its heart is the `genpca()` function, which implements GPCA through multiple computational backends tailored to different problem scales and structures. For small-to-medium datasets where forming full matrices is feasible, the `method = "eigen"` option provides direct eigendecomposition with excellent numerical stability. When dealing with large-scale or sparse data, the `method = "spectra"` backend leverages matrix-free iterative solvers implemented in C++ for exceptional scalability. For situations where only a few components are needed from massive datasets, `method = "deflation"` extracts components sequentially, minimizing memory footprint.
 
-- **`genpca()`**: Core GPCA implementation with multiple computational backends
-  - `method = "eigen"`: Direct eigendecomposition (good for small-to-medium problems)
-  - `method = "spectra"`: Matrix-free iterative solver via C++ Spectra (scalable)
-  - `method = "deflation"`: Sequential component extraction (memory-efficient)
-  
-- **Constraint handling**: Automatic validation and repair of metric matrices to ensure positive semi-definiteness
+Beyond the core decomposition, the package handles the practical challenges of working with metric constraints. It automatically validates and, when necessary, repairs metric matrices to ensure positive semi-definiteness, using sophisticated remediation strategies that preserve as much of the original structure as possible. This robustness means you can focus on the statistical modeling rather than numerical details.
 
-- **Integration with `multivarious`**: Seamless workflow for preprocessing, projection, reconstruction, and transfer learning
+The package integrates seamlessly with the `multivarious` ecosystem, providing a unified workflow for preprocessing, projection, reconstruction, and transfer learning across different dimensionality reduction methods. This integration extends to Generalized Partial Least Squares through the `genpls()` function, enabling canonical correlation analysis and related two-block methods with full metric support.
 
-- **Generalized PLS**: Extensions to Partial Least Squares including `genpls()` for canonical correlation analysis with metrics
-
-This vignette introduces GPCA concepts and demonstrates basic usage patterns. For theoretical details on PLS-SVD, see the companion vignette "Generalized PLS-SVD: Explicit Whitening Reference".
+This vignette introduces GPCA concepts through practical examples and demonstrates core usage patterns. For those interested in the mathematical foundations, particularly the connections to PLS-SVD and whitening transformations, the companion vignette "Generalized PLS-SVD: Explicit Whitening Reference" provides detailed theoretical derivations.
 
 Mathematical Formulation
 ------------------------
+
+With this conceptual foundation in place, let's examine the mathematical formulation that makes GPCA both theoretically sound and computationally tractable.
 
 ### The Generalized PCA Problem
 
@@ -75,7 +72,7 @@ The metrics `M` and `A` define the inner products—and thus norms and distances
 Getting Started: Standard PCA as GPCA
 --------------------------------------
 
-Let's begin with standard PCA to establish a baseline, then explore how metrics modify the decomposition.
+Now that we understand the mathematical framework, let's see GPCA in action. We'll begin with standard PCA to establish a baseline, then progressively introduce metrics to demonstrate how they modify the decomposition and provide deeper insights into the data structure.
 
 ```{r basic-identity}
 set.seed(1)
@@ -104,7 +101,7 @@ This recovers standard PCA since we used identity metrics (`M = I`, `A = I`).
 Weighted Observations: Row Metrics
 -----------------------------------
 
-Now let's consider a scenario where observations have different importance. For example, in survey data, each row might represent responses from different population sizes.
+Having established the baseline with standard PCA, we can now explore how row metrics fundamentally change the analysis. Consider a scenario where observations have different importance—a common situation in survey data where each row might represent responses from vastly different population sizes.
 
 ```{r row-weighting}
 library(Matrix)
@@ -130,7 +127,7 @@ cbind(Standard = fit$sdev[1:5], Weighted = fit_weighted$sdev[1:5])
 Variable Dependencies: Column Metrics
 --------------------------------------
 
-Column metrics encode relationships between variables. This is useful when variables have known correlation structure (e.g., spatial or temporal dependencies).
+While row metrics weight observations, column metrics encode relationships between variables. This capability becomes crucial when dealing with variables that have known correlation structures, such as measurements taken at different spatial locations or time points where proximity implies similarity.
 
 ```{r column-dependencies}
 p <- ncol(X)
@@ -167,7 +164,7 @@ abline(0, 1, lty = 2, col = "gray")
 Computational Methods
 ---------------------
 
-The `method` parameter selects the computational backend based on your data size and requirements:
+Understanding how metrics affect the decomposition is one aspect of GPCA; implementing it efficiently at scale is another. The package provides multiple computational backends, each optimized for different scenarios. The `method` parameter lets you select the most appropriate approach for your data size and computational constraints:
 
 ### Method Selection Guide
 
@@ -210,7 +207,7 @@ fit_large <- genpca(X_dense, ncomp = 10, method = "spectra",
 Preprocessing and Reconstruction
 ---------------------------------
 
-The package integrates with `multivarious` for preprocessing pipelines. Centering is typically essential for meaningful PCA.
+With the computational machinery in place, we turn to a critical aspect of any PCA analysis: preprocessing and the ability to reconstruct data from the learned components. The package's integration with `multivarious` provides a sophisticated preprocessing pipeline that ensures numerical stability and statistical validity. Centering, in particular, is typically essential for meaningful PCA as it ensures components capture variance rather than being dominated by the mean structure.
 
 ```{r preproc-recon}
 # Center columns (variables) before decomposition
@@ -236,7 +233,7 @@ cat("Percent variance retained:",
 Out-of-Sample Projection
 -------------------------
 
-GPCA models can project new observations into the learned component space, essential for prediction and validation.
+A key strength of GPCA lies in its ability to generalize beyond the training data. The learned decomposition defines a projection operator that can map new observations into the component space, making GPCA suitable for prediction, validation, and transfer learning applications.
 
 ```{r projection}
 # Split data for demonstration
@@ -262,7 +259,7 @@ cat("Train reconstruction error (5 comps):", train_error, "\n")
 Working with Covariance Matrices
 ---------------------------------
 
-Sometimes you may have a pre-computed covariance matrix C = X'MX rather than the raw data X. The `genpca_cov()` function performs GPCA directly on covariance matrices:
+In many practical scenarios, you may encounter situations where the raw data matrix is unavailable or too large to handle directly, but you have access to a pre-computed covariance matrix C = X'MX. This arises naturally when working with privacy-protected data, distributed computing systems, or when the covariance has been computed incrementally from streaming data. The `genpca_cov()` function elegantly handles these cases by performing GPCA directly on the covariance matrix:
 
 ```{r covariance-gpca}
 # Example: Large dataset where we only store the covariance
@@ -291,15 +288,12 @@ cat("Singular values from covariance GPCA:\n")
 print(fit_cov$d[1:5])
 ```
 
-The `genpca_cov()` function is particularly useful when:
-- The data matrix X is too large to store in memory
-- You receive pre-computed covariance matrices from external sources
-- You need to perform multiple analyses with different column constraints on the same covariance
+The `genpca_cov()` function becomes particularly valuable in several scenarios. When the data matrix X is too large to store in memory—perhaps containing millions of observations—storing only the p × p covariance matrix provides enormous memory savings. This approach also shines when you receive pre-computed covariance matrices from external sources where the raw data cannot be shared due to privacy constraints. Additionally, when you need to explore multiple analyses with different column constraints on the same dataset, working with the covariance matrix allows you to avoid repeatedly processing the raw data.
 
 Generalized Partial Least Squares
 ----------------------------------
 
-Beyond single-matrix decomposition, `genpca` extends to two-block methods like Partial Least Squares with metric constraints.
+The principles of GPCA extend naturally to two-block methods, where we seek to understand relationships between two sets of variables. The package implements generalized versions of Partial Least Squares that respect the metric structure of both data blocks, opening up powerful possibilities for canonical correlation analysis and related techniques.
 
 ### Canonical Correlation with Metrics
 
@@ -358,7 +352,7 @@ all.equal(op_result$d, fit_pls$d)
 Practical Example: Weighted Survey Data
 ----------------------------------------
 
-Let's conclude with a realistic example showing when GPCA is preferable to standard PCA.
+To illustrate the practical impact of generalized metrics, let's work through a realistic example from survey research. This scenario demonstrates not just how to use GPCA, but why the generalized framework provides insights that standard PCA would miss.
 
 ```{r practical-example}
 # Simulate survey data where observations represent different population sizes
@@ -408,14 +402,15 @@ cat("This shows that population weighting can substantially change the analysis.
 Best Practices and Performance Tips
 ------------------------------------
 
-1. **Matrix Sparsity**: Use sparse `Matrix` objects when possible to reduce memory usage
-2. **Method Selection**: 
-   - Use `eigen` for small dense problems (< 1000 dimensions)
-   - Use `spectra` for large or sparse problems
-   - Use `deflation` when you need only a few components
-3. **Constraint Validation**: The package automatically checks and can repair near-PSD matrices
-4. **Preprocessing**: Always center your data unless you have a specific reason not to
-5. **Memory Management**: For very large datasets, consider the matrix-free `spectra` method
+When working with the `genpca` package, several practices can dramatically improve both performance and numerical stability. Matrix sparsity should be leveraged whenever possible—the package is designed to work efficiently with sparse `Matrix` objects, which can reduce memory usage by orders of magnitude for data with many zero entries.
+
+Choosing the right computational method is crucial for performance. For small dense problems with fewer than 1000 dimensions in either direction, the `eigen` method provides the most straightforward and numerically stable approach. As your data scales up or becomes sparse, switching to the `spectra` method unlocks matrix-free computations that can handle datasets too large to fit in memory. When you need only a handful of components from a massive dataset, the `deflation` method extracts them sequentially, trading some computational efficiency for minimal memory usage.
+
+The package's automatic constraint validation saves you from numerical pitfalls. When you provide metric matrices that are nearly but not quite positive semi-definite—a common occurrence with empirical covariance matrices—the package automatically detects and repairs them using principled methods that preserve as much structure as possible.
+
+Preprocessing deserves special attention. Unless you have a specific statistical reason to avoid it, always center your data before applying GPCA. Centering ensures that the principal components capture variance rather than being dominated by the mean structure. The integration with `multivarious` makes this straightforward through the `preproc` parameter.
+
+For very large datasets that exceed available memory, the matrix-free `spectra` method becomes essential. This approach never forms the full transformed matrices, instead computing matrix-vector products on demand. Combined with sparse matrix representations, this enables GPCA on datasets that would be impossible to analyze with traditional methods.
 
 References
 ----------
@@ -429,9 +424,9 @@ References
 Further Resources
 -----------------
 
-- **Companion vignette**: "Generalized PLS-SVD: Explicit Whitening Reference" for detailed mathematical derivations
-- **Package documentation**: `?genpca` for complete function reference
-- **GitHub repository**: Report issues and contribute at https://github.com/yourusername/genpca
+This vignette has introduced the core concepts and practical usage of Generalized PCA. For those ready to dive deeper, several resources are available. The companion vignette "Generalized PLS-SVD: Explicit Whitening Reference" provides detailed mathematical derivations and connections to the broader literature on matrix decompositions. The package documentation (`?genpca`) offers complete function references with additional examples. For questions, bug reports, or contributions, visit the GitHub repository at https://github.com/bbuchsbaum/genpca.
+
+The generalized framework opens up a rich space of possibilities for data analysis. By encoding prior knowledge through metrics, GPCA transforms dimensionality reduction from a purely data-driven exercise into a principled integration of domain expertise with statistical learning.
 
 ```{r session, echo=FALSE}
 sessionInfo()
