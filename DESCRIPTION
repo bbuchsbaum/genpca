@@ -6,10 +6,15 @@ Authors@R: c(
     person("Brad", "Buchsbaum", 
            email = "brad.buchsbaum@gmail.com", 
            role = c("aut", "cre")))
-Description: Generalized PCA and related matrix decompositions.
+Description: Generalized PCA and related matrix decompositions in weighted
+    inner-product spaces. Methods are based on Allen, G. I., Grosenick, L.,
+    and Taylor, J. (2014) <doi:10.1080/01621459.2013.852978>, "A generalized
+    least-square matrix decomposition", Journal of the American Statistical
+    Association, 109(505), 145-159; and Abdi, H. (2007), "Singular value
+    decomposition (SVD) and generalized singular value decomposition",
+    Encyclopedia of Measurement and Statistics, 907-912.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Imports:
     Rcpp,
     RSpectra,
@@ -31,9 +36,12 @@ Suggests:
     testthat (>= 3.0.0),
     microbenchmark,
     irlba,
+    clue,
     knitr,
-    rmarkdown
+    rmarkdown,
+    neighborweights
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-RoxygenNote: 7.3.2.9000
+RoxygenNote: 7.3.3
 URL: https://bbuchsbaum.github.io/genpca/
+Config/Needs/website: albersdown
