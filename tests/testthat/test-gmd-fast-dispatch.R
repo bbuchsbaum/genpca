@@ -63,3 +63,70 @@ test_that("gmd_fast_cpp handles dsyMatrix input", {
   expect_equal(nrow(res$v), p)
   expect_equal(res$k, k)
 })
+
+test_that("gmd_fast_cpp diagonal fast path matches generic path", {
+  set.seed(456)
+  n <- 120
+  p <- 80
+  k <- 6
+  X <- matrix(rnorm(n * p), n, p)
+
+  Q <- Matrix::Diagonal(n, x = runif(n, 0.8, 1.2))
+  R <- Matrix::Diagonal(p, x = runif(p, 0.8, 1.2))
+
+  res_diag <- genpca:::gmd_fast_cpp(
+    X, Q, R, k,
+    topk = FALSE,
+    auto_topk = FALSE,
+    diag_fast = TRUE
+  )
+  res_generic <- genpca:::gmd_fast_cpp(
+    X, Q, R, k,
+    topk = FALSE,
+    auto_topk = FALSE,
+    diag_fast = FALSE
+  )
+
+  expect_equal(res_diag$d, res_generic$d, tolerance = 1e-6)
+  expect_equal(res_diag$k, res_generic$k)
+
+  align_u <- align_perm_sign(res_diag$u, res_generic$u)
+  expect_true(mean(align_u$corr) > 0.99)
+  align_v <- align_perm_sign(res_diag$v, res_generic$v)
+  expect_true(mean(align_v$corr) > 0.99)
+})
+
+test_that("genpca method='auto' dispatches predictably", {
+  set.seed(789)
+
+  # Small problem should choose eigen.
+  X_small <- matrix(rnorm(120 * 40), 120, 40)
+  fit_auto_small <- genpca::genpca(
+    X_small,
+    ncomp = 8,
+    method = "auto",
+    preproc = multivarious::center()
+  )
+  expect_equal(fit_auto_small$method, "eigen")
+
+  fit_eig_small <- genpca::genpca(
+    X_small,
+    ncomp = 8,
+    method = "eigen",
+    preproc = multivarious::center()
+  )
+  expect_equal(fit_auto_small$sdev, fit_eig_small$sdev, tolerance = 1e-8)
+
+  # Large diagonal, low-rank request should choose spectra when available.
+  X_diag <- matrix(rnorm(260 * 220), 260, 220)
+  A_diag <- Matrix::Diagonal(220, x = runif(220, 0.7, 1.3))
+  M_diag <- Matrix::Diagonal(260, x = runif(260, 0.7, 1.3))
+  fit_auto_diag <- genpca::genpca(
+    X_diag, A = A_diag, M = M_diag,
+    ncomp = 10,
+    method = "auto",
+    preproc = multivarious::center()
+  )
+
+  expect_equal(fit_auto_diag$method, "spectra")
+})

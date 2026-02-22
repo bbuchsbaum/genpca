@@ -435,6 +435,54 @@ test_that("gmd_fast_cpp returns fewer components if necessary", {
   expect_equal(ncol(res_cpp$v), res_cpp$k)
 })
 
+test_that("gmd_fast_cpp matches genpca spectra for identity constraints", {
+  # Direct comparison gmd_fast_cpp vs genpca(method="spectra") with identity metrics
+  set.seed(2024)
+  n <- 30; p <- 20; k <- 5
+  X <- matrix(rnorm(n * p), n, p)
+  X_centered <- scale(X, scale = FALSE)
+
+  Q <- diag(n)  # identity row metric
+  R <- diag(p)  # identity column metric
+
+  # gmd_fast_cpp (spectra-like path)
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q = Matrix::Matrix(Q), R = Matrix::Matrix(R), k = k)
+
+  # genpca with method="spectra" (iterative SVD path that wraps gmd_fast_cpp)
+  res_spectra <- genpca(X_centered, M = Q, A = R, ncomp = k, method = "spectra", preproc = multivarious::pass())
+
+  # Singular values should match exactly
+  expect_equal(res_cpp$d, multivarious::sdev(res_spectra), tolerance = 1e-9)
+
+  # Scores and loadings should match
+  expect_equal(as.matrix(res_cpp$u), as.matrix(multivarious::scores(res_spectra)), tolerance = 1e-8, check.attributes = FALSE)
+  expect_equal(as.matrix(res_cpp$v), as.matrix(multivarious::components(res_spectra)), tolerance = 1e-8, check.attributes = FALSE)
+})
+
+test_that("gmd_fast_cpp matches genpca spectra for diagonal constraints", {
+
+  # Test with non-identity diagonal metrics
+  set.seed(2025)
+  n <- 25; p <- 15; k <- 4
+  X <- matrix(rnorm(n * p), n, p)
+  X_centered <- scale(X, scale = FALSE)
+
+  # Diagonal metrics (e.g., observation weights)
+  row_weights <- runif(n, 0.5, 1.5)
+  col_weights <- runif(p, 0.5, 1.5)
+  Q <- diag(row_weights)
+  R <- diag(col_weights)
+
+  # gmd_fast_cpp
+  res_cpp <- genpca:::gmd_fast_cpp(X_centered, Q = Matrix::Matrix(Q), R = Matrix::Matrix(R), k = k)
+
+  # genpca with method="spectra"
+  res_spectra <- genpca(X_centered, M = Q, A = R, ncomp = k, method = "spectra", preproc = multivarious::pass())
+
+  # Singular values should match exactly
+  expect_equal(res_cpp$d, multivarious::sdev(res_spectra), tolerance = 1e-8)
+})
+
 ## ────────────────────────────────────────────────────────────────────────────────
 ##  tests/testthat/test-genpca-advanced.R
 ## ────────────────────────────────────────────────────────────────────────────────

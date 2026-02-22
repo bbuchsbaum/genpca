@@ -118,6 +118,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' Three methods are available via the `method` argument:
 #' \itemize{
 #'  \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
+#'  \item{\code{"auto"}: Chooses between \code{"eigen"} and \code{"spectra"} using simple heuristics on problem size, rank ratio (\code{ncomp / min(n,p)}), and whether constraints are diagonal.}
 #'  \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
 #'  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 #' }
@@ -131,12 +132,14 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @param M   Row constraint: vector (implies diagonal), dense matrix, or sparse
 #'            symmetric n x n PSD matrix. If `NULL`, defaults to identity.
 #' @param ncomp Number of components to extract. Defaults to `min(dim(X))`. Must be positive.
-#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
+#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice between \code{"eigen"} and \code{"spectra"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
 #' @param constraints_remedy Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.
 #' @param preproc Pre‑processing transformer object from the **multivarious** package
 #'                (default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
 #'                See `?multivarious::prep` for options.
 #' @param threshold Convergence tolerance for the \code{"deflation"} method's inner loop. Default `1e-6`.
+#' @param maxit_deflation Maximum iterations per component for the
+#'        \code{"deflation"} method. Default `500`.
 #' @param use_cpp Logical. If `TRUE` (default) and package was compiled with C++ support,
 #'                use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
 #'                (Ignored for \code{method = "eigen"} and \code{method = "spectra"}).
@@ -224,10 +227,11 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @importFrom stats rnorm runif
 #' @export
 genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
-                   method = c("eigen", "spectra", "deflation"),
+                   method = c("eigen", "auto", "spectra", "deflation"),
                    constraints_remedy = c("ridge", "error", "clip", "identity"),
                    preproc = multivarious::pass(), # Default to pass() for safety
                    threshold = 1e-6, # For deflation
+                   maxit_deflation = 500L, # For deflation
                    use_cpp = TRUE, # For deflation
                    maxeig = 800, # For method="eigen"
                    warn_approx = TRUE, # Warn if only an approximate eigen decomposition is used
@@ -244,6 +248,11 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   assert_that(length(ncomp) == 1 && ncomp == floor(ncomp) && ncomp > 0,
               msg="ncomp must be a single positive integer.")
   ncomp <- min(min(dim(X)), ncomp) # Cannot exceed dimensions
+  assert_that(length(maxit_deflation) == 1 &&
+                maxit_deflation == floor(maxit_deflation) &&
+                maxit_deflation > 0,
+              msg = "maxit_deflation must be a single positive integer.")
+  maxit_deflation <- as.integer(maxit_deflation)
 
   # Prepare and validate constraints M and A
   if (verbose) message("Preparing constraints...")
@@ -265,35 +274,75 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   cpp_deflation_available <- exists("gmd_deflation_cpp", mode = "function") # Example check
   cpp_spectra_available <- exists("gmd_fast_cpp", mode = "function") # Example check
 
-  if (method == "deflation" && use_cpp && !cpp_deflation_available) {
+  selected_method <- method
+  if (method == "auto") {
+      min_dim <- min(n, p)
+      k_ratio <- ncomp / min_dim
+      diagonal_constraints <- Matrix::isDiagonal(A) && Matrix::isDiagonal(M)
+      use_spectra <- cpp_spectra_available && (
+        (diagonal_constraints && min_dim >= 200L && k_ratio <= 0.35) ||
+        (!diagonal_constraints && min_dim >= 1000L && k_ratio <= 0.10)
+      )
+      selected_method <- if (use_spectra) "spectra" else "eigen"
+      if (verbose) {
+        message(
+          "Auto method selected '", selected_method,
+          "' (min_dim=", min_dim,
+          ", k_ratio=", sprintf("%.3f", k_ratio),
+          ", diagonal_constraints=", diagonal_constraints, ")."
+        )
+      }
+  }
+
+  if (selected_method == "deflation" && use_cpp && !cpp_deflation_available) {
       if (verbose) message("use_cpp=TRUE but C++ deflation code not found. Falling back to R version.")
       use_cpp <- FALSE # Force R version if C++ not found
   }
-  if (method == "spectra" && !cpp_spectra_available) {
+  if (selected_method == "spectra" && !cpp_spectra_available) {
       stop("method='spectra' requires the C++ function 'gmd_fast_cpp', which was not found. Ensure the package was compiled correctly with Rcpp/RcppArmadillo/RcppSpectra support.")
   }
 
   # --- Core Decomposition --- #
-  if (method == "deflation") {
+  if (selected_method == "deflation") {
     if (verbose) message(paste0("Using iterative deflation (", ifelse(use_cpp, "C++", "R"), ") to extract ", ncomp, " components..."))
     if (n < p) {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Matrix::t(Xp), A, M, ncomp, threshold)
-          svdfit$d <- svdfit$d[,1] # Ensure d is vector
+          svdfit <- gmd_deflation_cpp(Matrix::t(Xp), A, M, ncomp,
+                                      thr = threshold,
+                                      maxit = maxit_deflation,
+                                      verbose = verbose)
+          if (is.matrix(svdfit$d)) {
+            svdfit$d <- svdfit$d[,1] # Ensure d is vector
+          } else {
+            svdfit$d <- as.vector(svdfit$d)
+          }
           # C++ might not return propv/cumv, need to calculate if necessary
           if (is.null(svdfit$k)) svdfit$k <- length(svdfit$d)
         } else {
-          svdfit <- gmd_deflationR(Matrix::t(Xp), A, M, ncomp, threshold, verbose=verbose)
+          svdfit <- gmd_deflationR(Matrix::t(Xp), A, M, ncomp,
+                                   thr = threshold,
+                                   maxit = maxit_deflation,
+                                   verbose = verbose)
         }
         # Swap u and v back
         svdfit <- list(u=svdfit$v, v=svdfit$u, d=svdfit$d, k=svdfit$k, cumv=svdfit$cumv, propv=svdfit$propv)
     } else {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Xp, M, A, ncomp, threshold)
-          svdfit$d <- svdfit$d[,1]
+          svdfit <- gmd_deflation_cpp(Xp, M, A, ncomp,
+                                      thr = threshold,
+                                      maxit = maxit_deflation,
+                                      verbose = verbose)
+          if (is.matrix(svdfit$d)) {
+            svdfit$d <- svdfit$d[,1]
+          } else {
+            svdfit$d <- as.vector(svdfit$d)
+          }
           if (is.null(svdfit$k)) svdfit$k <- length(svdfit$d)
         } else {
-          svdfit <- gmd_deflationR(Xp, M, A, ncomp, threshold, verbose=verbose)
+          svdfit <- gmd_deflationR(Xp, M, A, ncomp,
+                                   thr = threshold,
+                                   maxit = maxit_deflation,
+                                   verbose = verbose)
         }
     }
     # Deflation methods should return propv/cumv, but double check
@@ -309,7 +358,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
        }
     }
 
-  } else if (method == "eigen") { # One-shot eigen-decomposition approach
+  } else if (selected_method == "eigen") { # One-shot eigen-decomposition approach
     if (verbose) message(paste0("Using one-shot eigen decomposition (gmdLA) to extract ", ncomp, " components..."))
     if (n < p) {
         if (verbose) message(" (n < p, using dual formulation)")
@@ -324,7 +373,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                         warn_approx = warn_approx, verbose=verbose)
     }
 
-  } else if (method == "spectra") { # Matrix-free C++/Spectra approach
+  } else if (selected_method == "spectra") { # Matrix-free C++/Spectra approach
       if (verbose) message(paste0("Using matrix-free Spectra C++ code to extract ", ncomp, " components..."))
       # Ensure Xp is dense matrix for the C++ function
       Xp_dense <- as.matrix(Xp)
@@ -467,6 +516,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
     propv = svdfit$propv, # Proportion of variance
     cumv = svdfit$cumv   # Cumulative variance
   )
+  ret$method <- selected_method
+  ret$requested_method <- method
 
   # bi_projector should handle adding "bi_projector", "projector" classes.
 
@@ -846,13 +897,18 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
 
 
 #' @rdname genpca
+#' @param maxit Maximum number of iterations for deflation convergence. Default `500`.
 #' @keywords internal
 #' @importFrom Matrix diag crossprod t
 #' @importFrom stats rnorm
-gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
+gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE) {
 
   n = nrow(X)
   p = ncol(X)
+  if (!is.numeric(maxit) || length(maxit) != 1 || maxit < 1 || maxit != floor(maxit)) {
+    stop("maxit must be a single positive integer.")
+  }
+  max_iter_defl <- as.integer(maxit)
 
   ugmd = matrix(0.0, n, k)
   vgmd = matrix(0.0, p, k)
@@ -880,7 +936,6 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, verbose=FALSE) {
     v <- matrix(stats::rnorm(p), ncol=1); v <- v / sqrt(sum(v^2))
 
     iter <- 0
-    max_iter_defl <- 500 # Max iterations for inner power method loop
     converged <- FALSE
 
     while(iter < max_iter_defl) {
