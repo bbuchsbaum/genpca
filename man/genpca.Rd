@@ -14,15 +14,22 @@ genpca(
   A = NULL,
   M = NULL,
   ncomp = NULL,
-  method = c("eigen", "spectra", "deflation"),
+  method = c("eigen", "auto", "spectra", "randomized", "deflation"),
   constraints_remedy = c("ridge", "error", "clip", "identity"),
   preproc = multivarious::pass(),
   threshold = 1e-06,
+  maxit_deflation = 500L,
   use_cpp = TRUE,
   maxeig = 800,
   warn_approx = TRUE,
   maxit_spectra = 1000,
   tol_spectra = 1e-09,
+  oversample = 20L,
+  n_power = 1L,
+  n_polish = 0L,
+  jitter_metric = 1e-10,
+  seed_randomized = 1234L,
+  tol_polish_randomized = 1e-04,
   verbose = FALSE
 )
 
@@ -40,7 +47,7 @@ gmdLA(
   verbose = FALSE
 )
 
-gmd_deflationR(X, Q, R, k, thr = 1e-06, verbose = FALSE)
+gmd_deflationR(X, Q, R, k, thr = 1e-06, maxit = 500L, verbose = FALSE)
 
 \method{truncate}{genpca}(x, ncomp)
 
@@ -65,7 +72,7 @@ symmetric n x n PSD matrix. If `NULL`, defaults to identity.}
 
 \item{ncomp}{Number of components to extract. Defaults to `min(dim(X))`. Must be positive.}
 
-\item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
+\item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
 
 \item{constraints_remedy}{Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.}
 
@@ -74,6 +81,9 @@ symmetric n x n PSD matrix. If `NULL`, defaults to identity.}
 See `?multivarious::prep` for options.}
 
 \item{threshold}{Convergence tolerance for the \code{"deflation"} method's inner loop. Default `1e-6`.}
+
+\item{maxit_deflation}{Maximum iterations per component for the
+\code{"deflation"} method. Default `500`.}
 
 \item{use_cpp}{Logical. If `TRUE` (default) and package was compiled with C++ support,
 use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
@@ -92,7 +102,21 @@ approximate eigen decomposition is used because the dimension exceeds \code{maxe
 
 \item{tol_spectra}{Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.}
 
+\item{oversample}{Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default `20`.}
+
+\item{n_power}{Number of power iterations for \code{method = "randomized"}. Default `1`.}
+
+\item{n_polish}{Number of optional block-polish iterations for \code{method = "randomized"}. Default `0`.}
+
+\item{jitter_metric}{Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default `1e-10`.}
+
+\item{seed_randomized}{Optional seed for \code{method = "randomized"}. Default `1234`.}
+
+\item{tol_polish_randomized}{Relative tolerance used for early stopping of polish iterations in \code{method = "randomized"}. Set `0` to disable early stop. Default `1e-4`.}
+
 \item{verbose}{Logical. If `TRUE`, print progress messages. Default `FALSE`.}
+
+\item{maxit}{Maximum number of iterations for deflation convergence. Default `500`.}
 }
 \value{
 An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::bi_projector`,
@@ -132,8 +156,21 @@ subject to UT M U = I, VT AV = I. (Allen et al., 2014).
 Three methods are available via the `method` argument:
 \itemize{
  \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
+ \item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
  \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
+ \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
+}
+}
+
+\section{Backend Guidance}{
+
+\itemize{
+  \item Use \code{method = "auto"} as the default in production pipelines.
+  \item Use \code{"eigen"} when you need a stable reference solution on small/medium problems.
+  \item Use \code{"spectra"} for larger matrix-free iterative solves where memory pressure is a concern.
+  \item Use \code{"randomized"} for wide low-rank settings (\code{p >> n}) with sparse metrics when throughput matters most.
+  \item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
 }
 
 For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which 

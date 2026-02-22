@@ -25,6 +25,22 @@ gmd_fast_cpp_dual_sp <- function(X, L_Q, R, k, tol = 1e-8, maxit = 1000L, topk =
     .Call(`_genpca_gmd_fast_cpp_dual_sp`, X, L_Q, R, k, tol, maxit, topk)
 }
 
+gmd_randomized_cpp_dn <- function(X, Q, R, k, oversample = 20L, n_power = 1L, n_polish = 0L, jitter = 1e-10, tol = 1e-9, polish_tol = 0.0, seed = 1234L) {
+    .Call(`_genpca_gmd_randomized_cpp_dn`, X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed)
+}
+
+gmd_randomized_cpp_sp <- function(X, Q, R, k, oversample = 20L, n_power = 1L, n_polish = 0L, jitter = 1e-10, tol = 1e-9, polish_tol = 0.0, seed = 1234L) {
+    .Call(`_genpca_gmd_randomized_cpp_sp`, X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed)
+}
+
+gmd_randomized_cpp_qsp_rdn <- function(X, Q, R, k, oversample = 20L, n_power = 1L, n_polish = 0L, jitter = 1e-10, tol = 1e-9, polish_tol = 0.0, seed = 1234L) {
+    .Call(`_genpca_gmd_randomized_cpp_qsp_rdn`, X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed)
+}
+
+gmd_randomized_cpp_qdn_rsp <- function(X, Q, R, k, oversample = 20L, n_power = 1L, n_polish = 0L, jitter = 1e-10, tol = 1e-9, polish_tol = 0.0, seed = 1234L) {
+    .Call(`_genpca_gmd_randomized_cpp_qdn_rsp`, X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed)
+}
+
 gmd_deflation_cpp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose = FALSE) {
     .Call(`_genpca_gmd_deflation_cpp`, X, Q, R, k, thr, maxit, verbose)
 }

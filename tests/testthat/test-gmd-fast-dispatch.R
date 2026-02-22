@@ -129,4 +129,104 @@ test_that("genpca method='auto' dispatches predictably", {
   )
 
   expect_equal(fit_auto_diag$method, "spectra")
+
+  # Sparse non-diagonal constraints should prefer spectra over eigen.
+  make_sparse_spd <- function(m) {
+    Matrix::Diagonal(m, x = rep(1, m)) +
+      Matrix::bandSparse(
+        m, m,
+        k = c(-1, 1),
+        diagonals = list(rep(-0.2, m - 1), rep(-0.2, m - 1))
+      ) +
+      Matrix::Diagonal(m, x = rep(0.5, m))
+  }
+  X_sparse <- matrix(rnorm(150 * 900), 150, 900)
+  fit_auto_sparse <- genpca::genpca(
+    X_sparse,
+    M = methods::as(make_sparse_spd(150), "dgCMatrix"),
+    A = methods::as(make_sparse_spd(900), "dgCMatrix"),
+    ncomp = 8,
+    method = "auto",
+    preproc = multivarious::pass()
+  )
+  expect_equal(fit_auto_sparse$method, "spectra")
+})
+
+test_that("genpca method='auto' selects randomized for wide sparse low-rank problems", {
+  skip_if_not(exists("gmd_randomized_cpp_dn", mode = "function"))
+
+  set.seed(790)
+  n <- 420
+  p <- 4200
+  k <- 12
+
+  X <- matrix(rnorm(n * p), n, p)
+  make_sparse_spd <- function(m) {
+    Matrix::Diagonal(m, x = rep(1, m)) +
+      Matrix::bandSparse(
+        m, m,
+        k = c(-1, 1),
+        diagonals = list(rep(-0.2, m - 1), rep(-0.2, m - 1))
+      ) +
+      Matrix::Diagonal(m, x = rep(0.5, m))
+  }
+  M_sp <- methods::as(make_sparse_spd(n), "dgCMatrix")
+  A_sp <- methods::as(make_sparse_spd(p), "dgCMatrix")
+
+  fit_auto <- genpca::genpca(
+    X,
+    M = M_sp,
+    A = A_sp,
+    ncomp = k,
+    method = "auto",
+    preproc = multivarious::pass()
+  )
+  expect_equal(fit_auto$method, "randomized")
+
+  fit_rand <- genpca::genpca(
+    X,
+    M = M_sp,
+    A = A_sp,
+    ncomp = k,
+    method = "randomized",
+    preproc = multivarious::pass()
+  )
+  expect_equal(fit_auto$sdev, fit_rand$sdev, tolerance = 1e-8)
+})
+
+test_that("gmd_fast_cpp dual sparse path returns metric-orthonormal factors", {
+  set.seed(991)
+  n <- 90
+  p <- 300
+  k <- 10
+  X <- scale(matrix(rnorm(n * p), n, p), center = TRUE, scale = FALSE)
+
+  make_sparse_spd <- function(m) {
+    methods::as(
+      Matrix::Diagonal(m, x = rep(1.5, m)) +
+        Matrix::bandSparse(
+          m, m,
+          k = c(-1, 1),
+          diagonals = list(rep(-0.2, m - 1), rep(-0.2, m - 1))
+        ),
+      "dgCMatrix"
+    )
+  }
+
+  Q <- make_sparse_spd(n)
+  R <- make_sparse_spd(p)
+
+  res <- genpca:::gmd_fast_cpp(
+    X, Q, R, k,
+    topk = TRUE,
+    auto_topk = TRUE,
+    diag_fast = FALSE
+  )
+
+  QtU <- crossprod(res$ou, Q %*% res$ou)
+  RtV <- crossprod(res$ov, R %*% res$ov)
+  Ik <- diag(ncol(res$ou))
+
+  expect_lt(max(abs(QtU - Ik)), 1e-5)
+  expect_lt(max(abs(RtV - Ik)), 1e-5)
 })

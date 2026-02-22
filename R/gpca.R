@@ -118,11 +118,21 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' Three methods are available via the `method` argument:
 #' \itemize{
 #'  \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
-#'  \item{\code{"auto"}: Chooses between \code{"eigen"} and \code{"spectra"} using simple heuristics on problem size, rank ratio (\code{ncomp / min(n,p)}), and whether constraints are diagonal.}
+#'  \item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
 #'  \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
+#'  \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
 #'  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 #' }
 #' 
+#' @section Backend Guidance:
+#' \itemize{
+#'   \item Use \code{method = "auto"} as the default in production pipelines.
+#'   \item Use \code{"eigen"} when you need a stable reference solution on small/medium problems.
+#'   \item Use \code{"spectra"} for larger matrix-free iterative solves where memory pressure is a concern.
+#'   \item Use \code{"randomized"} for wide low-rank settings (\code{p >> n}) with sparse metrics when throughput matters most.
+#'   \item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
+#' }
+#'
 #' For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which 
 #' performs GPCA directly on C with column constraint R (equivalent to A).
 #'
@@ -132,7 +142,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @param M   Row constraint: vector (implies diagonal), dense matrix, or sparse
 #'            symmetric n x n PSD matrix. If `NULL`, defaults to identity.
 #' @param ncomp Number of components to extract. Defaults to `min(dim(X))`. Must be positive.
-#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice between \code{"eigen"} and \code{"spectra"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
+#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
 #' @param constraints_remedy Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.
 #' @param preproc Pre‑processing transformer object from the **multivarious** package
 #'                (default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
@@ -152,6 +162,12 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'        approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.
 #' @param maxit_spectra Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default `1000`.
 #' @param tol_spectra Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.
+#' @param oversample Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default `20`.
+#' @param n_power Number of power iterations for \code{method = "randomized"}. Default `1`.
+#' @param n_polish Number of optional block-polish iterations for \code{method = "randomized"}. Default `0`.
+#' @param jitter_metric Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default `1e-10`.
+#' @param seed_randomized Optional seed for \code{method = "randomized"}. Default `1234`.
+#' @param tol_polish_randomized Relative tolerance used for early stopping of polish iterations in \code{method = "randomized"}. Set `0` to disable early stop. Default `1e-4`.
 #' @param verbose Logical. If `TRUE`, print progress messages. Default `FALSE`.
 #'
 #' @return An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::bi_projector`,
@@ -227,7 +243,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @importFrom stats rnorm runif
 #' @export
 genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
-                   method = c("eigen", "auto", "spectra", "deflation"),
+                   method = c("eigen", "auto", "spectra", "randomized", "deflation"),
                    constraints_remedy = c("ridge", "error", "clip", "identity"),
                    preproc = multivarious::pass(), # Default to pass() for safety
                    threshold = 1e-6, # For deflation
@@ -237,6 +253,12 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                    warn_approx = TRUE, # Warn if only an approximate eigen decomposition is used
                    maxit_spectra = 1000, # For method="spectra"
                    tol_spectra = 1e-9,   # For method="spectra"
+                   oversample = 20L,     # For method="randomized"
+                   n_power = 1L,         # For method="randomized"
+                   n_polish = 0L,        # For method="randomized"
+                   jitter_metric = 1e-10, # For method="randomized"
+                   seed_randomized = 1234L, # For method="randomized"
+                   tol_polish_randomized = 1e-4, # For method="randomized"
                    verbose = FALSE) {
 
   method <- match.arg(method)
@@ -253,6 +275,31 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                 maxit_deflation > 0,
               msg = "maxit_deflation must be a single positive integer.")
   maxit_deflation <- as.integer(maxit_deflation)
+  assert_that(length(oversample) == 1 &&
+                oversample == floor(oversample) &&
+                oversample >= 0,
+              msg = "oversample must be a single non-negative integer.")
+  oversample <- as.integer(oversample)
+  assert_that(length(n_power) == 1 &&
+                n_power == floor(n_power) &&
+                n_power >= 0,
+              msg = "n_power must be a single non-negative integer.")
+  n_power <- as.integer(n_power)
+  assert_that(length(n_polish) == 1 &&
+                n_polish == floor(n_polish) &&
+                n_polish >= 0,
+              msg = "n_polish must be a single non-negative integer.")
+  n_polish <- as.integer(n_polish)
+  if (!is.null(seed_randomized)) {
+    assert_that(length(seed_randomized) == 1 &&
+                  seed_randomized == floor(seed_randomized),
+                msg = "seed_randomized must be NULL or a single integer.")
+    seed_randomized <- as.integer(seed_randomized)
+  }
+  assert_that(length(tol_polish_randomized) == 1 &&
+                is.finite(tol_polish_randomized) &&
+                tol_polish_randomized >= 0,
+              msg = "tol_polish_randomized must be a single non-negative number.")
 
   # Prepare and validate constraints M and A
   if (verbose) message("Preparing constraints...")
@@ -273,23 +320,44 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # Placeholder check - replace with actual check if package uses compiled code
   cpp_deflation_available <- exists("gmd_deflation_cpp", mode = "function") # Example check
   cpp_spectra_available <- exists("gmd_fast_cpp", mode = "function") # Example check
+  cpp_randomized_available <- exists("gmd_randomized_cpp_dn", mode = "function")
 
   selected_method <- method
   if (method == "auto") {
       min_dim <- min(n, p)
+      max_dim <- max(n, p)
       k_ratio <- ncomp / min_dim
       diagonal_constraints <- Matrix::isDiagonal(A) && Matrix::isDiagonal(M)
+      sparse_constraints <- methods::is(A, "sparseMatrix") || methods::is(M, "sparseMatrix")
+      wide_problem <- p >= (2L * n)
+      large_problem <- (min_dim >= 120L) && (max_dim >= 1500L)
+      use_randomized <- cpp_randomized_available &&
+        sparse_constraints &&
+        !diagonal_constraints &&
+        wide_problem &&
+        large_problem &&
+        k_ratio <= 0.15
       use_spectra <- cpp_spectra_available && (
         (diagonal_constraints && min_dim >= 200L && k_ratio <= 0.35) ||
-        (!diagonal_constraints && min_dim >= 1000L && k_ratio <= 0.10)
+        (!diagonal_constraints && min_dim >= 1000L && k_ratio <= 0.10) ||
+        (sparse_constraints && min_dim >= 100L && k_ratio <= 0.25)
       )
-      selected_method <- if (use_spectra) "spectra" else "eigen"
+      selected_method <- if (use_randomized) {
+        "randomized"
+      } else if (use_spectra) {
+        "spectra"
+      } else {
+        "eigen"
+      }
       if (verbose) {
         message(
           "Auto method selected '", selected_method,
           "' (min_dim=", min_dim,
+          ", max_dim=", max_dim,
           ", k_ratio=", sprintf("%.3f", k_ratio),
-          ", diagonal_constraints=", diagonal_constraints, ")."
+          ", diagonal_constraints=", diagonal_constraints,
+          ", sparse_constraints=", sparse_constraints,
+          ", wide_problem=", wide_problem, ")."
         )
       }
   }
@@ -305,9 +373,14 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # --- Core Decomposition --- #
   if (selected_method == "deflation") {
     if (verbose) message(paste0("Using iterative deflation (", ifelse(use_cpp, "C++", "R"), ") to extract ", ncomp, " components..."))
+    if (use_cpp) {
+      # C++ deflation backend expects sparse metrics.
+      M_cpp <- methods::as(M, "dgCMatrix")
+      A_cpp <- methods::as(A, "dgCMatrix")
+    }
     if (n < p) {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Matrix::t(Xp), A, M, ncomp,
+          svdfit <- gmd_deflation_cpp(Matrix::t(Xp), A_cpp, M_cpp, ncomp,
                                       thr = threshold,
                                       maxit = maxit_deflation,
                                       verbose = verbose)
@@ -328,7 +401,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
         svdfit <- list(u=svdfit$v, v=svdfit$u, d=svdfit$d, k=svdfit$k, cumv=svdfit$cumv, propv=svdfit$propv)
     } else {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Xp, M, A, ncomp,
+          svdfit <- gmd_deflation_cpp(Xp, M_cpp, A_cpp, ncomp,
                                       thr = threshold,
                                       maxit = maxit_deflation,
                                       verbose = verbose)
@@ -404,10 +477,60 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
       svdfit <- list(d = spectra_res$d,
                      u = spectra_res$u, # These are actually scores/D, not ou!
                      v = spectra_res$v, # These are actually components, not ov!
+                     ou = spectra_res$ou,
+                     ov = spectra_res$ov,
                      k = spectra_res$k,
                      propv = propv,
                      cumv = cumv,
                      is_spectra = TRUE) # Flag to indicate special handling needed
+  } else if (selected_method == "randomized") { # Randomized block range finder
+      if (verbose) {
+        message(
+          "Using randomized block solver to extract ", ncomp,
+          " components (oversample=", oversample,
+          ", n_power=", n_power,
+          ", n_polish=", n_polish,
+          ", tol_polish=", tol_polish_randomized, ")."
+        )
+      }
+      Xp_dense <- as.matrix(Xp)
+      if (any(!is.finite(Xp_dense))) stop("Input matrix X (after preproc) contains non-finite values.")
+
+      rand_res <- tryCatch(
+        gmd_randomized(
+          X = Xp_dense,
+          Q = M,
+          R = A,
+          k = ncomp,
+          oversample = oversample,
+          n_power = n_power,
+          n_polish = n_polish,
+          jitter = jitter_metric,
+          tol = tol_spectra,
+          polish_tol = tol_polish_randomized,
+          seed = seed_randomized
+        ),
+        error = function(e) stop("Call to gmd_randomized failed: ", e$message)
+      )
+
+      if (verbose) message(" Calculating variance explained for randomized method...")
+      total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
+      if (total_variance < 1e-8) {
+        propv <- rep(0, rand_res$k)
+        warning("Total generalized variance is near zero.")
+      } else {
+        propv <- (rand_res$d^2) / total_variance
+      }
+      cumv <- cumsum(propv)
+
+      svdfit <- list(
+        d = rand_res$d,
+        u = rand_res$u, # Q-orthonormal vectors
+        v = rand_res$v, # R-orthonormal vectors
+        k = rand_res$k,
+        propv = propv,
+        cumv = cumv
+      )
   } else {
       stop("Internal error: Unknown method specified.") # Should not happen due to match.arg
   }
@@ -445,19 +568,22 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # SPECIAL CASE: spectra method returns scores and components directly!
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
     # From gmd_fast_cpp:
-    # - svdfit$u contains scores U (where U = Q*X*C for primal or L_Q*B*C for dual)
-    # - svdfit$v contains components C (primal) or R*V (dual)
+    # - svdfit$u contains scores U (where U = Q*X*C)
+    # - svdfit$v contains components C = R*ov
     # - svdfit$d contains singular values
     
     # The scores are already computed
     scores_mat <- as.matrix(svdfit$u)  # Ensure regular matrix
     
-    # For ou and ov, we need the Q-orthonormal and R-orthonormal eigenvectors
-    # These are NOT directly available from gmd_fast_cpp output
-    # We'll use the scores/components as proxy since back-calculation is unstable
-    # Note: This means ou and ov won't satisfy ou^T*M*ou = I exactly
-    ou <- sweep(svdfit$u, 2, svdfit$d, `/`)  # Approximate: scores/d
-    ov <- svdfit$v  # Components (already R-weighted)
+    # New spectra backend returns metric-orthonormal factors directly.
+    if (!is.null(svdfit$ou) && !is.null(svdfit$ov)) {
+      ou <- as.matrix(svdfit$ou)
+      ov <- as.matrix(svdfit$ov)
+    } else {
+      # Backward-compatible fallback for older compiled backends.
+      ou <- sweep(svdfit$u, 2, svdfit$d, `/`)  # Approximate: scores/d
+      ov <- svdfit$v
+    }
   } else {
     # Standard path for eigen/deflation methods
     M_ou <- M %*% svdfit$u
@@ -496,7 +622,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # Create the S3 object using the multivarious constructor
   # Compute M_ou if not already done
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
-    M_ou <- as.matrix(ou)  # Use the scaled version, ensure regular matrix
+    M_ou <- as.matrix(M %*% ou)
   } else {
     # Already computed above in the else branch
     M_ou <- as.matrix(M_ou)  # Ensure regular matrix
@@ -717,6 +843,10 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
         # Ensure M is symmetric sparse for eigs_sym or dense for eigen
         M_sym <- if(!Matrix::isSymmetric(M)) Matrix::forceSymmetric(M) else M
         if (!is(M_sym, "sparseMatrix")) M_sym <- Matrix::Matrix(M_sym, sparse=TRUE)
+        if (is(M_sym, "sparseMatrix") && !is(M_sym, "dgCMatrix")) {
+          # RSpectra::eigs_sym dispatches reliably on general CSC sparse matrices.
+          M_sym <- methods::as(methods::as(M_sym, "generalMatrix"), "CsparseMatrix")
+        }
         
         decomp_raw <- tryCatch({
             if (nrow(M_sym) <= maxeig) {

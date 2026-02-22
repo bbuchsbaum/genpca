@@ -17,9 +17,21 @@ library(Matrix)
 Backend selection
 -----------------
 
-- `method = "eigen"`: small/medium dense problems; forms full matrices.
-- `method = "spectra"`: large or sparse; matrix-free iterations (requires C++ build).
-- `method = "deflation"`: need only a few components; minimal memory.
+- `method = "auto"`: default; chooses among `eigen`, `spectra`, and `randomized`.
+- `method = "eigen"`: small/medium dense problems; reference exact path.
+- `method = "spectra"`: large/iterative matrix-free path (requires C++ build).
+- `method = "randomized"`: wide low-rank problems with sparse metrics; approximate but often faster.
+- `method = "deflation"`: sequential extraction when memory is tight and `k` is small.
+
+Pros and cons by backend
+------------------------
+
+| Method | Best for | Pros | Cons |
+|---|---|---|---|
+| `eigen` | small/medium exact runs | robust reference behavior | can be expensive at scale; very large sparse constraints may trigger truncated eigensolve via `maxeig` |
+| `spectra` | larger matrix-free solves | lower memory than dense eigendecomp | iterative behavior can vary by conditioning |
+| `randomized` | wide (`p >> n`) low-rank workloads | fast block GEMM/SpMM path | approximation error depends on tuning |
+| `deflation` | few components | low memory footprint | can converge slowly; monitor iteration warnings |
 
 Sparse workflow (spectra)
 -------------------------

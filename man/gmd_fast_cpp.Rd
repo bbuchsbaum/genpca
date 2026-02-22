@@ -13,7 +13,11 @@ gmd_fast_cpp(
   maxit = 1000L,
   seed = 1234L,
   topk = TRUE,
-  cache = TRUE
+  cache = TRUE,
+  auto_topk = TRUE,
+  topk_ratio = 0.08,
+  topk_min_dim = 200L,
+  diag_fast = TRUE
 )
 }
 \arguments{
@@ -27,7 +31,7 @@ diagonal matrices.}
 
 \item{tol}{tolerance for filtering near-zero singular values. Default 1e-9.}
 
-\item{maxit}{maximum iterations (ignored, kept for API compatibility)}
+\item{maxit}{maximum iterations for the Spectra eigensolver. Default 1000.}
 
 \item{seed}{random seed (ignored, kept for API compatibility)}
 
@@ -36,6 +40,18 @@ Defaults to TRUE. Set to FALSE to force full eigendecomposition.}
 
 \item{cache}{logical; cache Cholesky factors across calls when constraints
 are dense. Defaults to TRUE. Use \code{\link{gmd_clear_cache}} to clear.}
+
+\item{auto_topk}{logical; when TRUE (default), use top-k only when
+\code{k/min(n,p)} is small and \code{min(n,p)} is large enough.}
+
+\item{topk_ratio}{threshold used by \code{auto_topk}. If
+\code{k/min(n,p) <= topk_ratio}, top-k is used. Default 0.08.}
+
+\item{topk_min_dim}{minimum \code{min(n,p)} required before top-k is used
+under \code{auto_topk}. Default 200.}
+
+\item{diag_fast}{logical; if TRUE (default) and both constraints are
+diagonal, use a weighted-SVD fast path.}
 }
 \value{
 A list with components:

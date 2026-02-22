@@ -114,6 +114,90 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gmd_randomized_cpp_dn
+Rcpp::List gmd_randomized_cpp_dn(const arma::mat& X, const arma::mat& Q, const arma::mat& R, const int k, const int oversample, const int n_power, const int n_polish, const double jitter, const double tol, const double polish_tol, const int seed);
+RcppExport SEXP _genpca_gmd_randomized_cpp_dn(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP oversampleSEXP, SEXP n_powerSEXP, SEXP n_polishSEXP, SEXP jitterSEXP, SEXP tolSEXP, SEXP polish_tolSEXP, SEXP seedSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const int >::type oversample(oversampleSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_power(n_powerSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_polish(n_polishSEXP);
+    Rcpp::traits::input_parameter< const double >::type jitter(jitterSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const double >::type polish_tol(polish_tolSEXP);
+    Rcpp::traits::input_parameter< const int >::type seed(seedSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_randomized_cpp_dn(X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_randomized_cpp_sp
+Rcpp::List gmd_randomized_cpp_sp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, const int k, const int oversample, const int n_power, const int n_polish, const double jitter, const double tol, const double polish_tol, const int seed);
+RcppExport SEXP _genpca_gmd_randomized_cpp_sp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP oversampleSEXP, SEXP n_powerSEXP, SEXP n_polishSEXP, SEXP jitterSEXP, SEXP tolSEXP, SEXP polish_tolSEXP, SEXP seedSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const int >::type oversample(oversampleSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_power(n_powerSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_polish(n_polishSEXP);
+    Rcpp::traits::input_parameter< const double >::type jitter(jitterSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const double >::type polish_tol(polish_tolSEXP);
+    Rcpp::traits::input_parameter< const int >::type seed(seedSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_randomized_cpp_sp(X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_randomized_cpp_qsp_rdn
+Rcpp::List gmd_randomized_cpp_qsp_rdn(const arma::mat& X, const arma::sp_mat& Q, const arma::mat& R, const int k, const int oversample, const int n_power, const int n_polish, const double jitter, const double tol, const double polish_tol, const int seed);
+RcppExport SEXP _genpca_gmd_randomized_cpp_qsp_rdn(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP oversampleSEXP, SEXP n_powerSEXP, SEXP n_polishSEXP, SEXP jitterSEXP, SEXP tolSEXP, SEXP polish_tolSEXP, SEXP seedSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const int >::type oversample(oversampleSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_power(n_powerSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_polish(n_polishSEXP);
+    Rcpp::traits::input_parameter< const double >::type jitter(jitterSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const double >::type polish_tol(polish_tolSEXP);
+    Rcpp::traits::input_parameter< const int >::type seed(seedSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_randomized_cpp_qsp_rdn(X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gmd_randomized_cpp_qdn_rsp
+Rcpp::List gmd_randomized_cpp_qdn_rsp(const arma::mat& X, const arma::mat& Q, const arma::sp_mat& R, const int k, const int oversample, const int n_power, const int n_polish, const double jitter, const double tol, const double polish_tol, const int seed);
+RcppExport SEXP _genpca_gmd_randomized_cpp_qdn_rsp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP oversampleSEXP, SEXP n_powerSEXP, SEXP n_polishSEXP, SEXP jitterSEXP, SEXP tolSEXP, SEXP polish_tolSEXP, SEXP seedSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< const int >::type oversample(oversampleSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_power(n_powerSEXP);
+    Rcpp::traits::input_parameter< const int >::type n_polish(n_polishSEXP);
+    Rcpp::traits::input_parameter< const double >::type jitter(jitterSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< const double >::type polish_tol(polish_tolSEXP);
+    Rcpp::traits::input_parameter< const int >::type seed(seedSEXP);
+    rcpp_result_gen = Rcpp::wrap(gmd_randomized_cpp_qdn_rsp(X, Q, R, k, oversample, n_power, n_polish, jitter, tol, polish_tol, seed));
+    return rcpp_result_gen;
+END_RCPP
+}
 // gmd_deflation_cpp
 List gmd_deflation_cpp(const arma::mat& X, arma::sp_mat Q, arma::sp_mat R, int k, double thr, int maxit, bool verbose);
 RcppExport SEXP _genpca_gmd_deflation_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP thrSEXP, SEXP maxitSEXP, SEXP verboseSEXP) {
@@ -170,6 +254,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_fast_cpp_primal_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_primal_sp, 7},
     {"_genpca_gmd_fast_cpp_dual_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dual_dn, 7},
     {"_genpca_gmd_fast_cpp_dual_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_dual_sp, 7},
+    {"_genpca_gmd_randomized_cpp_dn", (DL_FUNC) &_genpca_gmd_randomized_cpp_dn, 11},
+    {"_genpca_gmd_randomized_cpp_sp", (DL_FUNC) &_genpca_gmd_randomized_cpp_sp, 11},
+    {"_genpca_gmd_randomized_cpp_qsp_rdn", (DL_FUNC) &_genpca_gmd_randomized_cpp_qsp_rdn, 11},
+    {"_genpca_gmd_randomized_cpp_qdn_rsp", (DL_FUNC) &_genpca_gmd_randomized_cpp_qdn_rsp, 11},
     {"_genpca_gmd_deflation_cpp", (DL_FUNC) &_genpca_gmd_deflation_cpp, 7},
     {"_genpca_sgmd_deflation_cpp", (DL_FUNC) &_genpca_sgmd_deflation_cpp, 7},
     {"_genpca_gmdLA_cpp", (DL_FUNC) &_genpca_gmdLA_cpp, 4},
