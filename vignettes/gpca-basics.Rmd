@@ -1,0 +1,91 @@
+---
+title: "GPCA Basics: Getting Started"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{GPCA Basics: Getting Started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(genpca)
+```
+
+Why generalized PCA?
+--------------------
+
+Standard PCA (`prcomp()`) treats every observation and variable equally. That is fine when the data are homogeneous, but in many applications the assumptions are wrong: some observations are noisier than others, some variables are correlated by design, or there is a known spatial/temporal structure you want the decomposition to respect. GPCA lets you encode that knowledge through a row metric M and a column metric A. When both are identity, you get ordinary PCA back.
+
+Quick start
+-----------
+
+```{r quick-start}
+set.seed(1)
+X <- matrix(rnorm(80 * 30), 80, 30)
+fit <- genpca(X, ncomp = 3, preproc = multivarious::center())
+fit$sdev
+```
+
+Row weights (diagonal metric)
+-----------------------------
+
+```{r row-weights}
+row_wt <- runif(nrow(X), 0.5, 1.5)
+M <- Matrix::Diagonal(x = row_wt)
+fit_row <- genpca(X, M = M, ncomp = 3, preproc = multivarious::center())
+head(multivarious::scores(fit_row))
+```
+
+Column structure (simple smoothness)
+------------------------------------
+
+```{r col-metric}
+p <- ncol(X)
+A <- Matrix::Diagonal(p)
+for (i in 1:(p - 1)) {
+  A[i, i + 1] <- 0.15; A[i + 1, i] <- 0.15
+}
+A <- A + 0.05 * Matrix::Diagonal(p)
+fit_col <- genpca(X, A = A, ncomp = 3, preproc = multivarious::center())
+```
+
+Choosing the number of components
+---------------------------------
+
+A scree plot of the eigenvalues is a quick first look:
+
+```{r scree}
+barplot(fit$sdev^2, names.arg = seq_along(fit$sdev),
+        xlab = "Component", ylab = "Variance",
+        main = "Scree plot")
+```
+
+For a more principled choice, split rows into train/holdout, fit on the training set, and compare holdout reconstruction error across different values of `ncomp`. With informative metrics, a small `ncomp` often beats a larger unweighted PCA.
+
+Real data: USArrests
+--------------------
+
+```{r usarrests, message=FALSE}
+data("USArrests")
+X_real <- as.matrix(USArrests[, c("Murder", "Assault", "Rape")])
+pop_wt <- USArrests$UrbanPop / mean(USArrests$UrbanPop)
+M_real <- Matrix::Diagonal(x = pop_wt)
+col_sd <- apply(X_real, 2, sd)
+A_real <- Matrix::Diagonal(x = 1 / (col_sd^2))
+
+fit_real <- genpca(X_real, M = M_real, A = A_real, ncomp = 2,
+                   preproc = multivarious::center())
+scores2d <- multivarious::scores(fit_real)
+plot(scores2d[,1], scores2d[,2], pch = 19,
+     xlab = "PC1 (weighted)", ylab = "PC2 (weighted)",
+     main = "GPCA on USArrests (row weights = UrbanPop)")
+text(scores2d[,1], scores2d[,2], labels = rownames(USArrests), pos = 3, cex = 0.6)
+```
+
+Next steps
+----------
+
+- See `vignette("gpca-metrics", package = "genpca")` for metric recipes and the `gpca_mle` learner.
+- See `vignette("gpca-scale", package = "genpca")` for backends, sparse workflows, and covariance-only GPCA.

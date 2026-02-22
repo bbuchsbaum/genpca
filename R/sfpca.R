@@ -92,15 +92,15 @@ sfpca <- function(X, K, spat_cds,
   alpha_u_list <- numeric(K)
   alpha_v_list <- numeric(K)
   
-  # Convert X to sparse matrix if not already
-  X <- Matrix(X)
+  # Convert X to Matrix if not already
+ if (!inherits(X, "Matrix")) {
+    X <- Matrix::Matrix(X, sparse = FALSE)
+  }
   
   # Default Omega_u if not provided (second differences)
   if (is.null(Omega_u)) {
-    D_n <- second_diff_matrix(n)
-    Omega_u <- Matrix::crossprod(Matrix(D_n, sparse = TRUE))
-    #D_n <- diff(diag(n), differences = 2)
-    #Omega_u <- crossprod(Matrix(D_n, sparse = TRUE))
+    D_n <- second_diff_matrix(n)  # Already returns sparse Matrix
+    Omega_u <- Matrix::crossprod(D_n)
   }
   
   # Ensure Omega_u is sparse
@@ -156,9 +156,10 @@ sfpca <- function(X, K, spat_cds,
       alpha_u_k <- alpha_u
     }
     if (is.null(alpha_v)) {
-      # For spatial smoothness, we can set alpha_v based on the average distance between points
-      avg_dist <- mean(Omega_v@x)
-      alpha_v_k <- 1 / (avg_dist + 1e-6)
+      # Penalty strength inversely proportional to how "rough" the initial
+      # solution is under the spatial penalty (symmetric with alpha_u logic)
+      v_roughness <- as.numeric(Matrix::crossprod(v_init, Omega_v %*% v_init))
+      alpha_v_k <- 1 / (v_roughness + 1e-6)
     } else {
       alpha_v_k <- alpha_v
     }
@@ -188,15 +189,11 @@ sfpca <- function(X, K, spat_cds,
     d_list[k] <- result$d
     u_list[, k] <- as.vector(result$u)
     v_list[, k] <- as.vector(result$v)
-    # Deflate X
-    # Ensure u and v are vectors for sparseVector
+    # Deflate X: X_residual <- X_residual - d * u %*% t(v)
+    # Use efficient outer product (no need for sparseVector - u,v are dense)
     u_vec <- as.vector(result$u)
     v_vec <- as.vector(result$v)
-    u_sp <- Matrix::sparseVector(x = u_vec, i = seq_along(u_vec),
-                                length = length(u_vec))
-    v_sp <- Matrix::sparseVector(x = v_vec, i = seq_along(v_vec),
-                                length = length(v_vec))
-    X_residual <- X_residual - d_list[k] * Matrix::tcrossprod(u_sp, v_sp)
+    X_residual <- X_residual - d_list[k] * Matrix::tcrossprod(u_vec, v_vec)
     X_residual <- Matrix::drop0(X_residual)
   }
   

@@ -7,3 +7,8 @@ docs
 vignettes/*_files/
 figure/
 genpca-overview.md
+/doc/
+/Meta/
+.albersdown.bak/
+.omc/
+.rcmdcheck_result.rds

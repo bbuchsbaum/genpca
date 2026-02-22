@@ -295,8 +295,8 @@ fit_rpls <- function(X, Y,
 #' @param maxiter Maximum number of inner iterations per component. Default `200`.
 #' @param verbose Logical; print progress messages during component extraction.
 #'   Default `FALSE`.
-#' @param preproc_x, preproc_y Optional \pkg{multivarious} preprocessing
-#'   objects (see \code{\link[multivarious]{prep}}). By default they pass
+#' @param preproc_x,preproc_y Optional \pkg{multivarious} preprocessing
+#'   objects (see \code{\link[multivarious]{fit_transform}}). By default they pass
 #'   the data through unchanged using \code{pass()}.
 #' @param ... Further arguments (e.g., custom stopping criteria if implemented)
 #'   are stored in the returned object (they are not used by
@@ -339,7 +339,7 @@ fit_rpls <- function(X, Y,
 #'   an Application to NMR Spectroscopy.* **Statistical Analysis and Data
 #'   Mining, 6(4)**, 302-314. DOI:10.1002/sam.11169.
 #'
-#' @importFrom multivarious cross_projector
+#' @importFrom multivarious cross_projector fit_transform pass
 #' @export
 rpls <- function(X, Y,
                  K         = 2,
@@ -347,22 +347,23 @@ rpls <- function(X, Y,
                  penalty   = c("l1", "ridge"),
                  Q         = NULL,
                  nonneg    = FALSE,
-                 preproc_x = pass(),
-                 preproc_y = pass(),
-                 tol       = 1e-6,    # Exposed parameter
-                 maxiter   = 200,   # Exposed parameter
-                 verbose   = FALSE, # Exposed parameter
+                 preproc_x = multivarious::pass(),
+                 preproc_y = multivarious::pass(),
+                 tol       = 1e-6,
+                 maxiter   = 200,
+                 verbose   = FALSE,
                  ...) {
 
   # Ensure penalty is valid early
   penalty  <- match.arg(penalty)
 
-  # Preprocess X and Y using multivarious
-  proc_x   <- multivarious::prep(preproc_x)
-  proc_y   <- multivarious::prep(preproc_y)
-
-  Xp <- init_transform(proc_x, X) # Apply initial transform (e.g., centering)
-  Yp <- init_transform(proc_y, Y)
+  # Preprocess X and Y using multivarious fit_transform API
+  ft_x <- multivarious::fit_transform(preproc_x, as.matrix(X))
+  ft_y <- multivarious::fit_transform(preproc_y, as.matrix(Y))
+  proc_x <- ft_x$preproc
+  proc_y <- ft_y$preproc
+  Xp <- ft_x$transformed
+  Yp <- ft_y$transformed
 
   # Call the internal fitting engine
   res_fit  <- fit_rpls(X = Xp, Y = Yp, K = K, lambda = lambda, penalty = penalty,
@@ -370,13 +371,7 @@ rpls <- function(X, Y,
                        tol = tol, maxiter = maxiter, verbose = verbose)
 
   # Package results into a cross_projector object
-  # Need cross_projector constructor (assuming from multivarious or defined locally)
-  if (!exists("cross_projector", mode="function")) {
-     stop("Function 'cross_projector()' needed to return results. ",
-          "Load 'multivarious' package or ensure it's defined.")
-  }
-
-  out <- cross_projector(
+  out <- multivarious::cross_projector(
     vx        = res_fit$V,
     vy        = res_fit$U,
     preproc_x = proc_x,

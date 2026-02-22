@@ -47,17 +47,19 @@ for small problems by materializing S.}
 }
 \value{
 An object of class `c("genpls", "cross_projector", "projector")` with:
-  - vx, vy: X- and Y- weights usable with `predict/transfer` (stored in cross_projector)
-  - d:     singular values (attached field)
-  - p, q:  generalized weights W_X^{-1/2} u, W_Y^{-1/2} v (attached)
-  - fi,fj: variable/component scores W_X p diag(d), W_Y q diag(d) (attached)
-  - lx,ly: row latent variables M_X^{1/2} X W_X p, M_Y^{1/2} Y W_Y q (attached)
-  - metrics: the supplied metrics (attached)
+  \describe{
+    \item{vx, vy}{X- and Y- weights usable with predict/transfer (stored in cross_projector)}
+    \item{d}{singular values (attached field)}
+    \item{p, q}{generalized weights \eqn{W_X^{-1/2} u}, \eqn{W_Y^{-1/2} v} (attached)}
+    \item{fi, fj}{variable/component scores \eqn{W_X p D}, \eqn{W_Y q D} (attached)}
+    \item{lx, ly}{row latent variables \eqn{M_X^{1/2} X W_X p}, \eqn{M_Y^{1/2} Y W_Y q} (attached)}
+    \item{metrics}{the supplied metrics (attached)}
+  }
 }
 \description{
 Canonical (two-block) generalized PLS using sparse-friendly implicit
-matrix–vector products. Solves the SVD of the operator S = t(Xe) %*% Ye
-without materializing Xe = Mx^{1/2} X Ax^{1/2} or Ye = My^{1/2} Y Ay^{1/2}.
+matrix-vector products. Solves the SVD of the operator \eqn{S = Xe' Ye}
+without materializing \eqn{Xe = Mx^{1/2} X Ax^{1/2}} or \eqn{Ye = My^{1/2} Y Ay^{1/2}}.
 }
 \details{
 This follows the GPLSSVD/PLS-SVD formulation (Beaton, eqs. 10–14):

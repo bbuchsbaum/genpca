@@ -1,19 +1,14 @@
-#' Reconstruct data from a projection
-#' 
-#' Re-exported from \pkg{multivarious}. See \code{\link[multivarious]{reconstruct}}
-#' for details.
-#' 
-#' @param x A projection object
-#' @param comp Components to use for reconstruction
-#' @param rowind Row indices to reconstruct
-#' @param colind Column indices to reconstruct
-#' @param ... Additional arguments
-#' @return Reconstructed data matrix
 #' @importFrom multivarious reconstruct
 #' @export
-#' @rdname reconstruct
 multivarious::reconstruct
 
+#' @importFrom multivarious components
+#' @export
+multivarious::components
+
+#' @importFrom multivarious transfer
+#' @export
+multivarious::transfer
 
 #' Truncate a projection to fewer components
 #' 

@@ -1,15 +1,58 @@
 #' Fast generalized matrix decomposition (dense/sparse dispatch)
+#'
+#' Computes the generalized SVD of X with row metric Q and column metric R,
+#' equivalent to the eigendecomposition used by \code{\link{genpca}} with
+#' \code{method = "spectra"}. Uses primal (p <= n) or dual (n < p) formulation
+#' to minimize computation, with optional Cholesky caching for repeated calls.
+#'
+#' @section When is this fast:
+#' This implementation is faster than the "eigen" method when:
+#' \itemize{
+#'   \item \code{k << min(n, p)}: Only top-k eigenvalues needed (uses ARPACK)
+#'   \item Repeated calls with same Q or R: Cholesky factors are cached
+#'   \item Large matrices where full eigendecomposition is expensive
+#' }
+#' For small matrices or when \code{k} is close to \code{min(n, p)}, the
+#' overhead of iterative methods may make "eigen" faster.
+#'
 #' @param X numeric matrix (n x p)
-#' @param Q,R constraints (weights/metrics) for rows/cols
-#' @param k number of components
-#' @param tol tolerance
-#' @param maxit maximum iterations (for compatibility, ignored in new implementation)
-#' @param seed random seed (for compatibility, ignored in new implementation)
-#' @param topk logical; use top-k symmetric eigen when available (ARPACK). Defaults to TRUE.
-#' @param cache logical; cache Cholesky factors across calls when dense. Defaults to TRUE.
+#' @param Q,R constraints (weights/metrics) for rows/cols. Must be symmetric
+#'   positive (semi-)definite. Can be dense matrices, sparse matrices, or
+#'   diagonal matrices.
+#' @param k number of components to extract (must be >= 1 and <= min(n, p))
+#' @param tol tolerance for filtering near-zero singular values. Default 1e-9.
+#' @param maxit maximum iterations (ignored, kept for API compatibility)
+#' @param seed random seed (ignored, kept for API compatibility)
+#' @param topk logical; use top-k symmetric eigen via ARPACK when available.
+#'   Defaults to TRUE. Set to FALSE to force full eigendecomposition.
+#' @param cache logical; cache Cholesky factors across calls when constraints
+#'   are dense. Defaults to TRUE. Use \code{\link{gmd_clear_cache}} to clear.
+#'
+#' @return A list with components:
+#'   \describe{
+#'     \item{u}{n x k matrix of scores (left singular vectors scaled)}
+#'     \item{v}{p x k matrix of components (right singular vectors, R-scaled)}
+#'     \item{d}{length-k vector of singular values}
+#'     \item{k}{number of components returned (may be < requested if rank-deficient)}
+#'   }
+#'
+#' @seealso \code{\link{genpca}} for the high-level interface,
+#'   \code{\link{gmd_clear_cache}} to clear Cholesky cache
 #' @keywords internal
 #' @importFrom methods as is
 gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L, topk = TRUE, cache = TRUE) {
+  # Input validation
+  n <- nrow(X); p <- ncol(X)
+  if (!is.numeric(k) || length(k) != 1 || k < 1) {
+    stop("k must be a single positive integer >= 1")
+  }
+
+  k <- as.integer(k)
+  if (k > min(n, p)) {
+    warning("k (", k, ") exceeds min(n, p) = ", min(n, p), "; will return at most ", min(n, p), " components")
+    k <- min(n, p)
+  }
+
   if (!inherits(Q, "Matrix")) Q <- Matrix::Matrix(Q, sparse = FALSE)
   if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
 
@@ -17,7 +60,6 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L, to
   if (inherits(Q, "dsyMatrix")) Q <- methods::as(Q, "dgeMatrix")
   if (inherits(R, "dsyMatrix")) R <- methods::as(R, "dgeMatrix")
 
-  n <- nrow(X); p <- ncol(X)
   primal <- (p <= n)  # use primal when small side is p
 
   # ---- choose path and apply caching for dense constraints ----

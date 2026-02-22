@@ -216,7 +216,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' }
 #' @useDynLib genpca, .registration = TRUE 
 #' @importFrom Rcpp sourceCpp
-#' @importFrom multivarious bi_projector init_transform prep pass scores sdev components reconstruct reverse_transform ncomp
+#' @importFrom multivarious bi_projector fit_transform pass scores sdev components reconstruct reverse_transform ncomp
 #' @importFrom Matrix Matrix isSymmetric isDiagonal diag t forceSymmetric Diagonal crossprod tcrossprod
 #' @importFrom assertthat assert_that
 #' @importFrom RSpectra eigs_sym svds
@@ -251,11 +251,11 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   A <- pcon$A
   M <- pcon$M
 
-  # Prepare pre-processing object
-  procres <- multivarious::prep(preproc)
-  # Apply pre-processing
+  # Prepare and apply pre-processing using fit_transform API
   if (verbose) message("Applying pre-processing...")
-  Xp <- multivarious::init_transform(procres, X)
+  ft <- multivarious::fit_transform(preproc, X)
+  procres <- ft$preproc
+  Xp <- ft$transformed
 
   n = nrow(Xp)
   p = ncol(Xp)
@@ -474,6 +474,155 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   return(ret)
 }
 
+
+
+#' Experimental ML estimation of GPCA metrics
+#'
+#' Alternates between GPCA factor estimation and maximum-likelihood updates of
+#' the row/column metric matrices (M, A) under a Gaussian matrix-normal error
+#' model. Each iteration:
+#' \enumerate{
+#'   \item Fit GPCA with current \code{A}, \code{M}.
+#'   \item Reconstruct \eqn{\hat X}; compute residuals \eqn{E = X - \hat X}.
+#'   \item Update covariance estimates \eqn{\Sigma_r = E A E^T / p} and
+#'         \eqn{\Sigma_c = E^T M E / n}, apply ridge \code{lambda}, fix scale,
+#'         set \code{M <- solve(Sigma_r)}, \code{A <- solve(Sigma_c)}, then
+#'         project back to SPD via \code{ensure_spd}.
+#' }
+#'
+#' This is an experimental convenience wrapper; for stability it enforces SPD at
+#' every step, applies ridge shrinkage, and fixes the scale indeterminacy via
+#' the mean diagonal (\code{scale_fix = "trace"}).
+#'
+#' @details
+#' The matrix-normal likelihood is flat along \eqn{c\,\Sigma_r, \Sigma_c/c}; a
+#' scale constraint (trace or determinant) is therefore imposed before
+#' inversion. The algorithm stops when the relative change in log-likelihood is
+#' below \code{tol} or \code{max_iter} is reached. Increase \code{lambda} or
+#' reduce \code{ncomp} if iterations become unstable.
+#'
+#' @param X Numeric matrix (n x p).
+#' @param ncomp Rank to extract at each GPCA step.
+#' @param max_iter Maximum outer alternations (default 20).
+#' @param lambda Ridge term added to \eqn{\Sigma_r} and \eqn{\Sigma_c} before
+#'        inversion to keep them SPD (default 1e-3).
+#' @param scale_fix How to resolve the \code{c * Sigma_r, Sigma_c / c}
+#'        indeterminacy. One of \code{"trace"} (default, mean diagonal = 1),
+#'        \code{"det"} (determinant = 1), or \code{"none"}.
+#' @param tol Relative tolerance on successive log-likelihood change (default
+#'        1e-4) for early stopping.
+#' @param method GPCA method passed to \code{genpca} (defaults to "eigen").
+#' @param constraints_remedy Passed to \code{genpca}; defaults to "ridge".
+#' @param preproc Pre-processing transformer; defaults to \code{multivarious::pass()}.
+#' @param verbose Logical; if TRUE, prints iteration diagnostics.
+#' @param ... Additional arguments forwarded to \code{genpca}.
+#'
+#' @return A list with elements \code{fit} (the final \code{genpca} result),
+#'         \code{A}, \code{M} (learned SPD metrics), \code{loglik} (final
+#'         log-likelihood), and \code{loglik_path}.
+#'
+#' @examples
+#' if (requireNamespace("multivarious", quietly = TRUE)) {
+#'   set.seed(123)
+#'   X <- matrix(rnorm(40), 8, 5)
+#'   res <- gpca_mle(X, ncomp = 2, max_iter = 5, lambda = 1e-3,
+#'                   scale_fix = "trace", verbose = FALSE)
+#'   # Learned metrics are SPD and match dimensions
+#'   dim(res$A); dim(res$M)
+#'   res$loglik_path
+#' }
+#'
+#' @references
+#' Dutilleul, P. (1999). *The MLE algorithm for the matrix normal distribution*.
+#' Journal of Statistical Computation and Simulation, 64(2), 105-123.
+#'
+#' @importFrom utils tail
+#' @export
+gpca_mle <- function(X, ncomp = min(dim(X)),
+                     max_iter = 20,
+                     lambda = 1e-3,
+                     scale_fix = c("trace", "det", "none"),
+                     tol = 1e-4,
+                     method = "eigen",
+                     constraints_remedy = "ridge",
+                     preproc = multivarious::pass(),
+                     verbose = FALSE,
+                     ...) {
+
+  scale_fix <- match.arg(scale_fix)
+  n <- nrow(X); p <- ncol(X)
+
+  # initialise metrics as identity
+  A <- Matrix::Diagonal(p)
+  M <- Matrix::Diagonal(n)
+
+  loglik_path <- numeric(0)
+  last_ll <- -Inf
+
+  for (it in seq_len(max_iter)) {
+    if (verbose) message("[gpca_mle] Iteration ", it, ": fitting GPCA...")
+
+    fit <- genpca(X, A = A, M = M, ncomp = ncomp,
+                  method = method,
+                  constraints_remedy = constraints_remedy,
+                  preproc = preproc,
+                  verbose = verbose && it == 1, # avoid chatter each loop
+                  ...)
+
+    Xhat <- multivarious::reconstruct(fit)  # back to data scale
+    E <- X - Xhat
+
+    # covariance updates (matrix-normal MLE, with ridge for SPD)
+    Sigma_r <- (E %*% A %*% Matrix::t(E)) / p
+    Sigma_c <- (Matrix::t(E) %*% M %*% E) / n
+
+    # ridge to keep eigenvalues away from zero
+    Sigma_r <- Sigma_r + lambda * Matrix::Diagonal(n)
+    Sigma_c <- Sigma_c + lambda * Matrix::Diagonal(p)
+
+    # fix scale indeterminacy
+    if (scale_fix == "trace") {
+      Sigma_r <- Sigma_r / (sum(Matrix::diag(Sigma_r)) / n)
+      Sigma_c <- Sigma_c / (sum(Matrix::diag(Sigma_c)) / p)
+    } else if (scale_fix == "det") {
+      det_r <- as.numeric(Matrix::determinant(Sigma_r, logarithm = TRUE)$modulus)
+      det_c <- as.numeric(Matrix::determinant(Sigma_c, logarithm = TRUE)$modulus)
+      Sigma_r <- Sigma_r / exp(det_r / n)
+      Sigma_c <- Sigma_c / exp(det_c / p)
+    }
+
+    # project back to SPD and invert for next GPCA step
+    Sigma_r <- ensure_spd(Sigma_r)
+    Sigma_c <- ensure_spd(Sigma_c)
+
+    M <- tryCatch(Matrix::solve(Sigma_r), error = function(e) stop("Failed to invert Sigma_r: ", e$message))
+    A <- tryCatch(Matrix::solve(Sigma_c), error = function(e) stop("Failed to invert Sigma_c: ", e$message))
+
+    # compute log-likelihood (matrix-normal; ignoring constant terms)
+    logdet_r <- as.numeric(Matrix::determinant(Sigma_r, logarithm = TRUE)$modulus)
+    logdet_c <- as.numeric(Matrix::determinant(Sigma_c, logarithm = TRUE)$modulus)
+    quad_term <- sum(E * (M %*% E %*% A))
+    ll <- -0.5 * (p * logdet_r + n * logdet_c + quad_term)
+
+    loglik_path <- c(loglik_path, ll)
+    if (verbose) message(sprintf("[gpca_mle]  loglik = %.4f", ll))
+
+    if (it > 1) {
+      rel_change <- abs(ll - last_ll) / (abs(last_ll) + 1e-9)
+      if (rel_change < tol) {
+        if (verbose) message("[gpca_mle] Converged: relative loglik change < tol")
+        break
+      }
+    }
+    last_ll <- ll
+  }
+
+  list(fit = fit,
+       A = A,
+       M = M,
+       loglik = tail(loglik_path, 1),
+       loglik_path = loglik_path)
+}
 
 
 
@@ -928,4 +1077,3 @@ ncomp.genpca <- function(x) {
   # or columns in ou/ov/s/v
   length(multivarious::sdev(x))
 }
-

@@ -8,3 +8,12 @@ experimental/
 ^docs$
 ^pkgdown$
 ^\.github$
+^BUG_REPORTS\.md$
+^bench$
+^figure$
+^genpca-overview\.md$
+^doc$
+^Meta$
+^\.omc$
+^\.rcmdcheck_result\.rds$
+^\.albersdown\.bak$

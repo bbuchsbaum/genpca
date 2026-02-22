@@ -4,16 +4,7 @@
 \alias{transfer.cross_projector}
 \title{Compatibility wrapper for multivarious::transfer}
 \usage{
-\method{transfer}{cross_projector}(
-  x,
-  new_data,
-  from = NULL,
-  to = NULL,
-  source = NULL,
-  target = NULL,
-  opts = list(),
-  ...
-)
+\method{transfer}{cross_projector}(x, new_data, from = NULL, to = NULL, opts = list(), ...)
 }
 \arguments{
 \item{x}{A cross_projector object.}
@@ -24,13 +15,11 @@
 
 \item{to}{Target space ("X" or "Y").}
 
-\item{source}{Legacy parameter name for `from`. Deprecated, use `from` instead.}
-
-\item{target}{Legacy parameter name for `to`. Deprecated, use `to` instead.}
-
 \item{opts}{Options list passed to multivarious::transfer.}
 
-\item{...}{Additional arguments passed through.}
+\item{...}{Additional arguments. Legacy parameters `source` and `target`
+are accepted here for backwards compatibility but are deprecated;
+use `from` and `to` instead.}
 }
 \value{
 Matrix with transferred data.

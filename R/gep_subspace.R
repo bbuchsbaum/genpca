@@ -4,14 +4,14 @@
 #' @keywords internal
 #' @noRd
 factor_mat <- function(M, reg = 1e-3, max_tries = 5) {
-  d <- nrow(M)
+ d <- nrow(M)
   for (i in seq_len(max_tries)) {
-    M_reg <- M + Diagonal(d, reg)
-    ch <- try(Cholesky(M_reg, LDL = FALSE), silent = TRUE)
+    M_reg <- M + Matrix::Diagonal(d, reg)
+    ch <- try(Matrix::Cholesky(M_reg, LDL = FALSE), silent = TRUE)
     if (!inherits(ch, "try-error")) {
-      return(list(ch=ch, final_reg=reg))
+      return(list(ch = ch, final_reg = reg))
     }
-    reg <- reg*10
+    reg <- reg * 10
   }
   stop("Unable to factor matrix even after multiple attempts.")
 }
@@ -101,15 +101,14 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
     S_mat <- Matrix::forceSymmetric(S_mat)
     T_mat <- Matrix::forceSymmetric(T_mat)
     
-    # Robust Cholesky-whitening of T
+    # Robust Cholesky-whitening of T (small q x q matrix)
     reg <- reg_T
     R <- NULL
+    qq <- ncol(T_mat)
     for (tries in 0:5) {
-      T_reg <- as.matrix(T_mat) + diag(reg, ncol(T_mat))
-      ok <- TRUE
+      T_reg <- as.matrix(T_mat) + diag(reg, qq)
       R <- try(chol(T_reg), silent = TRUE)
-      if (inherits(R, "try-error")) { ok <- FALSE }
-      if (ok) break
+      if (!inherits(R, "try-error")) break
       reg <- reg * 10
     }
     if (!is.numeric(R)) stop("Unable to chol() the T matrix even after regularization.")

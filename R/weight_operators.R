@@ -64,37 +64,18 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
     }
   }
   
-  # For general matrices
-  if (sqrt && inverse) {
-    # W^{-1/2} via Cholesky decomposition
-    # W = R^T R (where R is upper triangular from chol), so W^{-1/2} = R^{-1}
-    W_chol <- Matrix::chol(W)  # Returns upper triangular R where W = R^T R
-    W_op <- Matrix::solve(W_chol)  # R^{-1}, so W^{-1/2} = R^{-1}
-    if (transpose) W_op <- Matrix::t(W_op)
+  # For general symmetric PSD matrices use shared metric operators
+  ops <- .metric_operators(W)
+  opfun <- if (sqrt && inverse) {
+    ops$mult_invsqrt
   } else if (sqrt && !inverse) {
-    # W^{1/2} via Cholesky decomposition
-    # W = R^T R, so W^{1/2} = R^T
-    W_chol <- Matrix::chol(W)
-    W_op <- Matrix::t(W_chol)
-    if (transpose) W_op <- Matrix::t(W_op)
+    ops$mult_sqrt
   } else if (!sqrt && inverse) {
-    # W^{-1}
-    W_op <- Matrix::solve(W)
-    if (transpose) W_op <- Matrix::t(W_op)
+    function(x) Matrix::solve(W, x)
   } else {
-    # W
-    W_op <- W
-    if (transpose) W_op <- Matrix::t(W_op)
+    ops$mult
   }
-  
-  # Return the operator function
-  function(x) {
-    result <- W_op %*% x
-    # Ensure numeric output for RSpectra
-    if (is.vector(x)) {
-      as.numeric(result)
-    } else {
-      result
-    }
-  }
+
+  # Transpose is a no-op for symmetric PSD; include for API compatibility
+  function(x) opfun(x)
 }

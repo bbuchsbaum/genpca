@@ -8,10 +8,47 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(genpca)
 ```
 
-This vignette provides a minimal, explicit-whitening reference for the Generalized PLS-SVD (GPLSSVD/PLS‑SVD) formulation, matching the operator used in `gplssvd_op()`. It is useful for validating small problems and for contributors to cross-check identities described in Beaton (2020, eqs. 10–14).
+This vignette provides a minimal, explicit-whitening reference implementation for the Generalized PLS-SVD (GPLSSVD) formulation, matching the operator used in `gplssvd_op()`. It is intended for validating small problems and for contributors to cross-check the mathematical identities.
+
+Quick practical use
+-------------------
+
+If you just need to run generalized PLS on two blocks, you do not have to touch the reference code below. The high-level call is:
+
+```{r quick-use}
+set.seed(123)
+X <- matrix(rnorm(150*8), 150, 8)
+Y <- matrix(rnorm(150*5), 150, 5)
+row_wt <- diag(runif(150, 0.5, 1.5))
+col_wt_x <- diag(runif(8, 0.8, 1.2))
+col_wt_y <- diag(runif(5, 0.8, 1.2))
+
+fit <- genpls(X, Y, ncomp = 2,
+              preproc_x = multivarious::center(),
+              preproc_y = multivarious::center(),
+              Mx = row_wt, My = row_wt,
+              Ax = col_wt_x, Ay = col_wt_y)
+
+round(fit$d, 3)
+```
+
+Use this when you want a working analysis; use the reference below when you want to verify identities.
+
+## Notation
+
+The GPLSSVD decomposes the relationship between two data blocks X (N x I) and Y (N x J) with optional row and column metrics:
+
+- **MX, MY**: Row metrics (N x N) -- weight observations differently for X and Y blocks
+- **WX, WY**: Column metrics (I x I and J x J) -- encode variable relationships within each block
+- **p, q**: Generalized singular vectors (saliences) satisfying p'WX p = I, q'WY q = I
+- **Fi, Fj**: Factor scores (component loadings scaled by singular values)
+- **Lx, Ly**: Latent variables (projections of data onto components)
+- **d**: Singular values of the whitened cross-product matrix
 
 ```{r ref-impl}
 suppressPackageStartupMessages(library(Matrix))
@@ -101,7 +138,7 @@ dense_gplssvd_ref <- function(X, Y,
 
 Example usage:
 
-```{r example, eval=FALSE}
+```{r example}
 set.seed(1)
 N <- 20; I <- 8; J <- 6
 X <- matrix(rnorm(N*I), N, I)
@@ -111,17 +148,24 @@ MY <- diag(runif(N, .5, 1.5))
 WX <- diag(runif(I, .5, 1.5))
 WY <- diag(runif(J, .5, 1.5))
 
-# Reference solution (explicit whitening):
 ref <- dense_gplssvd_ref(X, Y, MX, MY, WX, WY, k = 3, center = TRUE, scale = FALSE)
 
-# Operator solution:
 op  <- genpca::gplssvd_op(X, Y, XLW = MX, YLW = MY, XRW = WX, YRW = WY,
                           k = 3, center = TRUE, scale = FALSE)
 
-# Compare singular values and key identities
-all.equal(ref$d, op$d, tolerance = 1e-6)
-all.equal(diag(crossprod(op$lx, op$ly)), op$d, tolerance = 1e-6)
+cat("Singular values match:\n")
+print(all.equal(ref$d, op$d, tolerance = 1e-6))
+
+cat("\nLatent variable cross-products equal singular values:\n")
+print(all.equal(diag(crossprod(op$lx, op$ly)), op$d, tolerance = 1e-6))
+
+cat("\nSingular values:\n")
+print(round(op$d, 4))
 ```
 
-This reference is intentionally small and dense to highlight the exact whitening relationships; the package’s operator-based implementation avoids materializing large matrices for scalability and sparsity.
+This reference is intentionally small and dense to highlight the exact whitening relationships; the package's operator-based implementation avoids materializing large matrices for scalability and sparsity.
 
+Where next
+----------
+
+See `vignette("gpca-basics", package = "genpca")` for a getting-started guide and `vignette("gpca-metrics", package = "genpca")` for metric recipes.

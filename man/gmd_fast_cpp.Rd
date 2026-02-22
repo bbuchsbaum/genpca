@@ -19,21 +19,53 @@ gmd_fast_cpp(
 \arguments{
 \item{X}{numeric matrix (n x p)}
 
-\item{Q, R}{constraints (weights/metrics) for rows/cols}
+\item{Q, R}{constraints (weights/metrics) for rows/cols. Must be symmetric
+positive (semi-)definite. Can be dense matrices, sparse matrices, or
+diagonal matrices.}
 
-\item{k}{number of components}
+\item{k}{number of components to extract (must be >= 1 and <= min(n, p))}
 
-\item{tol}{tolerance}
+\item{tol}{tolerance for filtering near-zero singular values. Default 1e-9.}
 
-\item{maxit}{maximum iterations (for compatibility, ignored in new implementation)}
+\item{maxit}{maximum iterations (ignored, kept for API compatibility)}
 
-\item{seed}{random seed (for compatibility, ignored in new implementation)}
+\item{seed}{random seed (ignored, kept for API compatibility)}
 
-\item{topk}{logical; use top-k symmetric eigen when available (ARPACK). Defaults to TRUE.}
+\item{topk}{logical; use top-k symmetric eigen via ARPACK when available.
+Defaults to TRUE. Set to FALSE to force full eigendecomposition.}
 
-\item{cache}{logical; cache Cholesky factors across calls when dense. Defaults to TRUE.}
+\item{cache}{logical; cache Cholesky factors across calls when constraints
+are dense. Defaults to TRUE. Use \code{\link{gmd_clear_cache}} to clear.}
+}
+\value{
+A list with components:
+  \describe{
+    \item{u}{n x k matrix of scores (left singular vectors scaled)}
+    \item{v}{p x k matrix of components (right singular vectors, R-scaled)}
+    \item{d}{length-k vector of singular values}
+    \item{k}{number of components returned (may be < requested if rank-deficient)}
+  }
 }
 \description{
-Fast generalized matrix decomposition (dense/sparse dispatch)
+Computes the generalized SVD of X with row metric Q and column metric R,
+equivalent to the eigendecomposition used by \code{\link{genpca}} with
+\code{method = "spectra"}. Uses primal (p <= n) or dual (n < p) formulation
+to minimize computation, with optional Cholesky caching for repeated calls.
+}
+\section{When is this fast}{
+
+This implementation is faster than the "eigen" method when:
+\itemize{
+  \item \code{k << min(n, p)}: Only top-k eigenvalues needed (uses ARPACK)
+  \item Repeated calls with same Q or R: Cholesky factors are cached
+  \item Large matrices where full eigendecomposition is expensive
+}
+For small matrices or when \code{k} is close to \code{min(n, p)}, the
+overhead of iterative methods may make "eigen" faster.
+}
+
+\seealso{
+\code{\link{genpca}} for the high-level interface,
+  \code{\link{gmd_clear_cache}} to clear Cholesky cache
 }
 \keyword{internal}

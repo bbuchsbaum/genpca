@@ -29,7 +29,7 @@ Typically C = X'MX where X is the data matrix and M is a row metric.}
 
 \item{method}{Character string specifying the method. One of:
 \itemize{
-  \item{"gmd" (default): Allen et al.'s GMD approach via eigen decomposition of R^{1/2} C R^{1/2}}
+  \item{"gmd" (default): Allen et al.'s GMD approach via eigen decomposition of \eqn{R^{1/2} C R^{1/2}}}
   \item{"geigen": Generalized eigenvalue approach solving C v = lambda R v}
 }}
 
@@ -85,9 +85,9 @@ Use \code{method = "geigen"} when:
 
 \strong{Method "gmd" (default):}
 
-This method implements Allen et al.'s GMD approach and exactly matches the 
-two-sided genpca when C = X'MX. It computes the eigendecomposition of 
-R^{1/2} C R^{1/2} and maps back with V = R^{-1/2} Z, ensuring V'RV = I.
+This method implements Allen et al.'s GMD approach and exactly matches the
+two-sided genpca when C = X'MX. It computes the eigendecomposition of
+\eqn{R^{1/2} C R^{1/2}} and maps back with \eqn{V = R^{-1/2} Z}, ensuring V'RV = I.
 The total variance is tr(CR) as in Allen's GPCA (Corollary 5).
 
 \strong{Method "geigen":}
@@ -123,14 +123,15 @@ fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
 # These should match exactly
 all.equal(fit_gpca$sdev, fit_cov$d, tolerance = 1e-10)
 
-# Example 3: Variable weights via a diagonal metric
+# Example 3: Variable weights via a diagonal metric (using iris covariance)
+C_iris <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
 w <- c(1, 1, 0.5, 2)  # emphasize Sepal.Width less, Petal.Width more
-fitW <- genpca_cov(C, R = w, ncomp=3, method="gmd")
+fitW <- genpca_cov(C_iris, R = w, ncomp=3, method="gmd")
 print(fitW$d[1:3])
 
 # Example 4: Compare GMD and generalized eigenvalue approaches
-fit_gmd <- genpca_cov(C, R = w, ncomp=2, method="gmd")
-fit_geigen <- genpca_cov(C, R = w, ncomp=2, method="geigen")
+fit_gmd <- genpca_cov(C_iris, R = w, ncomp=2, method="gmd")
+fit_geigen <- genpca_cov(C_iris, R = w, ncomp=2, method="geigen")
 # These will generally differ unless R = I
 print(paste("GMD singular values:", paste(round(fit_gmd$d, 3), collapse=", ")))
 print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=", ")))

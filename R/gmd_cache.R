@@ -2,6 +2,28 @@
 #' @keywords internal
 .gmd_cache <- new.env(parent = emptyenv())
 
+#' @title Cache access times for LRU eviction
+#' @keywords internal
+.gmd_cache_times <- new.env(parent = emptyenv())
+
+#' @title Maximum number of cached entries (LRU eviction when exceeded)
+#' @keywords internal
+.gmd_cache_max_size <- 16L
+
+#' Evict least-recently-used cache entry
+#' @keywords internal
+.evict_lru <- function() {
+  keys <- ls(envir = .gmd_cache_times, all.names = TRUE)
+  if (length(keys) == 0L) return(invisible(NULL))
+  times <- vapply(keys, function(k) get(k, envir = .gmd_cache_times), numeric(1))
+  oldest <- keys[which.min(times)]
+  if (exists(oldest, envir = .gmd_cache, inherits = FALSE)) {
+    rm(list = oldest, envir = .gmd_cache)
+  }
+  rm(list = oldest, envir = .gmd_cache_times)
+  invisible(oldest)
+}
+
 #' @keywords internal
 .digest_dense_matrix <- function(M) {
   # Round to stabilize digest against tiny numeric jitter
@@ -24,10 +46,17 @@ get_chol_lower_dense <- function(A) {
   if (methods::is(A, "sparseMatrix")) A <- methods::as(A, "denseMatrix")
   key <- paste0("L_", .digest_dense_matrix(A))
   if (exists(key, envir = .gmd_cache, inherits = FALSE)) {
+    # Update access time for LRU tracking
+    assign(key, as.numeric(Sys.time()), envir = .gmd_cache_times)
     return(get(key, envir = .gmd_cache, inherits = FALSE))
+  }
+  # Evict oldest entry if cache is full
+  if (length(ls(envir = .gmd_cache, all.names = TRUE)) >= .gmd_cache_max_size) {
+    .evict_lru()
   }
   L <- t(chol(as.matrix(A)))  # base::chol returns upper by default
   assign(key, L, envir = .gmd_cache)
+  assign(key, as.numeric(Sys.time()), envir = .gmd_cache_times)
   L
 }
 
@@ -45,5 +74,6 @@ get_chol_lower_dense <- function(A) {
 #' @export
 gmd_clear_cache <- function() {
   rm(list = ls(envir = .gmd_cache, all.names = TRUE), envir = .gmd_cache)
+  rm(list = ls(envir = .gmd_cache_times, all.names = TRUE), envir = .gmd_cache_times)
   invisible(TRUE)
 }

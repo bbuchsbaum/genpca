@@ -1,8 +1,8 @@
 #' Generalized PLS-SVD via Implicit Operator (memory-safe)
 #'
-#' Compute the top-k singular triplets of S = t(Xe) %*% Ye without
-#' materializing the whitened matrices Xe = Mx^{1/2} X Wx^{1/2},
-#' Ye = My^{1/2} Y Wy^{1/2}. Works with dense/sparse constraints.
+#' Compute the top-k singular triplets of \eqn{S = Xe' Ye} without
+#' materializing the whitened matrices \eqn{Xe = Mx^{1/2} X Wx^{1/2}},
+#' \eqn{Ye = My^{1/2} Y Wy^{1/2}}. Works with dense/sparse constraints.
 #'
 #' @param X n x I matrix (numeric or Matrix)
 #' @param Y n x J matrix (numeric or Matrix)
@@ -24,7 +24,10 @@ gplssvd_op <- function(X, Y,
                        svd_opts = list(tol = 1e-7, maxitr = 1000)) {
 
   svd_backend <- match.arg(svd_backend)
-  stopifnot(k >= 1)
+  if (!is.numeric(k) || length(k) != 1 || k < 1) {
+    stop("k must be a single positive integer >= 1")
+  }
+  k <- as.integer(k)
 
   if (!requireNamespace("Matrix", quietly = TRUE)) stop("Matrix package required.")
   if (svd_backend == "RSpectra" && !requireNamespace("RSpectra", quietly = TRUE)) {
@@ -41,6 +44,13 @@ gplssvd_op <- function(X, Y,
   X <- to_Matrix(X); Y <- to_Matrix(Y)
   N <- nrow(X); I <- ncol(X); J <- ncol(Y)
   stopifnot(nrow(Y) == N)
+
+  # Validate k against matrix dimensions
+ if (k > min(I, J)) {
+    warning("k (", k, ") exceeds min(ncol(X), ncol(Y)) = ", min(I, J),
+            "; will return at most ", min(I, J), " components")
+    k <- min(I, J)
+  }
 
   # Column center/scale prior to constraints
   cs <- function(A, do_center, do_scale) {
@@ -64,88 +74,16 @@ gplssvd_op <- function(X, Y,
   Ycs <- cs(Y, center, scale)
   X <- Xcs$A; Y <- Ycs$A
 
-  # Metric operators
-  build_metric <- function(W, n) {
-    if (is.null(W)) {
-      return(list(
-        mult         = function(x) x,
-        mult_sqrt    = function(x) x,
-        mult_invsqrt = function(x) x
-      ))
-    }
-    if (is.numeric(W) && length(W) == n) {
-      d  <- as.numeric(W); d[d < 0] <- 0
-      ds <- sqrt(d)
-      invds <- ifelse(ds > 0, 1 / ds, 0)
-      D  <- Matrix::Diagonal(x = d)
-      Ds <- Matrix::Diagonal(x = ds)
-      Dis<- Matrix::Diagonal(x = invds)
-      return(list(
-        mult         = function(x) D  %*% x,
-        mult_sqrt    = function(x) Ds %*% x,
-        mult_invsqrt = function(x) Dis %*% x
-      ))
-    }
-    if (inherits(W, "diagonalMatrix")) {
-      d  <- as.numeric(Matrix::diag(W)); d[d < 0] <- 0
-      ds <- sqrt(d)
-      invds <- ifelse(ds > 0, 1 / ds, 0)
-      Ds <- Matrix::Diagonal(x = ds)
-      Dis<- Matrix::Diagonal(x = invds)
-      return(list(
-        mult         = function(x) W %*% x,
-        mult_sqrt    = function(x) Ds %*% x,
-        mult_invsqrt = function(x) Dis %*% x
-      ))
-    }
-    # General PSD Matrix -> symmetric sqrt via eigen
-    W <- to_Matrix(W)
-    W <- Matrix::forceSymmetric(W, uplo = "U")
-    if (exists("ensure_spd", mode = "function")) W <- ensure_spd(W)
-    Wd <- as.matrix(W)
-    es <- eigen(Wd, symmetric = TRUE)
-    lam <- pmax(es$values, 0)
-    Q   <- es$vectors
-    list(
-      mult = function(x) W %*% x,
-      mult_sqrt = function(x) {
-        X <- as.matrix(x)
-        alpha <- crossprod(Q, X)
-        if (length(lam) > 0) alpha <- diag(sqrt(lam), nrow = length(lam)) %*% alpha
-        Matrix::Matrix(Q %*% alpha, sparse = FALSE)
-      },
-      mult_invsqrt = function(x) {
-        X <- as.matrix(x)
-        alpha <- crossprod(Q, X)
-        invs <- ifelse(lam > 0, 1 / sqrt(lam), 0)
-        if (length(invs) > 0) alpha <- diag(invs, nrow = length(invs)) %*% alpha
-        Matrix::Matrix(Q %*% alpha, sparse = FALSE)
-      }
-    )
-  }
+  # Metric operators (shared helper)
+  MX <- .metric_operators(XLW, N)
+  MY <- .metric_operators(YLW, N)
+  WX <- .metric_operators(XRW, I)
+  WY <- .metric_operators(YRW, J)
 
-  MX <- build_metric(XLW, N)
-  MY <- build_metric(YLW, N)
-  WX <- build_metric(XRW, I)
-  WY <- build_metric(YRW, J)
-
-  # Linear operators for S = t(Xe) %*% Ye
-  S_mv <- function(v, args = NULL) {
-    v2  <- WY$mult_sqrt(v)
-    t1  <- Y %*% v2
-    t2  <- MY$mult_sqrt(t1)
-    t3  <- MX$mult_sqrt(t2)
-    t4  <- Matrix::crossprod(X, t3)
-    as.matrix(WX$mult_sqrt(t4))
-  }
-  ST_mv <- function(u, args = NULL) {
-    u2  <- WX$mult_sqrt(u)
-    s1  <- X %*% u2
-    s2  <- MX$mult_sqrt(s1)
-    s3  <- MY$mult_sqrt(s2)
-    s4  <- Matrix::crossprod(Y, s3)
-    as.matrix(WY$mult_sqrt(s4))
-  }
+  # Linear operators for S = t(Xe) %*% Ye (shared builder)
+  opc <- .build_pls_operator(X, Y, MX, MY, WX, WY)
+  S_mv  <- opc$S_mv
+  ST_mv <- opc$ST_mv
 
   # Small-dense fallback for stability on toy sizes
   if (I <= 64 && J <= 64) {
@@ -194,8 +132,10 @@ gplssvd_op <- function(X, Y,
   # Generalized singular vectors & component scores
   p <- WX$mult_invsqrt(u)
   q <- WY$mult_invsqrt(v)
-  Fi <- WX$mult(p %*% diag(d, nrow = length(d)))
-  Fj <- WY$mult(q %*% diag(d, nrow = length(d)))
+  # Use Diagonal for efficient scaling by singular values
+  Dmat <- Matrix::Diagonal(x = d)
+  Fi <- WX$mult(p %*% Dmat)
+  Fj <- WY$mult(q %*% Dmat)
   Lx <- MX$mult_sqrt(X %*% WX$mult(p))
   Ly <- MY$mult_sqrt(Y %*% WY$mult(q))
 

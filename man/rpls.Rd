@@ -26,8 +26,8 @@ rpls(
   penalty = c("l1", "ridge"),
   Q = NULL,
   nonneg = FALSE,
-  preproc_x = pass(),
-  preproc_y = pass(),
+  preproc_x = multivarious::pass(),
+  preproc_y = multivarious::pass(),
   tol = 1e-06,
   maxiter = 200,
   verbose = FALSE,
@@ -60,8 +60,8 @@ Default `1e-6`.}
 \item{verbose}{Logical; print progress messages during component extraction.
 Default `FALSE`.}
 
-\item{preproc_x, }{preproc_y Optional \pkg{multivarious} preprocessing
-objects (see \code{\link[multivarious]{prep}}). By default they pass
+\item{preproc_x, preproc_y}{Optional \pkg{multivarious} preprocessing
+objects (see \code{\link[multivarious]{fit_transform}}). By default they pass
 the data through unchanged using \code{pass()}.}
 
 \item{...}{Further arguments (e.g., custom stopping criteria if implemented)

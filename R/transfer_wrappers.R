@@ -8,10 +8,10 @@
 #' @param new_data New data to transfer.
 #' @param from Source space ("X" or "Y").
 #' @param to Target space ("X" or "Y").
-#' @param source Legacy parameter name for `from`. Deprecated, use `from` instead.
-#' @param target Legacy parameter name for `to`. Deprecated, use `to` instead.
 #' @param opts Options list passed to multivarious::transfer.
-#' @param ... Additional arguments passed through.
+#' @param ... Additional arguments. Legacy parameters `source` and `target`
+#'   are accepted here for backwards compatibility but are deprecated;
+#'   use `from` and `to` instead.
 #' @return Matrix with transferred data.
 #'
 #' @examples
@@ -21,10 +21,10 @@
 #' n <- 50
 #' X <- matrix(rnorm(n * 10), n, 10)
 #' Y <- matrix(rnorm(n * 8), n, 8)
-#' 
+#'
 #' # Create a cross projector using rpls
 #' fit <- rpls(X, Y, K = 2)
-#' 
+#'
 #' # Transfer new X data to Y space
 #' new_X <- matrix(rnorm(10 * 10), 10, 10)
 #' transferred <- transfer(fit, new_X, from = "X", to = "Y")
@@ -33,32 +33,28 @@
 #' @importFrom multivarious transfer
 #' @importFrom utils getS3method
 #' @export
-transfer.cross_projector <- function(x, new_data,
-                                     from = NULL,
-                                     to = NULL,
-                                     source = NULL,
-                                     target = NULL,
-                                     opts = list(),
-                                     ...) {
-  
-  # Handle legacy parameter names (source/target -> from/to)
-  if (!is.null(source) && is.null(from)) {
-    from <- source
+transfer.cross_projector <- function(x, new_data, from = NULL, to = NULL,
+                                     opts = list(), ...) {
+
+  # Handle legacy parameter names (source/target -> from/to) from ...
+  dots <- list(...)
+  if (!is.null(dots$source) && is.null(from)) {
+    from <- dots$source
   }
-  if (!is.null(target) && is.null(to)) {
-    to <- target
+  if (!is.null(dots$target) && is.null(to)) {
+    to <- dots$target
   }
-  
+
   # Set defaults if not provided
   if (is.null(from)) from <- "X"
   if (is.null(to)) to <- "Y"
-  
+
   # Match arguments
   from <- match.arg(from, c("X", "Y"))
   to   <- match.arg(to, c("X", "Y"))
-  
+
   # Call multivarious transfer method directly to avoid method dispatch recursion
   getS3method("transfer", "cross_projector", envir = asNamespace("multivarious"))(
-    x, new_data, from = from, to = to, opts = opts, ...
+    x, new_data, from = from, to = to, opts = opts
   )
 }

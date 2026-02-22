@@ -116,25 +116,10 @@ partial_eig_approx <- function(M, user_rank,
 build_sqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
                             which="LA", eps=1e-15, tol=1e-6)
 {
-  if(is.null(M)) {
-    return(function(mat) mat)
-  }
-  if(is_identity_or_diag(M)) {
-    dvals <- Matrix::diag(M)
-    if(all(abs(dvals-1)<eps)) {
-      return(function(mat) mat)
-    } else {
-      ds <- sqrt(dvals + eps)
-      return(function(mat) {
-        nr <- nrow(mat)
-        if(nrow(M)==nr) {
-          mat <- mat * ds
-        } else {
-          mat <- t(t(mat) * ds)
-        }
-        mat
-      })
-    }
+  if (is.null(M) || is_identity_or_diag(M)) {
+    # Delegate identity/diagonal to shared metric ops for consistency
+    ops <- .metric_operators(M, if (!is.null(M)) nrow(M) else NULL)
+    return(function(mat) ops$mult_sqrt(mat))
   } else {
     out <- partial_eig_approx(M, user_rank, var_threshold, max_k,
                               which=which, eps=eps, tol=tol)
@@ -157,17 +142,9 @@ build_sqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
 build_invsqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
                                which="LA", eps=1e-15, tol=1e-6)
 {
-  if(is.null(M)) {
-    return(function(vec) vec)
-  }
-  if(is_identity_or_diag(M)) {
-    dvals <- Matrix::diag(M)
-    if(all(abs(dvals-1)<eps)) {
-      return(function(vec) vec)
-    } else {
-      ds_inv <- 1/sqrt(dvals + eps)
-      return(function(vec) ds_inv * vec)
-    }
+  if (is.null(M) || is_identity_or_diag(M)) {
+    ops <- .metric_operators(M, if (!is.null(M)) nrow(M) else NULL)
+    return(function(vec) ops$mult_invsqrt(vec))
   } else {
     out <- partial_eig_approx(M, user_rank, var_threshold, max_k,
                               which=which, eps=eps, tol=tol)

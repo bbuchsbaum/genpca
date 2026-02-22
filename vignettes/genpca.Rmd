@@ -1,0 +1,31 @@
+---
+title: "genpca: Vignette Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{genpca: Vignette Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This is a short map of the genpca documentation. Each vignette is small and focused; pick the one you need.
+
+Basics
+------
+`vignette("gpca-basics", package = "genpca")` covers a quick start, identity vs diagonal metrics, choosing `ncomp`, and a tiny real-data example (USArrests).
+
+Metrics
+-------
+`vignette("gpca-metrics", package = "genpca")` shows how to build practical row/column metrics (AR(1), spatial kernels, graph Laplacians, heteroscedastic weights), how `gpca_mle()` can learn metrics, and what to watch for with SPD remedies.
+
+Scale & Special Cases
+---------------------
+`vignette("gpca-scale", package = "genpca")` gives backend choices (`eigen`, `spectra`, `deflation`), sparse workflows, the covariance-only route (`genpca_cov`), out-of-sample projection tips, and performance notes.
+
+PLS
+---
+For generalized PLS/CCA, see `vignette("gplssvd-reference", package = "genpca")` for the mathematical reference and a quick-start code chunk.
