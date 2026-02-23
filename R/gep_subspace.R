@@ -19,10 +19,45 @@ factor_mat <- function(M, reg = 1e-3, max_tries = 5) {
 
 #' @keywords internal
 #' @noRd
-orthonormalize <- function(X) {
-  # thin QR; avoids allocating the full Q when d >> q
-  QR <- qr(X)
-  qr.Q(QR, complete = FALSE)
+orthonormalize <- function(X, metric = NULL, reg = 1e-8, max_tries = 12) {
+  k <- ncol(X)
+  if (k == 0L) {
+    return(X[, 0, drop = FALSE])
+  }
+
+  if (is.null(metric)) {
+    # thin QR; avoids allocating the full Q when d >> q
+    QR <- qr(X)
+    return(qr.Q(QR, complete = FALSE))
+  }
+
+  # Metric orthonormalization: X_hat = X * R^{-1}, where
+  # X^T metric X = R^T R.
+  G <- crossprod(X, metric %*% X)
+  G <- (G + t(G)) / 2
+
+  reg_now <- reg
+  R <- NULL
+  for (i in seq_len(max_tries)) {
+    R <- try(chol(as.matrix(G) + diag(reg_now, k)), silent = TRUE)
+    if (!inherits(R, "try-error")) break
+    reg_now <- if (reg_now > 0) reg_now * 10 else 1e-10
+  }
+  if (inherits(R, "try-error")) {
+    # Last-resort spectral shift for numerically indefinite small Gram matrices.
+    eval <- eigen(as.matrix(G), symmetric = TRUE, only.values = TRUE)$values
+    shift <- max(reg_now, -min(eval) + max(reg, 1e-10))
+    for (j in seq_len(6)) {
+      R <- try(chol(as.matrix(G) + diag(shift, k)), silent = TRUE)
+      if (!inherits(R, "try-error")) break
+      shift <- shift * 10
+    }
+  }
+  if (inherits(R, "try-error")) {
+    stop("Unable to metric-orthonormalize basis: chol failed after regularization and spectral shift.")
+  }
+
+  X %*% backsolve(R, diag(1, k))
 }
 
 
@@ -83,15 +118,16 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
     V <- V0
   }
   
-  V <- orthonormalize(V)
+  # Keep iterates S2-orthonormal to make the projected metric matrix stable.
+  V <- orthonormalize(V, metric = S2, reg = reg_T)
   
   lambda_old <- NULL
   
   for (iter in seq_len(max_iter)) {
     Y <- solve_step(V)
     
-    # Orthonormalize Y
-    Y <- orthonormalize(Y)
+    # Orthonormalize Y in the S2 metric
+    Y <- orthonormalize(Y, metric = S2, reg = reg_T)
     
     # Form S and T efficiently (avoid d x d intermediate products)
     S_mat <- t(Y) %*% (S1 %*% Y)  # q x q
@@ -105,13 +141,22 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
     reg <- reg_T
     R <- NULL
     qq <- ncol(T_mat)
-    for (tries in 0:5) {
+    for (tries in 0:7) {
       T_reg <- as.matrix(T_mat) + diag(reg, qq)
       R <- try(chol(T_reg), silent = TRUE)
       if (!inherits(R, "try-error")) break
       reg <- reg * 10
     }
-    if (!is.numeric(R)) stop("Unable to chol() the T matrix even after regularization.")
+    if (inherits(R, "try-error")) {
+      eval_T <- eigen(as.matrix(T_mat), symmetric = TRUE, only.values = TRUE)$values
+      shift <- max(reg, -min(eval_T) + max(reg_T, 1e-10))
+      for (j in seq_len(6)) {
+        R <- try(chol(as.matrix(T_mat) + diag(shift, qq)), silent = TRUE)
+        if (!inherits(R, "try-error")) break
+        shift <- shift * 10
+      }
+    }
+    if (inherits(R, "try-error")) stop("Unable to chol() the T matrix even after regularization and spectral shift.")
     
     # C = R^{-T} S R^{-1} (symmetric)
     C <- backsolve(R, t(backsolve(R, t(as.matrix(S_mat)), transpose = TRUE)))
@@ -153,15 +198,11 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
     warning("Reached max_iter without convergence (delta_lambda > tol)")
   }
   
-  # Optional but recommended: enforce S2-orthonormality again
-  G <- crossprod(V, S2 %*% V)
-  G <- (G + t(G))/2  # Symmetrize
-  Rg <- chol(as.matrix(G) + diag(reg_T, q))
-  V <- V %*% solve(Rg)
+  # Enforce S2-orthonormality again (with robust regularization).
+  V <- orthonormalize(V, metric = S2, reg = reg_T)
   
   # Recompute lambda as Rayleigh quotients in the now S2-orthonormal basis
   lambda <- diag(crossprod(V, S1 %*% V))
   
   list(values = as.numeric(lambda), vectors = V, final_reg_S = final_reg_S)
 }
-
