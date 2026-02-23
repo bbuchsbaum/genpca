@@ -12,3 +12,5 @@ genpca-overview.md
 .albersdown.bak/
 .omc/
 .rcmdcheck_result.rds
+pkgdown/
+vignettes/*.html

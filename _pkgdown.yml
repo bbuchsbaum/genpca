@@ -1,4 +1,5 @@
 url: https://bbuchsbaum.github.io/genpca/
 template:
   bootstrap: 5
+  package: albersdown
 mathjax: local
