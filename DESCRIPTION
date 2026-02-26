@@ -25,8 +25,6 @@ Imports:
     methods,
     PRIMME,
     digest
-Remotes:
-    bbuchsbaum/multivarious
 LinkingTo:
     Rcpp,
     RcppArmadillo,
@@ -38,8 +36,7 @@ Suggests:
     irlba,
     clue,
     knitr,
-    rmarkdown,
-    neighborweights
+    rmarkdown
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
