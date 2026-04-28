@@ -39,7 +39,7 @@ data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
 #>       method elapsed   top_sv
-#> 1      eigen   0.099 19.48896
+#> 1      eigen   0.105 19.48896
 #> 2 randomized   0.008 19.14753
 ```
 
