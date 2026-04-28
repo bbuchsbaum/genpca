@@ -68,7 +68,7 @@
 
     
     
-<p>This vignette walks through the choices that matter once your data
+<script>document.addEventListener("DOMContentLoaded",function(){document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-study","preset-structural","preset-adobe","preset-midnight");document.body.classList.add("palette-teal","preset-homage");});</script><p>This vignette walks through the choices that matter once your data
 outgrows the defaults: which backend to pick, when to switch to a
 covariance-only fit, and how to project out-of-sample observations.</p>
 <div class="section level2">
@@ -149,8 +149,8 @@ singular values agree across paths:</p>
 <span>           elapsed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">t_eig</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="va">t_rnd</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">)</span>,</span>
 <span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       method elapsed   top_sv</span></span>
-<span><span class="co">#&gt; 1      eigen   0.134 19.48896</span></span>
-<span><span class="co">#&gt; 2 randomized   0.009 19.14753</span></span></code></pre></div>
+<span><span class="co">#&gt; 1      eigen   0.099 19.48896</span></span>
+<span><span class="co">#&gt; 2 randomized   0.008 19.14753</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="Singular values from the eigen and randomized paths agree to plotting precision on this dense problem." width="85%"><p class="caption">
 Singular values from the eigen and randomized paths agree to plotting
