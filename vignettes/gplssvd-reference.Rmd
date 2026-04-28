@@ -1,13 +1,26 @@
 ---
-title: "Generalized PLS-SVD: Explicit Whitening Reference"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Generalized PLS-SVD: Explicit Whitening Reference}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+title: 'Generalized PLS-SVD: Explicit Whitening Reference'
+output:
+  rmarkdown::html_vignette:
+    toc: yes
+    toc_depth: 2.0
+    css: albers.css
+    includes:
+      in_header: albers-header.html
+params:
+  family: teal
+  preset: homage
+resource_files:
+- albers.css
+- albers.js
+- albers-header.html
+
+vignette: |
+  %\VignetteIndexEntry{Generalized PLS-SVD: Explicit Whitening Reference} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include = FALSE}
+if (requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("albersdown", quietly = TRUE)) ggplot2::theme_set(albersdown::theme_albers(family = params$family, preset = params$preset))
 options(rmarkdown.html_vignette.check_title = FALSE)
 knitr::opts_chunk$set(
   collapse   = TRUE,
@@ -20,6 +33,19 @@ knitr::opts_chunk$set(
 )
 library(genpca)
 library(Matrix)
+```
+
+```{r albers-classes, echo=FALSE, results='asis'}
+cat(sprintf(
+  paste0(
+    '<script>document.addEventListener("DOMContentLoaded",function(){',
+    'document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-study","preset-structural","preset-adobe","preset-midnight");',
+    'document.body.classList.add("palette-%s","preset-%s");',
+    '});</script>'
+  ),
+  params$family,
+  params$preset
+))
 ```
 
 This vignette has two audiences. End users who just want to run generalized PLS on two blocks should read the **Quick practical use** section and stop. Contributors who want to verify the whitening identities behind `gplssvd_op()` should continue to the explicit reference implementation below.
