@@ -15,7 +15,7 @@ Description: Generalized PCA and related matrix decompositions in weighted
     Encyclopedia of Measurement and Statistics, 907-912.
 License: MIT + file LICENSE
 Encoding: UTF-8
-SystemRequirements: C++11
+SystemRequirements: C++14
 Imports:
     Rcpp,
     RSpectra,
