@@ -132,7 +132,8 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
                          topk_ratio = 0.08, topk_min_dim = 200L,
                          diag_fast = TRUE) {
   # Input validation
-  n <- nrow(X); p <- ncol(X)
+  n <- nrow(X)
+  p <- ncol(X)
   if (!is.numeric(k) || length(k) != 1 || k < 1) {
     stop("k must be a single positive integer >= 1")
   }
@@ -217,7 +218,7 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
   if (is.matrix(res$d)) {
     res$d <- as.vector(res$d)
   }
-  
+
   # Name outputs like multivarious - filter by tolerance first
   keep <- res$d > tol
   if (sum(keep) < length(res$d)) {
@@ -227,7 +228,7 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
     if (!is.null(res$ov)) res$ov <- res$ov[, keep, drop = FALSE]
     res$d <- res$d[keep]
   }
-  
+
   # Set k to the number of components found
   res$k <- length(res$d)
   res

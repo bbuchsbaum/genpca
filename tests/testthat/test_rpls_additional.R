@@ -17,4 +17,3 @@ test_that("nonneg flag warns when penalty is ridge", {
   expect_warning(rpls(X, Y, K = 1, penalty = "ridge", nonneg = TRUE),
                  "nonneg option is ignored")
 })
-

@@ -59,11 +59,11 @@ A list with components:
   }
 }
 \description{
-Performs Generalized PCA directly on a pre-computed covariance matrix C with a single 
-variable-side constraint/metric R. This is useful when you already have C = X'MX 
-or when X is too large to store but C is manageable. Supports two methods: 
-"gmd" (Allen et al.'s GMD approach, default) which exactly matches the two-sided 
-\code{\link{genpca}}, and "geigen" (generalized eigenvalue approach) which solves 
+Performs Generalized PCA directly on a pre-computed covariance matrix C with a single
+variable-side constraint/metric R. This is useful when you already have C = X'MX
+or when X is too large to store but C is manageable. Supports two methods:
+"gmd" (Allen et al.'s GMD approach, default) which exactly matches the two-sided
+\code{\link{genpca}}, and "geigen" (generalized eigenvalue approach) which solves
 C v = lambda R v.
 }
 \details{
@@ -93,8 +93,8 @@ The total variance is tr(CR) as in Allen's GPCA (Corollary 5).
 \strong{Method "geigen":}
 
 This method solves the generalized eigenproblem C v = lambda R v directly.
-While mathematically valid, it solves a different optimization than Allen's 
-GMD and will not, in general, match the two-sided genpca unless R = I or 
+While mathematically valid, it solves a different optimization than Allen's
+GMD and will not, in general, match the two-sided genpca unless R = I or
 special commutation conditions hold.
 
 For exact equivalence with genpca(X, M, A), use method="gmd" with C = X'MX and R = A.
@@ -139,7 +139,7 @@ print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=",
 }
 \references{
 Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-A Generalized Least-Squares Matrix Decomposition. 
+A Generalized Least-Squares Matrix Decomposition.
 Journal of the American Statistical Association, 109(505), 145-159.
 }
 \seealso{

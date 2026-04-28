@@ -5,6 +5,14 @@
 #'
 #' @inheritParams genpls
 #' @return See `genpls()`
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(60 * 5), 60, 5)
+#' Y <- matrix(rnorm(60 * 4), 60, 4)
+#' fit <- genplsc(X, Y, ncomp = 2,
+#'                preproc_x = multivarious::center(),
+#'                preproc_y = multivarious::center())
+#' fit$d
 #' @export
 genplsc <- function(X, Y,
                     Ax = NULL, Ay = NULL,
@@ -25,4 +33,3 @@ genplsc <- function(X, Y,
          svd_opts = svd_opts,
          verbose = verbose)
 }
-

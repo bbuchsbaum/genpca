@@ -33,11 +33,13 @@
 
   # Diagonal from numeric
   if (is.numeric(W) && !is.null(n_expected) && length(W) == n_expected) {
-    d <- as.numeric(W); d[d < 0] <- 0
-    ds <- sqrt(d); invds <- ifelse(ds > 0, 1/ds, 0)
+    d <- as.numeric(W)
+    d[d < 0] <- 0
+    ds <- sqrt(d)
+    invds <- ifelse(ds > 0, 1 / ds, 0)
     D  <- Matrix::Diagonal(x = d)
     Ds <- Matrix::Diagonal(x = ds)
-    Dis<- Matrix::Diagonal(x = invds)
+    Dis <- Matrix::Diagonal(x = invds)
     return(list(
       mult = function(x) D %*% x,
       mult_sqrt = function(x) Ds %*% x,
@@ -47,10 +49,12 @@
 
   # DiagonalMatrix
   if (inherits(W, "diagonalMatrix")) {
-    d  <- as.numeric(Matrix::diag(W)); d[d < 0] <- 0
-    ds <- sqrt(d); invds <- ifelse(ds > 0, 1/ds, 0)
+    d  <- as.numeric(Matrix::diag(W))
+    d[d < 0] <- 0
+    ds <- sqrt(d)
+    invds <- ifelse(ds > 0, 1 / ds, 0)
     Ds <- Matrix::Diagonal(x = ds)
-    Dis<- Matrix::Diagonal(x = invds)
+    Dis <- Matrix::Diagonal(x = invds)
     return(list(
       mult = function(x) W %*% x,
       mult_sqrt = function(x) Ds %*% x,
@@ -77,7 +81,7 @@
     mult_invsqrt = function(x) {
       X <- as.matrix(x)
       alpha <- crossprod(Q, X)
-      invs <- ifelse(lam > 0, 1/sqrt(lam), 0)
+      invs <- ifelse(lam > 0, 1 / sqrt(lam), 0)
       if (length(invs) > 0) alpha <- diag(invs, nrow = length(invs)) %*% alpha
       Matrix::Matrix(Q %*% alpha, sparse = FALSE)
     }
@@ -96,7 +100,8 @@
 # Build PLS operator closures S_mv and ST_mv for given data and metric operators
 .build_pls_operator <- function(X, Y, MX, MY, WX, WY) {
   # X: n x p, Y: n x q; MX,MY,WX,WY are metric operator lists (mult/mult_sqrt/...)
-  p <- ncol(X); q <- ncol(Y)
+  p <- ncol(X)
+  q <- ncol(Y)
   S_mv <- function(v, args = NULL) {
     v2 <- WY$mult_sqrt(v)
     t1 <- Y %*% v2

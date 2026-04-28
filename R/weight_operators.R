@@ -8,7 +8,7 @@
 #' @param sqrt Logical, whether to use square root of W
 #' @param inverse Logical, whether to use inverse of W
 #' @return A function that applies the requested transformation
-#' 
+#'
 #' @keywords internal
 #' @importFrom Matrix isDiagonal chol solve Diagonal
 as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FALSE) {
@@ -16,11 +16,11 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
   if (is.null(W)) {
     return(function(x) x)
   }
-  
+
   # For diagonal matrices, we can optimize
   if (Matrix::isDiagonal(W)) {
     d <- diag(W)
-    
+
     if (sqrt && inverse) {
       # W^{-1/2}
       d_op <- 1 / sqrt(d)
@@ -63,7 +63,7 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
       })
     }
   }
-  
+
   # For general symmetric PSD matrices use shared metric operators
   ops <- .metric_operators(W)
   opfun <- if (sqrt && inverse) {

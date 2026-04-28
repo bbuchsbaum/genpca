@@ -2,7 +2,10 @@ testthat::test_that("genpls matches gplssvd_op on centered identity metrics", {
   skip_if_not_installed("Matrix")
   library(Matrix)
   set.seed(7)
-  N <- 40; I <- 12; J <- 10; k <- 3
+  N <- 40
+  I <- 12
+  J <- 10
+  k <- 3
   X <- matrix(rnorm(N * I), N, I)
   Y <- matrix(rnorm(N * J), N, J)
 
@@ -17,13 +20,15 @@ testthat::test_that("genpls matches gplssvd_op on centered identity metrics", {
 
   # Helpers
   align_signs <- function(A_ref, A_test) {
-    A_ref <- as.matrix(A_ref); A_test <- as.matrix(A_test)
+    A_ref <- as.matrix(A_ref)
+    A_test <- as.matrix(A_test)
     ss <- sign(colSums(A_ref * A_test))
     ss[is.na(ss) | ss == 0] <- 1
     A_test %*% diag(ss, ncol(A_test))
   }
   expect_close <- function(A, B, tol = 1e-6) {
-    A <- as.matrix(A); B <- as.matrix(B)
+    A <- as.matrix(A)
+    B <- as.matrix(B)
     testthat::expect_lt(norm(A - B, "F"), tol * (1 + norm(A, "F")))
   }
 
@@ -43,11 +48,16 @@ testthat::test_that("genpls matches gplssvd_op with diagonal row metrics", {
   skip_if_not_installed("Matrix")
   library(Matrix)
   set.seed(8)
-  N <- 40; I <- 10; J <- 9; k <- 3
+  N <- 40
+  I <- 10
+  J <- 9
+  k <- 3
   X <- matrix(rnorm(N * I), N, I)
   Y <- matrix(rnorm(N * J), N, J)
-  wX <- runif(N); wX <- wX / sum(wX)
-  wY <- runif(N); wY <- wY / sum(wY)
+  wX <- runif(N)
+  wX <- wX / sum(wX)
+  wY <- runif(N)
+  wY <- wY / sum(wY)
   MX <- Diagonal(x = wX)
   MY <- Diagonal(x = wY)
 
@@ -59,13 +69,15 @@ testthat::test_that("genpls matches gplssvd_op with diagonal row metrics", {
                 preproc_y = multivarious::center())
 
   align_signs <- function(A_ref, A_test) {
-    A_ref <- as.matrix(A_ref); A_test <- as.matrix(A_test)
+    A_ref <- as.matrix(A_ref)
+    A_test <- as.matrix(A_test)
     ss <- sign(colSums(A_ref * A_test))
     ss[is.na(ss) | ss == 0] <- 1
     A_test %*% diag(ss, ncol(A_test))
   }
   expect_close <- function(A, B, tol = 1e-6) {
-    A <- as.matrix(A); B <- as.matrix(B)
+    A <- as.matrix(A)
+    B <- as.matrix(B)
     testthat::expect_lt(norm(A - B, "F"), tol * (1 + norm(A, "F")))
   }
 

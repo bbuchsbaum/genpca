@@ -124,11 +124,11 @@ An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::
   \describe{
     \item{u,v}{Left/right singular vectors scaled by the constraint metrics
                (MU, AV). These correspond to components in the original space's geometry.
-               Use `components(fit)`.} 
+               Use `components(fit)`.}
     \item{ou,ov}{Orthonormal singular vectors in the constraint metric
                  (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
     \item{sdev}{Generalised singular values d_k.}
-    \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.} 
+    \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.}
     \item{preproc}{The `multivarious` pre‑processing object used.}
     \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
     \item{propv}{Proportion of generalized variance explained by each component.}
@@ -173,7 +173,7 @@ Three methods are available via the `method` argument:
   \item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
 }
 
-For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which 
+For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which
 performs GPCA directly on C with column constraint R (equivalent to A).
 }
 
@@ -187,7 +187,7 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 
   # Standard PCA (A=I, M=I, centered) - using default method="eigen"
   gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
-  
+
   # Standard PCA using Spectra method (requires C++ build)
   # gpca_std_spectra <- try(genpca(X, ncomp = 5,
   #                              preproc = multivarious::center(),
@@ -216,7 +216,7 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 }
 \references{
 Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-*A Generalized Least‑Squares Matrix Decomposition.* 
+*A Generalized Least‑Squares Matrix Decomposition.*
 Journal of the American Statistical Association, 109(505), 145‑159.
 arXiv:1102.3074.
 }

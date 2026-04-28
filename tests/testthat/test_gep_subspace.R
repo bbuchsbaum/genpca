@@ -4,7 +4,7 @@ library(testthat)
 library(Matrix)
 
 # Helper to check generalized eigen equation: S1 V = S2 V diag(lambda)
-check_gep <- function(S1, S2, V, lambda, tol=1e-6) {
+check_gep <- function(S1, S2, V, lambda, tol = 1e-6) {
   left <- S1 %*% V
   right <- S2 %*% (V %*% diag(lambda))
   expect_equal(left, right, tolerance = tol)
@@ -53,4 +53,3 @@ test_that("solve_gep_subspace matches direct solution for smallest eigenvalues",
   expect_equal(res_smallest$values, true_smallest_vals, tolerance = 0.3)
   check_gep(S1, S2, res_smallest$vectors, res_smallest$values, tol = 0.3)
 })
-

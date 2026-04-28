@@ -13,26 +13,26 @@ test_that("Rank-1 matrix is recovered correctly", {
   X <- u_true %*% t(v_true)
   spat_cds <- matrix(runif(p * 2), nrow = 2, ncol = p)
   # Test sparsity regularization only (no smoothness penalties)
-  result <- sfpca(X, K = 1, spat_cds = spat_cds, verbose = FALSE, 
-                  lambda_v=.001, lambda_u=.001, alpha_v=0, alpha_u=0)
-  
-  u_est <- result$u[,1]
-  v_est <- result$v[,1]
+  result <- sfpca(X, K = 1, spat_cds = spat_cds, verbose = FALSE,
+                  lambda_v = .001, lambda_u = .001, alpha_v = 0, alpha_u = 0)
+
+  u_est <- result$u[, 1]
+  v_est <- result$v[, 1]
   d_est <- result$d[1]
-  
+
   # Handle sign ambiguity - fix both u and v signs consistently
   sign_uv <- sign(crossprod(u_est, u_true) * crossprod(v_est, v_true))
   if (sign_uv < 0) {
     u_est <- -u_est
   }
-  
+
   # Check reconstruction - with small L1 regularization only, should be very good
   X_recon <- d_est * u_est %*% t(v_est)
-  recon_error <- norm(X - X_recon, 'F') / norm(X, 'F')
-  
+  recon_error <- norm(X - X_recon, "F") / norm(X, "F")
+
   # With small L1 regularization (0.001) and no smoothness, expect excellent reconstruction
   expect_lt(recon_error, 0.01)  # At least 99% variance explained
-  
+
   # Also check correlation with true components
   expect_gt(abs(cor(u_est, u_true)), 0.99)
   expect_gt(abs(cor(v_est, v_true)), 0.99)
@@ -45,24 +45,24 @@ test_that("Orthogonal columns result in smooth components", {
   # Create an n x p matrix with orthogonal columns
   # If n > p, we need to repeat/extend the identity pattern
   if (n <= p) {
-    X <- diag(p)[1:n,]
+    X <- diag(p)[1:n, ]
   } else {
     # Create orthogonal columns by cycling through identity matrix rows
     X <- matrix(0, n, p)
     for (i in 1:n) {
-      X[i, ((i-1) %% p) + 1] <- 1
+      X[i, ((i - 1) %% p) + 1] <- 1
     }
   }
   spat_cds <- matrix(runif(p * 2), nrow = 2, ncol = p)
   # Use K=1 since the matrix may not support K=2 after deflation
   result <- sfpca(X, K = 1, spat_cds = spat_cds, verbose = FALSE)
-  
+
   v_est <- result$v
-  
+
   # Compute smoothness measure based on spat_cds
   distances <- as.matrix(dist(t(spat_cds)))
   smoothness <- sum(distances * (v_est %*% t(v_est)))
-  
+
   # Set a threshold for smoothness
   expect_true(smoothness < 100)  # Adjust threshold as needed
 })
@@ -75,18 +75,18 @@ test_that("Sparse signals result in sparse components", {
   X[, sample(p, 10)] <- 0  # Introduce sparsity
   spat_cds <- matrix(runif(p * 3), nrow = 3, ncol = p)
   # Use stronger lambda values and minimal spatial smoothing for sparsity test
-  result <- sfpca(X, K = 2, spat_cds = spat_cds, 
-                  lambda_u = 1.0, lambda_v = 1.0, 
+  result <- sfpca(X, K = 2, spat_cds = spat_cds,
+                  lambda_u = 1.0, lambda_v = 1.0,
                   alpha_u = 0, alpha_v = 0,  # Disable spatial smoothing
                   verbose = FALSE)
-  
+
   u_est <- result$u
   v_est <- result$v
-  
+
   # Check sparsity - with proper ISTA updates and no spatial smoothing
   # At least one component should show sparsity
-  u_sparse <- sum(abs(u_est[,1]) > 1e-4) < 25 || sum(abs(u_est[,2]) > 1e-4) < 25
-  v_sparse <- sum(abs(v_est[,1]) > 1e-4) < 25 || sum(abs(v_est[,2]) > 1e-4) < 25
-  
+  u_sparse <- sum(abs(u_est[, 1]) > 1e-4) < 25 || sum(abs(u_est[, 2]) > 1e-4) < 25
+  v_sparse <- sum(abs(v_est[, 1]) > 1e-4) < 25 || sum(abs(v_est[, 2]) > 1e-4) < 25
+
   expect_true(u_sparse || v_sparse)  # At least one should be sparse
 })

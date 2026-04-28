@@ -47,22 +47,22 @@ make_sqrt_mats <- function(W, n) {
     d <- pmax(as.numeric(W), 0)
     ds <- sqrt(d)
     list(sqrt = Diagonal(x = ds),
-         invsqrt = Diagonal(x = ifelse(ds > 0, 1/ds, 0)),
+         invsqrt = Diagonal(x = ifelse(ds > 0, 1 / ds, 0)),
          full = Diagonal(x = d))
   } else if (inherits(W, "diagonalMatrix")) {
     d <- pmax(as.numeric(diag(W)), 0)
     ds <- sqrt(d)
     list(sqrt = Diagonal(x = ds),
-         invsqrt = Diagonal(x = ifelse(ds > 0, 1/ds, 0)),
+         invsqrt = Diagonal(x = ifelse(ds > 0, 1 / ds, 0)),
          full = W)
   } else {
     # General PSD: symmetric sqrt via eigen
     Wd <- as.matrix(forceSymmetric(Matrix(W)))
     es <- eigen(Wd, symmetric = TRUE)
     Q  <- es$vectors
-    lam<- pmax(es$values, 0)
+    lam <- pmax(es$values, 0)
     S  <- Q %*% diag(sqrt(lam), nrow = length(lam)) %*% t(Q)
-    IS <- Q %*% diag(ifelse(lam > 0, 1/sqrt(lam), 0), nrow = length(lam)) %*% t(Q)
+    IS <- Q %*% diag(ifelse(lam > 0, 1 / sqrt(lam), 0), nrow = length(lam)) %*% t(Q)
     list(
       sqrt    = Matrix(S,  sparse = FALSE),
       invsqrt = Matrix(IS, sparse = FALSE),
@@ -77,12 +77,16 @@ dense_gplssvd_ref <- function(X, Y,
                               WX = NULL, WY = NULL,
                               k = NULL,
                               center = FALSE, scale = FALSE) {
-  N <- nrow(X); I <- ncol(X); J <- ncol(Y)
+  N <- nrow(X)
+  I <- ncol(X)
+  J <- ncol(Y)
   stopifnot(nrow(Y) == N)
 
   # center/scale as in the operator impl
-  Xcs <- center_scale_like_impl(X, center, scale); X <- Xcs$A
-  Ycs <- center_scale_like_impl(Y, center, scale); Y <- Ycs$A
+  Xcs <- center_scale_like_impl(X, center, scale)
+  X <- Xcs$A
+  Ycs <- center_scale_like_impl(Y, center, scale)
+  Y <- Ycs$A
 
   # sqrt and invsqrt metric matrices (explicit)
   MXm <- make_sqrt_mats(MX, N)
@@ -126,7 +130,8 @@ dense_gplssvd_ref <- function(X, Y,
 # Align signs columnwise between two matrices (U_ref, U_test).
 align_signs <- function(A_ref, A_test) {
   if (is.null(A_ref) || is.null(A_test)) return(A_test)
-  A_ref <- as.matrix(A_ref); A_test <- as.matrix(A_test)
+  A_ref <- as.matrix(A_ref)
+  A_test <- as.matrix(A_test)
   if (ncol(A_ref) == 0 || ncol(A_test) == 0) return(A_test)
   stopifnot(ncol(A_ref) == ncol(A_test))
   S <- diag(sign(colSums(A_ref * A_test)), ncol(A_ref))
@@ -149,7 +154,9 @@ run_op <- function(X, Y, XLW, YLW, XRW, YRW, k, center, scale, backend) {
 
 # ---- Toy data --------------------------------------------------------------
 
-N <- 12; I <- 5; J <- 4
+N <- 12
+I <- 5
+J <- 4
 X0 <- matrix(rnorm(N * I), N, I)
 Y0 <- matrix(rnorm(N * J), N, J)
 
@@ -197,8 +204,10 @@ for (backend in c("RSpectra", "irlba")) {
     if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
     if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
     k <- 3
-    w_row_X <- runif(N); w_row_X <- w_row_X / sum(w_row_X)
-    w_row_Y <- runif(N); w_row_Y <- w_row_Y / sum(w_row_Y)
+    w_row_X <- runif(N)
+    w_row_X <- w_row_X / sum(w_row_X)
+    w_row_Y <- runif(N)
+    w_row_Y <- w_row_Y / sum(w_row_Y)
 
     ref <- dense_gplssvd_ref(X0, Y0, MX = w_row_X, MY = w_row_Y, WX = NULL, WY = NULL,
                              k = k, center = TRUE, scale = FALSE)

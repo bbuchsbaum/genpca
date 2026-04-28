@@ -92,51 +92,51 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
                                reg_S = 1e-3, reg_T = 1e-6, verbose = FALSE) {
   which <- match.arg(which)
   d <- nrow(S1)
-  
+
   # Choose operator (avoid explicit inverse)
   # If largest: we iterate with S2^-1 S1 (i.e. solve S2 * V_hat = S1 * V)
   # If smallest: we iterate with S1^-1 S2 (i.e. solve S1 * V_hat = S2 * V)
-  
+
   if (which == "largest") {
     # Factor S2 once
-    s_fact <- factor_mat(S2, reg=reg_S)
+    s_fact <- factor_mat(S2, reg = reg_S)
     # S2^{-1} S1 V via triangular solves on the Cholesky of S2
     solve_step <- function(V) solve(s_fact$ch, S1 %*% V)
     final_reg_S <- s_fact$final_reg # Store the final reg used
   } else {
     # smallest
-    s_fact <- factor_mat(S1, reg=reg_S)
+    s_fact <- factor_mat(S1, reg = reg_S)
     # S1^{-1} S2 V via triangular solves on the Cholesky of S1
     solve_step <- function(V) solve(s_fact$ch, S2 %*% V)
     final_reg_S <- s_fact$final_reg # Store the final reg used
   }
-  
+
   if (is.null(V0)) {
     if (!is.null(seed)) set.seed(seed)
-    V <- matrix(rnorm(d*q), d, q)
+    V <- matrix(rnorm(d * q), d, q)
   } else {
     V <- V0
   }
-  
+
   # Keep iterates S2-orthonormal to make the projected metric matrix stable.
   V <- orthonormalize(V, metric = S2, reg = reg_T)
-  
+
   lambda_old <- NULL
-  
+
   for (iter in seq_len(max_iter)) {
     Y <- solve_step(V)
-    
+
     # Orthonormalize Y in the S2 metric
     Y <- orthonormalize(Y, metric = S2, reg = reg_T)
-    
+
     # Form S and T efficiently (avoid d x d intermediate products)
     S_mat <- t(Y) %*% (S1 %*% Y)  # q x q
     T_mat <- t(Y) %*% (S2 %*% Y)  # q x q (always S2 here)
-    
+
     # Symmetrize numerically
     S_mat <- Matrix::forceSymmetric(S_mat)
     T_mat <- Matrix::forceSymmetric(T_mat)
-    
+
     # Robust Cholesky-whitening of T (small q x q matrix)
     reg <- reg_T
     R <- NULL
@@ -157,14 +157,14 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
       }
     }
     if (inherits(R, "try-error")) stop("Unable to chol() the T matrix even after regularization and spectral shift.")
-    
+
     # C = R^{-T} S R^{-1} (symmetric)
     C <- backsolve(R, t(backsolve(R, t(as.matrix(S_mat)), transpose = TRUE)))
-    C <- (C + t(C))/2  # Symmetrize
-    
+    C <- (C + t(C)) / 2  # Symmetrize
+
     # Eigen decomposition of whitened matrix
     E <- eigen(C, symmetric = TRUE)
-    
+
     # Select eigenvalues/vectors based on which
     ord <- if (which == "largest") {
       order(E$values, decreasing = TRUE)
@@ -172,15 +172,15 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
       order(E$values, decreasing = FALSE)
     }
     ord <- ord[seq_len(q)]
-    
+
     lambda <- E$values[ord]
     U <- E$vectors[, ord, drop = FALSE]
-    
+
     # Transform back: W = R^{-1} U
     W <- backsolve(R, U)
-    
+
     V_new <- Y %*% W
-    
+
     if (!is.null(lambda_old)) {
       rel_change <- max(abs(lambda - lambda_old) / pmax(abs(lambda), 1e-12))
       if (rel_change < tol) {
@@ -189,20 +189,20 @@ solve_gep_subspace <- function(S1, S2, q = 2, which = c("largest", "smallest"),
         break
       }
     }
-    
+
     V <- V_new
     lambda_old <- lambda
   }
-  
+
   if (iter == max_iter) {
     warning("Reached max_iter without convergence (delta_lambda > tol)")
   }
-  
+
   # Enforce S2-orthonormality again (with robust regularization).
   V <- orthonormalize(V, metric = S2, reg = reg_T)
-  
+
   # Recompute lambda as Rayleigh quotients in the now S2-orthonormal basis
   lambda <- diag(crossprod(V, S1 %*% V))
-  
+
   list(values = as.numeric(lambda), vectors = V, final_reg_S = final_reg_S)
 }

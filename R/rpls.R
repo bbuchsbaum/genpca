@@ -10,7 +10,7 @@ fit_rpls <- function(X, Y,
                      maxiter    = 200,
                      verbose    = FALSE) {
   penalty <- match.arg(penalty)
-  
+
   X <- as.matrix(X)
   Y <- as.matrix(Y)
   n <- nrow(X)
@@ -26,7 +26,7 @@ fit_rpls <- function(X, Y,
   if (any(lambda < 0)) {
     stop("lambda must be non-negative")
   }
-  
+
   # Make lambda into a length-K vector
   if (length(lambda) == 1L) {
     lambda.vec <- rep(lambda, K)
@@ -35,14 +35,14 @@ fit_rpls <- function(X, Y,
   } else {
     lambda.vec <- lambda
   }
-  
+
   # If Q is null => identity, else must be p x p
   Id <- diag(p) # Keep identity for later use if needed
   if (is.null(Q)) {
     Q <- Id
     use.gpls <- FALSE
   } else {
-    # Accept sparse or dense, etc. 
+    # Accept sparse or dense, etc.
     # Check dimension & basic positivity
     if (!all(dim(Q) == c(p, p))) {
       stop("Q must be p x p.")
@@ -50,27 +50,27 @@ fit_rpls <- function(X, Y,
     # TODO: Check positive semi-definiteness? Might be slow.
     use.gpls <- TRUE
   }
-  
+
   # Cross-product matrix
   M <- crossprod(X, Y)
-  
+
   # Allocate
   V <- matrix(0, p, K) # X-loadings
   U <- matrix(0, q, K) # Y-loadings
   Z <- matrix(0, n, K) # X-scores (factors)
-  
+
   # For SIMPLS deflation
   Rk <- matrix(0, p, 0)
   RkM <- matrix(0, 0, q) # Cache crossprod(Rk, M) for efficiency
   num_components <- 0
-  
+
   for (kcomp in seq_len(K)) {
     lamk <- lambda.vec[kcomp]
     if (verbose) {
       message(sprintf("\nExtracting component %d/%d [penalty=%s, lambda=%.3g]",
                       kcomp, K, penalty, lamk))
     }
-    
+
     # Precompute Cholesky for GPLS+Ridge case if needed
     chol_Q_lam_I <- NULL
     if (penalty == "ridge" && use.gpls) {
@@ -86,24 +86,24 @@ fit_rpls <- function(X, Y,
          stop("Cholesky decomposition failed. Cannot proceed with GPLS + Ridge.")
       }
     }
-    
+
     svd_M <- svd(M, nu = 1, nv = 1)
     v_k   <- svd_M$u  # dimension p
     u_k   <- svd_M$v  # dimension q
-    
-   
+
+
     # Check degenerate
     if (all(v_k == 0) || all(u_k == 0)) {
       if (verbose) message("Degenerate M => stopping.")
       break
     }
-    
+
     diffU <- diffV <- Inf
     iter  <- 1
     while ((diffU > tol || diffV > tol) && iter <= maxiter) {
       old_u <- u_k
       old_v <- v_k
-      
+
       # 1) update u_k
       if (use.gpls) {
         tmp <- crossprod(M, Q %*% v_k)  # M^T (Q v_k)
@@ -117,12 +117,12 @@ fit_rpls <- function(X, Y,
         u_k <- rep(0, q)
       }
       diffU <- sqrt(sum((u_k - old_u)^2))
-      
+
       # 2) update v_k by penalized regression w/ partial "residual" r
       # NOTE: r calculation differs slightly between L1/L2 in some literature
       # Here, r is target for v_k: M %*% u_k (standard) or Q %*% (M %*% u_k) (GPLS)??
       # The objective implicitly involves Q norm if use.gpls=TRUE
-      
+
       if (penalty == "l1") {
         # For L1, the subproblem is simpler: argmin_v 0.5||r-v||^2 + lamk ||v||_1
         # Where r = M %*% u_k (standard) or r = Q %*% M %*% u_k (GPLS)??
@@ -141,7 +141,7 @@ fit_rpls <- function(X, Y,
          # For L2: objective is 0.5 * v^T Q v - v^T (Q M u) + 0.5 lamk v^T v
          # => derivative: Qv - Q M u + lamk v = 0 => (Q + lamk I) v = Q (M u)
          r <- M %*% u_k # Let r = M u
-        
+
         if (!use.gpls) {
           # standard ridge, Q=I => (I + lamk I) v = I r => v = r / (1 + lamk)
           v_k_new <- r / (1 + lamk)
@@ -154,7 +154,7 @@ fit_rpls <- function(X, Y,
           # Base R `solve` with Cholesky factor does this: solve(chol_A, b)
           # Alternatively: backsolve(R, forwardsolve(L, b)) where chol gives R=Lt
           v_k_new <- solve(chol_Q_lam_I, solve(t(chol_Q_lam_I), Qr))
-          
+
           # Old direct solve:
           # v_k_new <- solve(Q + lamk * Id, Qr)
         }
@@ -162,7 +162,7 @@ fit_rpls <- function(X, Y,
         # Should not happen due to match.arg, but defensive coding
         stop("Unrecognized penalty.")
       }
-      
+
       # Now rescale v_k by 2-norm or Q-norm
       if (use.gpls) {
         # Q-norm: sqrt(v^T Q v)
@@ -177,61 +177,61 @@ fit_rpls <- function(X, Y,
         v_k <- rep(0, p)
       }
       diffV <- sqrt(sum((v_k - old_v)^2))
-      
+
       if (verbose && iter %% 10 == 0) {
         message(sprintf("   iter=%d diffU=%.2e diffV=%.2e", iter, diffU, diffV))
       }
       iter <- iter + 1
     } # end while
-    
+
     if (all(v_k == 0)) {
       if (verbose) message("v_k => all zero, stopping.")
       break
     }
-    
+
     # Factor z_k
     if (use.gpls) {
       z_k <- X %*% (Q %*% v_k) # z = X Q v
     } else {
       z_k <- X %*% v_k        # z = X v
     }
-    
+
     # store
     V[, kcomp] <- v_k
     U[, kcomp] <- u_k
     Z[, kcomp] <- z_k
     num_components <- num_components + 1
-    
+
     # deflation (SIMPLS)
     denom_zk <- drop(crossprod(z_k, z_k))
     if (denom_zk < 1e-15) {
       if (verbose) message("degenerate z_k => stopping deflation.")
       break
     }
-    
+
     r_k_new <- crossprod(X, z_k) / denom_zk
     Rk <- cbind(Rk, r_k_new)
-    
+
     # Update RkM efficiently: calculate only the new column cross-product
     r_k_new_M <- crossprod(r_k_new, M)
     RkM <- rbind(RkM, r_k_new_M)
-    
+
     # Calculate Rk^T Rk and its inverse using Cholesky
     RkTRk <- crossprod(Rk, Rk)
-    chol_RkTRk <- tryCatch(chol(RkTRk), error = function(e){
+    chol_RkTRk <- tryCatch(chol(RkTRk), error = function(e) {
         warning(paste("Cholesky decomposition failed for Rk^T Rk at component", kcomp,
                       "; matrix might be ill-conditioned. Error:", e$message))
         NULL
     })
-    
+
     if (is.null(chol_RkTRk)) {
        warning("Deflation unstable due to failure in Cholesky(Rk^T Rk), stopping.")
        break
     }
-    
+
     # Use chol2inv for potentially better numerical stability / efficiency
     inv_RkTRk <- chol2inv(chol_RkTRk)
-    
+
     # Old condition check (can still use rcond if needed, but chol gives direct check)
     # condRk <- rcond(RkTRk)
     # if (condRk < .Machine$double.eps) {
@@ -239,7 +239,7 @@ fit_rpls <- function(X, Y,
     #   break
     # }
     # inv_RkTRk <- solve(RkTRk) # Replaced by chol2inv
-    
+
     # Deflate M using cached RkM
     M <- M - Rk %*% (inv_RkTRk %*% RkM) # M = M - Rk (Rk'Rk)^{-1} Rk' M
 
@@ -247,15 +247,15 @@ fit_rpls <- function(X, Y,
     # updated (deflated) M for the next iteration
     RkM <- crossprod(Rk, M)
   } # end for K
-  
+
   if (num_components < K) {
     # trim
-    V <- V[, seq_len(num_components), drop=FALSE]
-    U <- U[, seq_len(num_components), drop=FALSE]
-    Z <- Z[, seq_len(num_components), drop=FALSE]
+    V <- V[, seq_len(num_components), drop = FALSE]
+    U <- U[, seq_len(num_components), drop = FALSE]
+    Z <- Z[, seq_len(num_components), drop = FALSE]
   }
-  
-  list(V=V, U=U, Z=Z, num_components=num_components)
+
+  list(V = V, U = U, Z = Z, num_components = num_components)
 }
 
 #' Regularised / Generalised Partial Least Squares (RPLS / GPLS)
@@ -325,11 +325,11 @@ fit_rpls <- function(X, Y,
 #' q <- 10
 #' X <- matrix(rnorm(n * p), n, p)
 #' Y <- X[, 1:5] %*% matrix(rnorm(5 * q), 5, q) + matrix(rnorm(n * q), n, q)
-#' 
+#'
 #' # Fit regularized PLS with L1 penalty
 #' fit_l1 <- rpls(X, Y, K = 3, lambda = 0.1, penalty = "l1")
 #' print(fit_l1)
-#' 
+#'
 #' # Fit regularized PLS with ridge penalty
 #' fit_ridge <- rpls(X, Y, K = 3, lambda = 0.1, penalty = "ridge")
 #' print(fit_ridge)
@@ -394,4 +394,3 @@ rpls <- function(X, Y,
 
   out
 }
-

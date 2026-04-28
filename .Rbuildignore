@@ -17,3 +17,7 @@ experimental/
 ^\.omc$
 ^\.rcmdcheck_result\.rds$
 ^\.albersdown\.bak$
+^\.lintr$
+^cran-comments\.md$
+^genpca\.Rcheck$
+^genpca_.*\.tar\.gz$

@@ -15,6 +15,12 @@
 #' @param svd_backend One of "RSpectra" (default) or "irlba"
 #' @param svd_opts List of options for the backend (e.g., tol, maxitr)
 #' @return list with elements d, u, v, p, q, fi, fj, lx, ly, k, dims, center, scale
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(40 * 6), 40, 6)
+#' Y <- matrix(rnorm(40 * 4), 40, 4)
+#' op <- gplssvd_op(X, Y, k = 2, center = TRUE)
+#' round(op$d, 3)
 #' @export
 gplssvd_op <- function(X, Y,
                        XLW = NULL, YLW = NULL,
@@ -41,8 +47,11 @@ gplssvd_op <- function(X, Y,
     if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
   }
 
-  X <- to_Matrix(X); Y <- to_Matrix(Y)
-  N <- nrow(X); I <- ncol(X); J <- ncol(Y)
+  X <- to_Matrix(X)
+  Y <- to_Matrix(Y)
+  N <- nrow(X)
+  I <- ncol(X)
+  J <- ncol(Y)
   stopifnot(nrow(Y) == N)
 
   # Validate k against matrix dimensions
@@ -72,7 +81,8 @@ gplssvd_op <- function(X, Y,
 
   Xcs <- cs(X, center, scale)
   Ycs <- cs(Y, center, scale)
-  X <- Xcs$A; Y <- Ycs$A
+  X <- Xcs$A
+  Y <- Ycs$A
 
   # Metric operators (shared helper)
   MX <- .metric_operators(XLW, N)

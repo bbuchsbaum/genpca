@@ -47,3 +47,10 @@ Compute the top-k singular triplets of \eqn{S = Xe' Ye} without
 materializing the whitened matrices \eqn{Xe = Mx^{1/2} X Wx^{1/2}},
 \eqn{Ye = My^{1/2} Y Wy^{1/2}}. Works with dense/sparse constraints.
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(40 * 6), 40, 6)
+Y <- matrix(rnorm(40 * 4), 40, 4)
+op <- gplssvd_op(X, Y, k = 2, center = TRUE)
+round(op$d, 3)
+}

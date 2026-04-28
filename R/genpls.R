@@ -81,8 +81,11 @@ genpls <- function(X, Y,
     if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
   }
 
-  X <- to_Matrix(X); Y <- to_Matrix(Y)
-  n <- nrow(X); px <- ncol(X); py <- ncol(Y)
+  X <- to_Matrix(X)
+  Y <- to_Matrix(Y)
+  n <- nrow(X)
+  px <- ncol(X)
+  py <- ncol(Y)
   if (nrow(Y) != n) stop("X and Y must have the same number of rows.")
 
   # Preprocess (e.g., centering/scaling) via multivarious

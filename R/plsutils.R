@@ -10,13 +10,13 @@
 NULL
 
 #' Check if constraint matrix is identity or purely diagonal with all != 1
-#' 
+#'
 #' @param M A matrix (often `dsCMatrix`) or `NULL`.
 #' @param eps Numeric tolerance
 #' @return TRUE if \code{M} is a (Matrix-based) diagonal with all or partial diag
 #' @keywords internal
-is_identity_or_diag <- function(M, eps=1e-15) {
-  (inherits(M,"Matrix") && Matrix::isDiagonal(M))
+is_identity_or_diag <- function(M, eps = 1e-15) {
+  (inherits(M, "Matrix") && Matrix::isDiagonal(M))
 }
 
 #' Partial eigen decomposition up to rank k
@@ -29,7 +29,7 @@ is_identity_or_diag <- function(M, eps=1e-15) {
 #' @return list(Q=..., lam=...) with length(lam)=k_eff
 #' @keywords internal
 #' @noRd
-partial_eig_once <- function(M, k=50, which="LA", eps=1e-15, tol=1e-6) {
+partial_eig_once <- function(M, k = 50, which = "LA", eps = 1e-15, tol = 1e-6) {
   # clamp k
   k_eff <- min(k, nrow(M), ncol(M))
   k_eff <- max(k_eff, 1)
@@ -63,20 +63,20 @@ partial_eig_once <- function(M, k=50, which="LA", eps=1e-15, tol=1e-6) {
 #' @return list(Q, lam) truncated to minimal r s.t cumsum(lam)/sum(lam)>=var_threshold
 #' @keywords internal
 #' @noRd
-decide_adaptive_rank <- function(M, which="LA", eps=1e-15, tol=1e-6,
-                                 var_threshold=0.99, max_k=200)
+decide_adaptive_rank <- function(M, which = "LA", eps = 1e-15, tol = 1e-6,
+                                 var_threshold = 0.99, max_k = 200)
 {
-  out <- partial_eig_once(M, k=max_k, which=which, eps=eps, tol=tol)
+  out <- partial_eig_once(M, k = max_k, which = which, eps = eps, tol = tol)
   lam <- out$lam
   Q   <- out$Q
   cumsums <- cumsum(lam)
   total <- sum(lam)
-  r <- which(cumsums >= var_threshold*total)[1]
-  if(is.na(r)) {
+  r <- which(cumsums >= var_threshold * total)[1]
+  if (is.na(r)) {
     r <- length(lam)
   }
   list(
-    Q   = Q[, 1:r, drop=FALSE],
+    Q   = Q[, 1:r, drop = FALSE],
     lam = lam[1:r]
   )
 }
@@ -90,18 +90,18 @@ decide_adaptive_rank <- function(M, which="LA", eps=1e-15, tol=1e-6,
 #' @keywords internal
 #' @noRd
 partial_eig_approx <- function(M, user_rank,
-                               var_threshold=0.99, max_k=200,
-                               which="LA", eps=1e-15, tol=1e-6)
+                               var_threshold = 0.99, max_k = 200,
+                               which = "LA", eps = 1e-15, tol = 1e-6)
 {
-  if(!is.null(user_rank) && !is.na(user_rank) && user_rank>0) {
+  if (!is.null(user_rank) && !is.na(user_rank) && user_rank > 0) {
     # direct partial
-    out <- partial_eig_once(M, k=user_rank, which=which, eps=eps, tol=tol)
-    list(Q=out$Q, lams=out$lam)
+    out <- partial_eig_once(M, k = user_rank, which = which, eps = eps, tol = tol)
+    list(Q = out$Q, lams = out$lam)
   } else {
     # adaptive
-    adapt <- decide_adaptive_rank(M, which=which, eps=eps, tol=tol,
-                                  var_threshold=var_threshold, max_k=max_k)
-    list(Q=adapt$Q, lams=adapt$lam)
+    adapt <- decide_adaptive_rank(M, which = which, eps = eps, tol = tol,
+                                  var_threshold = var_threshold, max_k = max_k)
+    list(Q = adapt$Q, lams = adapt$lam)
   }
 }
 
@@ -113,8 +113,8 @@ partial_eig_approx <- function(M, user_rank,
 #' @return function(mat) => mat' = sqrt(M)* mat
 #' @keywords internal
 #' @noRd
-build_sqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
-                            which="LA", eps=1e-15, tol=1e-6)
+build_sqrt_mult <- function(M, user_rank, var_threshold = 0.99, max_k = 200,
+                            which = "LA", eps = 1e-15, tol = 1e-6)
 {
   if (is.null(M) || is_identity_or_diag(M)) {
     # Delegate identity/diagonal to shared metric ops for consistency
@@ -122,13 +122,13 @@ build_sqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
     return(function(mat) ops$mult_sqrt(mat))
   } else {
     out <- partial_eig_approx(M, user_rank, var_threshold, max_k,
-                              which=which, eps=eps, tol=tol)
+                              which = which, eps = eps, tol = tol)
     Q <- out$Q
-    lam<- out$lams
+    lam <- out$lams
     return(function(mat) {
       alpha <- crossprod(Q, mat)
-      for(i in seq_along(lam)) {
-        alpha[i,] <- alpha[i,] * sqrt(pmax(lam[i], eps))
+      for (i in seq_along(lam)) {
+        alpha[i, ] <- alpha[i, ] * sqrt(pmax(lam[i], eps))
       }
       Q %*% alpha
     })
@@ -139,24 +139,24 @@ build_sqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
 #'
 #' @keywords internal
 #' @noRd
-build_invsqrt_mult <- function(M, user_rank, var_threshold=0.99, max_k=200,
-                               which="LA", eps=1e-15, tol=1e-6)
+build_invsqrt_mult <- function(M, user_rank, var_threshold = 0.99, max_k = 200,
+                               which = "LA", eps = 1e-15, tol = 1e-6)
 {
   if (is.null(M) || is_identity_or_diag(M)) {
     ops <- .metric_operators(M, if (!is.null(M)) nrow(M) else NULL)
     return(function(vec) ops$mult_invsqrt(vec))
   } else {
     out <- partial_eig_approx(M, user_rank, var_threshold, max_k,
-                              which=which, eps=eps, tol=tol)
+                              which = which, eps = eps, tol = tol)
     Q   <- out$Q
     lam <- out$lams
     return(function(vec) {
       alpha <- crossprod(Q, vec)
-      for(i in seq_along(lam)) {
-        if(lam[i]>eps) {
-          alpha[i,] <- alpha[i,]/ sqrt(lam[i])
+      for (i in seq_along(lam)) {
+        if (lam[i] > eps) {
+          alpha[i, ] <- alpha[i, ] / sqrt(lam[i])
         } else {
-          alpha[i,] <- 0
+          alpha[i, ] <- 0
         }
       }
       Q %*% alpha
@@ -174,6 +174,6 @@ row_transform <- function(mat, ffun) ffun(mat)
 #'@keywords internal
 col_transform <- function(mat, ffun) {
   mt <- t(mat)
-  mt2<- ffun(mt)
+  mt2 <- ffun(mt)
   t(mt2)
 }

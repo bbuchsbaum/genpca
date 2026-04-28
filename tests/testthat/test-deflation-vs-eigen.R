@@ -3,7 +3,9 @@ testthat::test_that("deflation closely matches eigen on small dense problems", {
   library(Matrix)
 
   set.seed(123)
-  n <- 60; p <- 40; k <- 8
+  n <- 60
+  p <- 40
+  k <- 8
   X <- matrix(rnorm(n * p), n, p)
 
   # Eigen (reference) vs Deflation (R path)

@@ -52,3 +52,12 @@ See `genpls()`
 Convenience alias for `genpls()`; computes canonical generalized PLS
 (PLS-SVD/GPLSSVD). See `?genpls` for full documentation.
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(60 * 5), 60, 5)
+Y <- matrix(rnorm(60 * 4), 60, 4)
+fit <- genplsc(X, Y, ncomp = 2,
+               preproc_x = multivarious::center(),
+               preproc_y = multivarious::center())
+fit$d
+}

@@ -3,22 +3,22 @@
 prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "clip", "identity"), verbose = FALSE) {
   n <- nrow(X)
   p <- ncol(X)
-  
+
   remedy <- match.arg(remedy)
-  
+
   # --- Process A (Column constraints) ---
   if (is.null(A)) {
     A <- Matrix::Diagonal(p)
   } else if (is.vector(A)) {
-    assert_that(length(A) == p, msg="Length of vector A must equal ncol(X)")
-    assert_that(all(A >= -tol), msg="Diagonal elements of A (from vector) must be non-negative.")
-    A <- Matrix::Diagonal(n=p, x=A)
+    assert_that(length(A) == p, msg = "Length of vector A must equal ncol(X)")
+    assert_that(all(A >= -tol), msg = "Diagonal elements of A (from vector) must be non-negative.")
+    A <- Matrix::Diagonal(n = p, x = A)
   } else {
     # Ensure it's a Matrix object
-    if (!is(A, "Matrix")) { A <- Matrix::Matrix(A, sparse=FALSE) }
-    assert_that(nrow(A) == p, msg=paste("nrow(A) != ncol(X) -- ", nrow(A), " != ", p))
-    assert_that(ncol(A) == p, msg=paste("ncol(A) != ncol(X) -- ", ncol(A), " != ", p))
-    
+    if (!is(A, "Matrix")) { A <- Matrix::Matrix(A, sparse = FALSE) }
+    assert_that(nrow(A) == p, msg = paste("nrow(A) != ncol(X) -- ", nrow(A), " != ", p))
+    assert_that(ncol(A) == p, msg = paste("ncol(A) != ncol(X) -- ", ncol(A), " != ", p))
+
     # Handle different remedy types
     if (remedy == "error") {
       # For "error" remedy, check symmetry first
@@ -40,20 +40,20 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
       A <- ensure_spd(A, tol = tol)
     }
   }
-  
+
   # --- Process M (Row constraints) ---
   if (is.null(M)) {
     M <- Matrix::Diagonal(n)
   } else if (is.vector(M)) {
-    assert_that(length(M) == n, msg="Length of vector M must equal nrow(X)")
-    assert_that(all(M >= -tol), msg="Diagonal elements of M (from vector) must be non-negative.")
-    M <- Matrix::Diagonal(n=n, x=M)
+    assert_that(length(M) == n, msg = "Length of vector M must equal nrow(X)")
+    assert_that(all(M >= -tol), msg = "Diagonal elements of M (from vector) must be non-negative.")
+    M <- Matrix::Diagonal(n = n, x = M)
   } else {
     # Ensure it's a Matrix object
-    if (!is(M, "Matrix")) { M <- Matrix::Matrix(M, sparse=FALSE) }
-    assert_that(nrow(M) == n, msg=paste("nrow(M) != nrow(X) -- ", nrow(M), " != ", n))
-    assert_that(ncol(M) == n, msg=paste("ncol(M) != nrow(X) -- ", ncol(M), " != ", n))
-    
+    if (!is(M, "Matrix")) { M <- Matrix::Matrix(M, sparse = FALSE) }
+    assert_that(nrow(M) == n, msg = paste("nrow(M) != nrow(X) -- ", nrow(M), " != ", n))
+    assert_that(ncol(M) == n, msg = paste("ncol(M) != nrow(X) -- ", ncol(M), " != ", n))
+
     # Handle different remedy types
     if (remedy == "error") {
       # For "error" remedy, check symmetry first
@@ -75,7 +75,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
       M <- ensure_spd(M, tol = tol)
     }
   }
-  
+
   # Convert to standardized formats, but handle symmetric matrices properly
   # Preserve diagonal matrices, convert others to appropriate sparse format
   if (is(A, "ddiMatrix")) {
@@ -88,7 +88,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
   } else {
     A_result <- A  # Keep other dense formats as is
   }
-  
+
   if (is(M, "ddiMatrix")) {
     M_result <- M
   } else if (methods::is(M, "sparseMatrix")) {
@@ -99,7 +99,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
   } else {
     M_result <- M  # Keep other dense formats as is
   }
-  
+
   list(A = A_result, M = M_result)
 }
 
@@ -123,7 +123,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'  \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
 #'  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 #' }
-#' 
+#'
 #' @section Backend Guidance:
 #' \itemize{
 #'   \item Use \code{method = "auto"} as the default in production pipelines.
@@ -133,7 +133,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   \item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
 #' }
 #'
-#' For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which 
+#' For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which
 #' performs GPCA directly on C with column constraint R (equivalent to A).
 #'
 #' @param X   Numeric matrix n x p.
@@ -175,11 +175,11 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   \describe{
 #'     \item{u,v}{Left/right singular vectors scaled by the constraint metrics
 #'                (MU, AV). These correspond to components in the original space's geometry.
-#'                Use `components(fit)`.} 
+#'                Use `components(fit)`.}
 #'     \item{ou,ov}{Orthonormal singular vectors in the constraint metric
 #'                  (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
 #'     \item{sdev}{Generalised singular values d_k.}
-#'     \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.} 
+#'     \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.}
 #'     \item{preproc}{The `multivarious` pre‑processing object used.}
 #'     \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
 #'     \item{propv}{Proportion of generalized variance explained by each component.}
@@ -188,7 +188,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'
 #' @references
 #' Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-#' *A Generalized Least‑Squares Matrix Decomposition.* 
+#' *A Generalized Least‑Squares Matrix Decomposition.*
 #' Journal of the American Statistical Association, 109(505), 145‑159.
 #' arXiv:1102.3074.
 #'
@@ -207,7 +207,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'
 #'   # Standard PCA (A=I, M=I, centered) - using default method="eigen"
 #'   gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
-#'   
+#'
 #'   # Standard PCA using Spectra method (requires C++ build)
 #'   # gpca_std_spectra <- try(genpca(X, ncomp = 5,
 #'   #                              preproc = multivarious::center(),
@@ -233,7 +233,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'   print(gpca_weighted$sdev)
 #'   print(head(components(gpca_weighted)))
 #' }
-#' @useDynLib genpca, .registration = TRUE 
+#' @useDynLib genpca, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 #' @importFrom multivarious bi_projector fit_transform pass scores sdev components reconstruct reverse_transform ncomp
 #' @importFrom Matrix Matrix isSymmetric isDiagonal diag t forceSymmetric Diagonal crossprod tcrossprod
@@ -242,7 +242,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @importFrom methods as is
 #' @importFrom stats rnorm runif
 #' @export
-genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
+genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
                    method = c("eigen", "auto", "spectra", "randomized", "deflation"),
                    constraints_remedy = c("ridge", "error", "clip", "identity"),
                    preproc = multivarious::pass(), # Default to pass() for safety
@@ -268,7 +268,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
       ncomp <- min(dim(X))
   }
   assert_that(length(ncomp) == 1 && ncomp == floor(ncomp) && ncomp > 0,
-              msg="ncomp must be a single positive integer.")
+              msg = "ncomp must be a single positive integer.")
   ncomp <- min(min(dim(X)), ncomp) # Cannot exceed dimensions
   assert_that(length(maxit_deflation) == 1 &&
                 maxit_deflation == floor(maxit_deflation) &&
@@ -313,8 +313,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   procres <- ft$preproc
   Xp <- ft$transformed
 
-  n = nrow(Xp)
-  p = ncol(Xp)
+  n <- nrow(Xp)
+  p <- ncol(Xp)
 
   # Check if C++ code is available (specific function name depends on package build)
   # Placeholder check - replace with actual check if package uses compiled code
@@ -385,7 +385,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                                       maxit = maxit_deflation,
                                       verbose = verbose)
           if (is.matrix(svdfit$d)) {
-            svdfit$d <- svdfit$d[,1] # Ensure d is vector
+            svdfit$d <- svdfit$d[, 1] # Ensure d is vector
           } else {
             svdfit$d <- as.vector(svdfit$d)
           }
@@ -398,7 +398,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                                    verbose = verbose)
         }
         # Swap u and v back
-        svdfit <- list(u=svdfit$v, v=svdfit$u, d=svdfit$d, k=svdfit$k, cumv=svdfit$cumv, propv=svdfit$propv)
+        svdfit <- list(u = svdfit$v, v = svdfit$u, d = svdfit$d, k = svdfit$k, cumv = svdfit$cumv, propv = svdfit$propv)
     } else {
         if (use_cpp) {
           svdfit <- gmd_deflation_cpp(Xp, M_cpp, A_cpp, ncomp,
@@ -406,7 +406,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
                                       maxit = maxit_deflation,
                                       verbose = verbose)
           if (is.matrix(svdfit$d)) {
-            svdfit$d <- svdfit$d[,1]
+            svdfit$d <- svdfit$d[, 1]
           } else {
             svdfit$d <- as.vector(svdfit$d)
           }
@@ -422,7 +422,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
     if (is.null(svdfit$propv) || is.null(svdfit$cumv)) {
        if (verbose) message(" Calculating variance explained for deflation method...")
        total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
-       if(total_variance > 1e-8) {
+       if (total_variance > 1e-8) {
           svdfit$propv <- svdfit$d^2 / total_variance
           svdfit$cumv <- cumsum(svdfit$propv)
        } else {
@@ -435,15 +435,15 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
     if (verbose) message(paste0("Using one-shot eigen decomposition (gmdLA) to extract ", ncomp, " components..."))
     if (n < p) {
         if (verbose) message(" (n < p, using dual formulation)")
-        ret <- gmdLA(Matrix::t(Xp), A, M, k=ncomp, n_orig=p, p_orig=n,
-                      maxeig=maxeig, use_dual = TRUE,
-                      warn_approx = warn_approx, verbose=verbose)
+        ret <- gmdLA(Matrix::t(Xp), A, M, k = ncomp, n_orig = p, p_orig = n,
+                      maxeig = maxeig, use_dual = TRUE,
+                      warn_approx = warn_approx, verbose = verbose)
         # Swap u and v back
-        svdfit <- list(u=ret$v, v=ret$u, d=ret$d, k=ret$k, cumv=ret$cumv, propv=ret$propv)
+        svdfit <- list(u = ret$v, v = ret$u, d = ret$d, k = ret$k, cumv = ret$cumv, propv = ret$propv)
     } else {
-        svdfit <- gmdLA(Xp, M, A, k=ncomp, n_orig=n, p_orig=p,
-                        maxeig=maxeig, use_dual = FALSE,
-                        warn_approx = warn_approx, verbose=verbose)
+        svdfit <- gmdLA(Xp, M, A, k = ncomp, n_orig = n, p_orig = p,
+                        maxeig = maxeig, use_dual = FALSE,
+                        warn_approx = warn_approx, verbose = verbose)
     }
 
   } else if (selected_method == "spectra") { # Matrix-free C++/Spectra approach
@@ -451,11 +451,11 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
       # Ensure Xp is dense matrix for the C++ function
       Xp_dense <- as.matrix(Xp)
       if (any(!is.finite(Xp_dense))) stop("Input matrix X (after preproc) contains non-finite values.")
-      
+
       # Call the C++ function
-      spectra_res <- tryCatch(gmd_fast_cpp(Xp_dense, M, A, k=ncomp, tol=tol_spectra, maxit=maxit_spectra),
-                              error = function(e) {stop("Call to gmd_fast_cpp failed: ", e$message)}) 
-      
+      spectra_res <- tryCatch(gmd_fast_cpp(Xp_dense, M, A, k = ncomp, tol = tol_spectra, maxit = maxit_spectra),
+                              error = function(e) {stop("Call to gmd_fast_cpp failed: ", e$message)})
+
       # Calculate variance explained
       if (verbose) message(" Calculating variance explained for Spectra method...")
       total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
@@ -466,13 +466,13 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
           propv <- (spectra_res$d^2) / total_variance
       }
       cumv <- cumsum(propv)
-      
+
       # Map results to the svdfit structure
       # IMPORTANT: spectra_res returns scores and components, not orthonormal eigenvectors!
       # We need to back-calculate the orthonormal eigenvectors for consistency
       # scores = M * ou * D, so ou = M^{-1} * scores / D
       # components = A * ov, so ov = A^{-1} * components
-      
+
       # For now, set a flag to handle this differently later
       svdfit <- list(d = spectra_res$d,
                      u = spectra_res$u, # These are actually scores/D, not ou!
@@ -544,8 +544,8 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
       ncomp <- k_found
       # Trim results if necessary (should be done in helpers, but ensures consistency)
       if (length(svdfit$d) > ncomp) svdfit$d <- svdfit$d[1:ncomp]
-      if (ncol(svdfit$u) > ncomp) svdfit$u <- svdfit$u[, 1:ncomp, drop=FALSE]
-      if (ncol(svdfit$v) > ncomp) svdfit$v <- svdfit$v[, 1:ncomp, drop=FALSE]
+      if (ncol(svdfit$u) > ncomp) svdfit$u <- svdfit$u[, 1:ncomp, drop = FALSE]
+      if (ncol(svdfit$v) > ncomp) svdfit$v <- svdfit$v[, 1:ncomp, drop = FALSE]
       if (length(svdfit$propv) > ncomp) svdfit$propv <- svdfit$propv[1:ncomp]
       if (length(svdfit$cumv) > ncomp) svdfit$cumv <- svdfit$cumv[1:ncomp]
   }
@@ -553,10 +553,10 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   if (ncomp == 0) {
       warning("No valid components found.")
       # Return an empty but valid structure
-      return(multivarious::bi_projector(v=matrix(0.0, p, 0), s=matrix(0.0, n, 0), sdev=numeric(0),
-                                        preproc=procres, ov=matrix(0.0, p, 0), ou=matrix(0.0, n, 0),
-                                        u=matrix(0.0, n, 0), classes="genpca", A=A, M=M,
-                                        propv=numeric(0), cumv=numeric(0)))
+      return(multivarious::bi_projector(v = matrix(0.0, p, 0), s = matrix(0.0, n, 0), sdev = numeric(0),
+                                        preproc = procres, ov = matrix(0.0, p, 0), ou = matrix(0.0, n, 0),
+                                        u = matrix(0.0, n, 0), classes = "genpca", A = A, M = M,
+                                        propv = numeric(0), cumv = numeric(0)))
   }
 
   # --- Construct bi_projector object --- #
@@ -564,17 +564,17 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
 
   # Scores: F = X V (where V is ov) or F = M U D (where U is ou)
   # Use F = M U D form for consistency with paper's U definition
-  
+
   # SPECIAL CASE: spectra method returns scores and components directly!
   if (!is.null(svdfit$is_spectra) && svdfit$is_spectra) {
     # From gmd_fast_cpp:
     # - svdfit$u contains scores U (where U = Q*X*C)
     # - svdfit$v contains components C = R*ov
     # - svdfit$d contains singular values
-    
+
     # The scores are already computed
     scores_mat <- as.matrix(svdfit$u)  # Ensure regular matrix
-    
+
     # New spectra backend returns metric-orthonormal factors directly.
     if (!is.null(svdfit$ou) && !is.null(svdfit$ov)) {
       ou <- as.matrix(svdfit$ou)
@@ -597,7 +597,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
   # Get original indices if preproc modified them
   row_indices <- if (!is.null(attr(Xp, "row_indices"))) attr(Xp, "row_indices") else 1:nrow(X)
   col_indices <- if (!is.null(attr(Xp, "col_indices"))) attr(Xp, "col_indices") else 1:ncol(X)
-  
+
   if (!is.null(rownames(X))) {
       rownames(scores_mat) <- rownames(X)[row_indices]
   } else {
@@ -627,7 +627,7 @@ genpca <- function(X, A=NULL, M=NULL, ncomp=NULL,
     # Already computed above in the else branch
     M_ou <- as.matrix(M_ou)  # Ensure regular matrix
   }
-  
+
   ret <- multivarious::bi_projector(
     v = loadings_mat,     # Loadings = A %*% ov (or components for spectra)
     s = scores_mat,       # Scores = M %*% ou %*% D (or direct scores for spectra)
@@ -727,7 +727,8 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
                      ...) {
 
   scale_fix <- match.arg(scale_fix)
-  n <- nrow(X); p <- ncol(X)
+  n <- nrow(X)
+  p <- ncol(X)
 
   # initialise metrics as identity
   A <- Matrix::Diagonal(p)
@@ -813,9 +814,9 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
 #' storing it as an attribute on the matrix. `compute_sqrtm()` returns this
 #' modified matrix so callers can reassign it (e.g. `R <- sqrtm_res$matrix`)
 #' to reuse the cached decomposition in subsequent calls.
-gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
-                  maxeig=800, tol=1e-8, use_dual=FALSE,
-                  warn_approx=TRUE, verbose=FALSE) {
+gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
+                  maxeig = 800, tol = 1e-8, use_dual = FALSE,
+                  warn_approx = TRUE, verbose = FALSE) {
 
   # Caching key based on object ID might be fragile. Attribute caching is used.
   cache_attr_name <- "eigen_decomp_cache"
@@ -837,21 +838,21 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
         m_diag_sqrt <- sqrt(pmax(m_diag, 0)) # Ensure non-negative before sqrt
         m_diag_invsqrt <- ifelse(m_diag > eigen_tol, 1 / m_diag_sqrt, 0) # Avoid division by zero
         decomp <- list(values = m_diag, vectors = NULL,
-                       sqrtm = Matrix::Diagonal(x=m_diag_sqrt), 
-                       invsqrtm = Matrix::Diagonal(x=m_diag_invsqrt))
+                       sqrtm = Matrix::Diagonal(x = m_diag_sqrt),
+                       invsqrtm = Matrix::Diagonal(x = m_diag_invsqrt))
       } else {
         # Ensure M is symmetric sparse for eigs_sym or dense for eigen
-        M_sym <- if(!Matrix::isSymmetric(M)) Matrix::forceSymmetric(M) else M
-        if (!is(M_sym, "sparseMatrix")) M_sym <- Matrix::Matrix(M_sym, sparse=TRUE)
+        M_sym <- if (!Matrix::isSymmetric(M)) Matrix::forceSymmetric(M) else M
+        if (!is(M_sym, "sparseMatrix")) M_sym <- Matrix::Matrix(M_sym, sparse = TRUE)
         if (is(M_sym, "sparseMatrix") && !is(M_sym, "dgCMatrix")) {
           # RSpectra::eigs_sym dispatches reliably on general CSC sparse matrices.
           M_sym <- methods::as(methods::as(M_sym, "generalMatrix"), "CsparseMatrix")
         }
-        
+
         decomp_raw <- tryCatch({
             if (nrow(M_sym) <= maxeig) {
                 if (verbose) message(paste(" (", mat_name, "<= maxeig, using base::eigen)"))
-                base::eigen(as.matrix(M_sym), symmetric=TRUE)
+                base::eigen(as.matrix(M_sym), symmetric = TRUE)
             } else {
                 safe_k <- min(maxeig, nrow(M_sym) - 1)
                 if (safe_k < 1) safe_k <- 1
@@ -862,28 +863,28 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
                             ") -- result is approximate")
                 if (verbose) message(paste(" (", mat_name,
                                           " > maxeig, using RSpectra::eigs_sym with k=", safe_k, ")"))
-                RSpectra::eigs_sym(M_sym, k=safe_k, which="LM")
+                RSpectra::eigs_sym(M_sym, k = safe_k, which = "LM")
             }
           },
           error = function(e) {stop(paste("Eigen decomposition failed for", mat_name, ":", e$message))}
         )
-        
+
         valid_idx <- which(decomp_raw$values > eigen_tol)
         if (length(valid_idx) == 0) stop(paste(mat_name, "has no positive eigenvalues > tol."))
-        
+
         vals <- decomp_raw$values[valid_idx]
-        vecs <- decomp_raw$vectors[, valid_idx, drop=FALSE]
+        vecs <- decomp_raw$vectors[, valid_idx, drop = FALSE]
         k_actual_decomp <- length(vals)
         if (verbose) message(paste("  (Found ", k_actual_decomp, " eigenvalues > tol for ", mat_name, ")"))
-        
+
         vals_sqrt <- sqrt(vals)
         vals_invsqrt <- 1 / vals_sqrt
-        
+
         # Compute sqrtm and invsqrtm using found components
         vecs_mat <- Matrix::Matrix(vecs)
-        sqrtm <- vecs_mat %*% Matrix::Diagonal(x=vals_sqrt) %*% Matrix::t(vecs_mat)
-        invsqrtm <- vecs_mat %*% Matrix::Diagonal(x=vals_invsqrt) %*% Matrix::t(vecs_mat)
-        
+        sqrtm <- vecs_mat %*% Matrix::Diagonal(x = vals_sqrt) %*% Matrix::t(vecs_mat)
+        invsqrtm <- vecs_mat %*% Matrix::Diagonal(x = vals_invsqrt) %*% Matrix::t(vecs_mat)
+
         decomp <- list(values = vals, vectors = vecs,
                        sqrtm = sqrtm, invsqrtm = invsqrtm)
       }
@@ -893,7 +894,7 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
     decomp$matrix <- M
     return(decomp)
   }
-  
+
   # --- Main Logic --- #
   if (!use_dual) { # Primal: n_orig >= p_orig
       if (verbose) message(" gmdLA: Using primal approach (n >= p)")
@@ -911,41 +912,41 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
       k_request <- min(k, p_orig - 1) # Cannot request more than dim-1 for RSpectra
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (primal)")
-      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k=k_request, which="LM"),
-                          error=function(e){stop("Eigen decomp failed in gmdLA (primal): ", e$message)})
+      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k = k_request, which = "LM"),
+                          error = function(e) {stop("Eigen decomp failed in gmdLA (primal): ", e$message)})
 
       valid_idx <- which(eig_res$values > eigen_tol)
       if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (primal).")
-      
+
       eig_vals <- eig_res$values[valid_idx]
       eig_vecs <- eig_res$vectors[, valid_idx, drop = FALSE]
       k_found <- length(eig_vals)
       if (verbose) message(paste("  (Found ", k_found, " eigenvalues > tol)"))
-      
+
       dgmd <- sqrt(eig_vals)
-      
+
       if (verbose) message("  Calculating ov (V = R^(-1/2) * eigenvectors)...")
       vgmd <- Rtilde.inv %*% eig_vecs # ov (p x k_found)
-      
+
       if (verbose) message("  Calculating ou (U)...")
       # Revert to OLD normalization method for ugmd (as per user request)
       XR <- X %*% R
       # RnR = R %*% (X' Q X) %*% R. XQX already calculated above.
       RnR <- R %*% XQX %*% R
-      
+
       ugmd <- matrix(0.0, n_orig, k_found)
       for (i in 1:k_found) {
           # Use the normalization factor from the OLD gmdLA version
-          vgmd_i <- vgmd[, i, drop=FALSE]
+          vgmd_i <- vgmd[, i, drop = FALSE]
           normalizing_number_sq <- Matrix::crossprod(vgmd_i, RnR) %*% vgmd_i
           if (as.numeric(normalizing_number_sq) > tol^2) { # Check squared norm > tol^2
              normalizing_number <- sqrt(as.numeric(normalizing_number_sq))
              ugmd[, i] <- as.vector(XR %*% vgmd_i / normalizing_number)
           } else {
              # Handle near-zero norm case (e.g., set column to zero)
-             ugmd[, i] <- 0.0 
+             ugmd[, i] <- 0.0
              warning("Near-zero norm encountered during old ugmd normalization for component ", i)
-          }          
+          }
       }
   } else { # Dual: n_orig < p_orig
       if (verbose) message(" gmdLA: Using dual approach (n < p)")
@@ -963,8 +964,8 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
       k_request <- min(k, n_orig - 1) # Cannot request more than dim-1 for RSpectra
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (dual)")
-      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k=k_request, which="LM"),
-                          error=function(e){stop("Eigen decomp failed in gmdLA (dual): ", e$message)})
+      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k = k_request, which = "LM"),
+                          error = function(e) {stop("Eigen decomp failed in gmdLA (dual): ", e$message)})
 
       valid_idx <- which(eig_res$values > eigen_tol)
       if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (dual).")
@@ -973,34 +974,35 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
       eig_vecs <- eig_res$vectors[, valid_idx, drop = FALSE]
       k_found <- length(eig_vals)
       if (verbose) message(paste("  (Found ", k_found, " eigenvalues > tol)"))
-      
+
       dgmd <- sqrt(eig_vals)
-      
+
       if (verbose) message("  Calculating ou (U = Q^(-1/2) * eigenvectors)...")
       ugmd <- Qtilde.inv %*% eig_vecs # ou (n x k_found)
-      
+
       if (verbose) message("  Calculating ov (V)...")
       Xt_ugmd <- Matrix::crossprod(X, ugmd) # p x k_found
       vgmd_unnorm <- sweep(Xt_ugmd, 2, dgmd, `/`) # p x k_found
-      
+
       vgmd <- matrix(0.0, p_orig, k_found)
       for (i in 1:k_found) {
-          v_i <- vgmd_unnorm[, i, drop=FALSE]
+          v_i <- vgmd_unnorm[, i, drop = FALSE]
           norm_factor_sq <- as.numeric(Matrix::crossprod(v_i, R %*% v_i))
           if (norm_factor_sq > tol) {
               vgmd[, i] <- as.vector(v_i / sqrt(norm_factor_sq))
           }
       }
   }
-  
+
   # Calculate explained variance
   if (verbose) message(" Calculating explained variance...")
   # Trace(X' Q X R) is invariant under primal/dual formulation (using args passed to gmdLA)
   total_variance <- tryCatch(sum(Matrix::diag(Matrix::crossprod(X, Q) %*% X %*% R)),
                            error = function(e) {
-                              warning("Could not compute total variance trace: ", e$message); NA_real_
+                              warning("Could not compute total variance trace: ", e$message)
+                              NA_real_
                            })
-  
+
   if (is.na(total_variance) || total_variance < tol) {
       propv <- rep(0, k_found)
       warning("Total generalized variance is near zero or could not be computed.")
@@ -1008,7 +1010,7 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
       propv <- (dgmd^2) / total_variance
   }
   cumv <- cumsum(propv)
-  
+
   if (k_found < k) {
       warning("gmdLA: Found only ", k_found, " positive eigenvalues > tol, less than requested k=", k)
   }
@@ -1033,21 +1035,21 @@ gmdLA <- function(X, Q, R, k=min(n_orig, p_orig), n_orig, p_orig,
 #' @importFrom stats rnorm
 gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE) {
 
-  n = nrow(X)
-  p = ncol(X)
+  n <- nrow(X)
+  p <- ncol(X)
   if (!is.numeric(maxit) || length(maxit) != 1 || maxit < 1 || maxit != floor(maxit)) {
     stop("maxit must be a single positive integer.")
   }
   max_iter_defl <- as.integer(maxit)
 
-  ugmd = matrix(0.0, n, k)
-  vgmd = matrix(0.0, p, k)
-  dgmd = numeric(k)
-  propv = numeric(k)
+  ugmd <- matrix(0.0, n, k)
+  vgmd <- matrix(0.0, p, k)
+  dgmd <- numeric(k)
+  propv <- numeric(k)
   Xhat <- X
 
   # Calculate total variance once: trace(X' Q X R)
-  qrnorm <- tryCatch(sum(Matrix::diag( Matrix::crossprod(X, Q %*% X) %*% R )),
+  qrnorm <- tryCatch(sum(Matrix::diag(Matrix::crossprod(X, Q %*% X) %*% R)),
                     error = function(e) {
                         warning("Could not compute total variance trace: ", e$message)
                         NA_real_
@@ -1059,16 +1061,18 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   }
 
   k_found <- 0
-  for(i in 1:k) {
+  for (i in 1:k) {
     if (verbose) message(paste(" Deflation component", i))
     # Initialize u, v for power iteration
-    u <- matrix(stats::rnorm(n), ncol=1); u <- u / sqrt(sum(u^2))
-    v <- matrix(stats::rnorm(p), ncol=1); v <- v / sqrt(sum(v^2))
+    u <- matrix(stats::rnorm(n), ncol = 1)
+    u <- u / sqrt(sum(u^2))
+    v <- matrix(stats::rnorm(p), ncol = 1)
+    v <- v / sqrt(sum(v^2))
 
     iter <- 0
     converged <- FALSE
 
-    while(iter < max_iter_defl) {
+    while (iter < max_iter_defl) {
       iter <- iter + 1
       oldu <- u
       oldv <- v
@@ -1121,8 +1125,8 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
     # Store results for this valid component
     k_found <- k_found + 1
     dgmd[k_found] <- current_d
-    ugmd[, k_found] <- u[,1]
-    vgmd[, k_found] <- v[,1]
+    ugmd[, k_found] <- u[, 1]
+    vgmd[, k_found] <- v[, 1]
 
     # Deflate Xhat = Xhat - d * u v'
     if (k_found < k) { # No need to deflate after the last requested component
@@ -1138,23 +1142,23 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
       warning("Deflation stopped early. Found ", k_found, " components instead of requested ", k, ".")
       # Trim result arrays
       dgmd <- dgmd[1:k_found]
-      ugmd <- ugmd[, 1:k_found, drop=FALSE]
-      vgmd <- vgmd[, 1:k_found, drop=FALSE]
+      ugmd <- ugmd[, 1:k_found, drop = FALSE]
+      vgmd <- vgmd[, 1:k_found, drop = FALSE]
       propv <- propv[1:k_found]
   }
 
   if (k_found == 0) {
-      return(list(d=numeric(0),
-                  v=matrix(0, p, 0),
-                  u=matrix(0, n, 0),
-                  k=0,
-                  cumv=numeric(0),
-                  propv=numeric(0)))
+      return(list(d = numeric(0),
+                  v = matrix(0, p, 0),
+                  u = matrix(0, n, 0),
+                  k = 0,
+                  cumv = numeric(0),
+                  propv = numeric(0)))
   }
 
   cumv <- cumsum(propv) # Calculate cumulative sum on valid components
 
-  list(d=as.vector(dgmd), v=vgmd, u=ugmd, k=k_found, cumv=cumv, propv=propv)
+  list(d = as.vector(dgmd), v = vgmd, u = ugmd, k = k_found, cumv = cumv, propv = propv)
 }
 
 
@@ -1175,13 +1179,13 @@ truncate.genpca <- function(x, ncomp) {
   # Use the bi_projector constructor to create the truncated object
   # Select the first 'ncomp' components from relevant slots
   ret <- multivarious::bi_projector(
-    v = x$v[, 1:ncomp, drop=FALSE], # A ov
-    s = multivarious::scores(x)[, 1:ncomp, drop=FALSE],   # M ou D
+    v = x$v[, 1:ncomp, drop = FALSE], # A ov
+    s = multivarious::scores(x)[, 1:ncomp, drop = FALSE],   # M ou D
     sdev = multivarious::sdev(x)[1:ncomp],                # d
     preproc = x$preproc,                    # Preprocessing object
-    ov = x$ov[, 1:ncomp, drop=FALSE],       # Orthonormal V
-    ou = x$ou[, 1:ncomp, drop=FALSE],       # Orthonormal U
-    u = x$u[, 1:ncomp, drop=FALSE],         # M ou
+    ov = x$ov[, 1:ncomp, drop = FALSE],       # Orthonormal V
+    ou = x$ou[, 1:ncomp, drop = FALSE],       # Orthonormal U
+    u = x$u[, 1:ncomp, drop = FALSE],         # M ou
     classes = class(x),                     # Keep original classes ("genpca", "bi_projector", ...)
     A = x$A,                                # Constraint matrix A
     M = x$M,                                # Constraint matrix M
@@ -1222,13 +1226,13 @@ reconstruct.genpca <- function(x,
   # Determine effective row/col indices for ou/ov matrices
   eff_rowind <- rowind %||% 1:nrow(x$ou)
   eff_colind <- colind %||% 1:nrow(x$ov)
-  
+
   # Helper function for safe indexing
   safe_index <- function(mat, rows, cols) {
      if (is.null(rows) && is.null(cols)) return(mat)
      if (is.null(rows)) rows <- 1:nrow(mat)
      if (is.null(cols)) cols <- 1:ncol(mat)
-     mat[rows, cols, drop=FALSE]
+     mat[rows, cols, drop = FALSE]
   }
 
   # Select the specified components and indices for ou and ov

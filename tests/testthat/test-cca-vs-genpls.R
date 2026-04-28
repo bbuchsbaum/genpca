@@ -3,7 +3,10 @@ testthat::test_that("genpls reproduces canonical correlations on toy data (CCA v
   library(Matrix)
 
   set.seed(42)
-  n <- 150; p <- 6; q <- 4; k <- min(p, q, 3)
+  n <- 150
+  p <- 6
+  q <- 4
+  k <- min(p, q, 3)
 
   # Construct correlated blocks via shared latent factors
   r <- 3
@@ -18,7 +21,8 @@ testthat::test_that("genpls reproduces canonical correlations on toy data (CCA v
   Yc <- scale(Y, center = TRUE, scale = FALSE)
 
   # Sample covariances and ridge-stabilized precisions
-  Sx <- cov(Xc); Sy <- cov(Yc)
+  Sx <- cov(Xc)
+  Sy <- cov(Yc)
   lam <- 1e-8
   Ax <- solve(Sx + lam * diag(p))
   Ay <- solve(Sy + lam * diag(q))

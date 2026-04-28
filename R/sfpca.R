@@ -11,10 +11,10 @@ NULL
 second_diff_matrix <- function(n) {
   # n: Length of the time series
   if (n < 3) stop("n must be at least 3 to compute second differences.")
-  
+
   # Number of second differences is (n - 2)
   m <- n - 2
-  
+
   # Create the diagonals for the second difference matrix
   # Diagonals for D2: (1, -2, 1) pattern for n-2 rows, n cols
   # k=0: 1s at (1,1), (2,2), ..., (m,m)
@@ -29,7 +29,7 @@ second_diff_matrix <- function(n) {
   # Build the (n - 2) x n second difference matrix using bandSparse
   # Correct offsets k = c(0, 1, 2) relative to main diagonal
   D2 <- Matrix::bandSparse(m, n, k = 0:2, diagonals = diagonals, symmetric = FALSE)
-  
+
   return(D2)
 }
 
@@ -78,10 +78,10 @@ sfpca <- function(X, K, spat_cds,
                   alpha_u = NULL, alpha_v = NULL,
                   Omega_u = NULL,
                   penalty_u = "l1", penalty_v = "l1",
-                  uthresh=.9, vthresh=.9,
-                  knn=min(6, ncol(X) - 1),  # Number of nearest neighbors for spatial penalty
+                  uthresh = .9, vthresh = .9,
+                  knn = min(6, ncol(X) - 1),  # Number of nearest neighbors for spatial penalty
                   max_iter = 100, tol = 1e-6, verbose = FALSE) {
- 
+
   n <- nrow(X)
   p <- ncol(X)
   d_list <- numeric(K)
@@ -91,31 +91,31 @@ sfpca <- function(X, K, spat_cds,
   lambda_v_list <- numeric(K)
   alpha_u_list <- numeric(K)
   alpha_v_list <- numeric(K)
-  
+
   # Convert X to Matrix if not already
  if (!inherits(X, "Matrix")) {
     X <- Matrix::Matrix(X, sparse = FALSE)
   }
-  
+
   # Default Omega_u if not provided (second differences)
   if (is.null(Omega_u)) {
     D_n <- second_diff_matrix(n)  # Already returns sparse Matrix
     Omega_u <- Matrix::crossprod(D_n)
   }
-  
+
   # Ensure Omega_u is sparse
   #Omega_u <- as(Omega_u, "dgCMatrix")
-  
+
   # Construct Omega_v based on spatial coordinates
   # We will use a weighted graph Laplacian where weights are based on distances
   if (is.null(spat_cds)) {
     stop("spat_cds must be provided for constructing the spatial penalty matrix Omega_v.")
   }
-  
+
   if (verbose) cat("Constructing spatial penalty matrix Omega_v based on spat_cds...\n")
-  
-  Omega_v <- construct_spatial_penalty(spat_cds, k=knn)
-  
+
+  Omega_v <- construct_spatial_penalty(spat_cds, k = knn)
+
   # Deflation method
   X_residual <- X
   for (k in 1:K) {
@@ -129,8 +129,8 @@ sfpca <- function(X, K, spat_cds,
       # Convert to dense matrix for base R svd
       X_dense <- as.matrix(X_residual)
       base_svd <- svd(X_dense, nu = 1, nv = 1)
-      list(u = base_svd$u[, 1, drop = FALSE], 
-           v = base_svd$v[, 1, drop = FALSE], 
+      list(u = base_svd$u[, 1, drop = FALSE],
+           v = base_svd$v[, 1, drop = FALSE],
            d = base_svd$d[1])
     })
     u_init <- as.numeric(svd_res$u)
@@ -147,7 +147,7 @@ sfpca <- function(X, K, spat_cds,
     } else {
       lambda_v_k <- lambda_v
     }
-    
+
     # Smoothness penalties based on variance of second differences or spatial distances
     if (is.null(alpha_u)) {
       u_diff2 <- diff(u_init, differences = 2)
@@ -163,19 +163,19 @@ sfpca <- function(X, K, spat_cds,
     } else {
       alpha_v_k <- alpha_v
     }
-    
+
     # Store penalty parameters
     lambda_u_list[k] <- lambda_u_k
     lambda_v_list[k] <- lambda_v_k
     alpha_u_list[k] <- alpha_u_k
     alpha_v_list[k] <- alpha_v_k
-    
+
     if (verbose) {
       cat("Heuristic penalties for component", k, ":\n")
       cat("lambda_u =", lambda_u_k, "lambda_v =", lambda_v_k, "\n")
       cat("alpha_u =", alpha_u_k, "alpha_v =", alpha_v_k, "\n")
     }
-    
+
     # Run rank-1 SFPCA with estimated penalties
     result <- sfpca_rank1(X_residual,
                           lambda_u = lambda_u_k, lambda_v = lambda_v_k,
@@ -184,8 +184,8 @@ sfpca <- function(X, K, spat_cds,
                           penalty_u = penalty_u, penalty_v = penalty_v,
                           max_iter = max_iter, tol = tol, verbose = verbose,
                                                u_init = u_init, v_init = v_init)
-    
-    
+
+
     d_list[k] <- result$d
     u_list[, k] <- as.vector(result$u)
     v_list[, k] <- as.vector(result$v)
@@ -196,7 +196,7 @@ sfpca <- function(X, K, spat_cds,
     X_residual <- X_residual - d_list[k] * Matrix::tcrossprod(u_vec, v_vec)
     X_residual <- Matrix::drop0(X_residual)
   }
-  
+
   return(list(d = d_list, u = u_list, v = v_list,
               lambda_u = lambda_u_list, lambda_v = lambda_v_list,
               alpha_u = alpha_u_list, alpha_v = alpha_v_list))
@@ -209,7 +209,7 @@ construct_spatial_penalty <- function(spat_cds, method = "distance", k = 6L) {
   p <- ncol(spat_cds)
   if (p <= k) {
      warning(paste0("Number of spatial locations (p=", p, ") is less than or equal to knn (k=", k, "). ",
-                    "Reducing k to p-1 = ", p-1, "."))
+                    "Reducing k to p-1 = ", p - 1, "."))
      k <- p - 1
   }
   if (k < 1) {
@@ -226,20 +226,20 @@ construct_spatial_penalty <- function(spat_cds, method = "distance", k = 6L) {
     # Initialize sparse matrix for weights
     # Use 1 / (dist + epsilon) for weights
     weights <- 1 / (as.vector(t(distances_knn)) + 1e-6)
-    
+
     # Create sparse matrix W with weights
     W <- Matrix::sparseMatrix(i = rep(1:p, each = k),
                               j = as.vector(t(indices)),
                               x = weights,
                               dims = c(p, p), index1 = TRUE) # Ensure index1=TRUE
-    
+
     # Make W symmetric: W = (W + W^T) / 2
     # This ensures that if j is a neighbor of i, i is also considered a neighbor of j
     # with potentially averaged weight.
     W <- (W + Matrix::t(W)) / 2
     # Ensure diagonal is zero after symmetrization
     Matrix::diag(W) <- 0
-    
+
   } else if (method == "neighbor") {
     # If a neighbor graph is provided, construct W based on it
     # This part can be customized based on available neighbor information
@@ -247,15 +247,15 @@ construct_spatial_penalty <- function(spat_cds, method = "distance", k = 6L) {
   } else {
     stop("Invalid method for constructing spatial penalty.")
   }
-  
+
   # Construct graph Laplacian L = D - W
   # D is the diagonal matrix of degrees (row sums of W)
   D <- Matrix::Diagonal(x = Matrix::rowSums(W))
   L <- D - W
-  
+
   # Omega_v is the graph Laplacian
   Omega_v <- L
-  
+
   return(Omega_v)
 }
 
@@ -286,8 +286,8 @@ sfpca_rank1 <- function(X,
       # Convert to dense matrix for base R svd
       X_dense <- as.matrix(X)
       base_svd <- svd(X_dense, nu = 1, nv = 1)
-      list(u = base_svd$u[, 1, drop = FALSE], 
-           v = base_svd$v[, 1, drop = FALSE], 
+      list(u = base_svd$u[, 1, drop = FALSE],
+           v = base_svd$v[, 1, drop = FALSE],
            d = base_svd$d[1])
     })
     u <- as.numeric(svd_res$u)
@@ -297,26 +297,26 @@ sfpca_rank1 <- function(X,
     u <- u_init
     v <- v_init
   }
-  
+
   # Precompute S matrices and Lipschitz constants
   S_u <- Matrix::Diagonal(n) + alpha_u * Omega_u
   S_v <- Matrix::Diagonal(p) + alpha_v * Omega_v
-  
+
   # Compute the largest eigenvalues using eigs_sym
-  L_u <- eigs_sym(S_u, 1, which = "LM")$values  
+  L_u <- eigs_sym(S_u, 1, which = "LM")$values
   L_v <- eigs_sym(S_v, 1, which = "LM")$values
-  
+
   # Ensure L_u and L_v are positive scalars
   L_u <- as.numeric(L_u)
   L_v <- as.numeric(L_v)
-  
+
   if (is.na(L_u) || L_u <= 0) {
     stop("Invalid Lipschitz constant L_u. Check the construction of S_u.")
   }
   if (is.na(L_v) || L_v <= 0) {
     stop("Invalid Lipschitz constant L_v. Check the construction of S_v.")
   }
-  
+
   iter <- 0
   obj_old <- -Inf
   repeat {
@@ -326,13 +326,13 @@ sfpca_rank1 <- function(X,
     u <- sfpca_ista_update(u, b_u, S_u, L_u, lambda_u, penalty_u, n_inner = 10L)
     u_norm <- sqrt(as.numeric(Matrix::crossprod(u, S_u %*% u)))
     if (u_norm > 0) u <- u / u_norm else u <- rep(0, n)
-    
+
     # --- v-update: ISTA on 0.5||X^T u - v||^2 + (alpha_v/2) v'Ωv + λ_v P(v)
     b_v <- as.vector(Matrix::crossprod(X, u))
     v <- sfpca_ista_update(v, b_v, S_v, L_v, lambda_v, penalty_v, n_inner = 10L)
     v_norm <- sqrt(as.numeric(Matrix::crossprod(v, S_v %*% v)))
     if (v_norm > 0) v <- v / v_norm else v <- rep(0, p)
-    
+
     # Compute objective value (monitoring)
     obj <- as.numeric(
       Matrix::crossprod(u, X %*% v) -
@@ -340,13 +340,14 @@ sfpca_rank1 <- function(X,
         lambda_v * penalty_function(v, penalty_v, lambda_v)
     )
     if (verbose) cat("Iteration", iter, "Objective:", obj, "\n")
-    
+
     # Check convergence
     if (abs(obj - obj_old) < tol || iter >= max_iter) break
     obj_old <- obj
   }
   # Final Euclidean normalization (Algorithm 1, Step 3)
-  if (sum(u) < 0) { u <- -u; v <- -v }
+  if (sum(u) < 0) { u <- -u
+  v <- -v }
   u <- u / sqrt(sum(u^2))
   v <- v / sqrt(sum(v^2))
   d <- as.numeric(Matrix::crossprod(u, X %*% v))
@@ -375,17 +376,17 @@ sfpca_ista_update <- function(x, b, S, L, lambda, penalty = "l1", n_inner = 5L) 
 sfpca_proximal_operator <- function(z, S_chol, lambda, L, penalty) {
   # Gradient step
   y <- z / L
-  
+
   # Check for valid y
   if (any(is.na(y) | is.infinite(y))) {
     stop("Invalid values in y during proximal operator computation.")
   }
-  
+
   # Adjust for S matrix using pre-computed Cholesky factor
   x <- Matrix::solve(S_chol, y)
   # Ensure x is a vector, not a matrix
   x <- as.vector(x)
-  
+
   # Proximal operator depending on penalty
   if (penalty == "l1") {
     x <- soft_threshold(x, lambda / L)
@@ -447,4 +448,3 @@ eigs_sym <- function(A, k = 1, which = "LM") {
   }
   RSpectra::eigs(A, k = k, which = which, opts = list(tol = 1e-3), symmetric = TRUE)
 }
-
