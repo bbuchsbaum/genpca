@@ -7,23 +7,36 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 options(rmarkdown.html_vignette.check_title = FALSE)
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse   = TRUE,
+  comment    = "#>",
+  message    = FALSE,
+  warning    = FALSE,
+  fig.width  = 6,
+  fig.height = 4,
+  out.width  = "85%"
+)
 library(genpca)
 library(Matrix)
+
+flip <- function(M) as.matrix(M)[, ncol(M):1]
+heat <- function(M, main = "") {
+  image(flip(M), axes = FALSE, main = main,
+        col = grey.colors(20, start = 0.95, end = 0.2))
+}
 ```
 
-This vignette collects practical recipes for row/column metrics, plus notes on SPD remedies and the experimental `gpca_mle()`.
+This vignette collects practical recipes for row and column metrics, plus notes on SPD remedies and the experimental `gpca_mle()` learner.
 
-Why metrics
------------
-Metrics encode weighting and correlation. Row metric `M` changes how observations are compared; column metric `A` changes how variables are compared. Both must be symmetric positive definite (SPD) for GPCA.
+## Why metrics
 
-Runnable example: heteroscedastic diagonals
--------------------------------------------
+Metrics encode weighting and correlation. The row metric `M` changes how observations are compared. The column metric `A` changes how variables are compared. Both must be symmetric positive definite (SPD) for GPCA. In return, you can bake known structure -- temporal smoothness, spatial proximity, group membership, heteroscedastic noise -- straight into the decomposition.
 
-The simplest non-trivial metrics are diagonal matrices that down-weight noisy rows or columns:
+## Heteroscedastic diagonals
+
+The simplest non-trivial metric is a diagonal that down-weights noisy rows or columns:
 
 ```{r hetero-demo}
 set.seed(42)
@@ -31,66 +44,98 @@ n <- 60; p <- 20
 X <- matrix(rnorm(n * p), n, p)
 
 col_noise_sd <- runif(p, 0.5, 2)
-A <- Diagonal(x = 1 / (col_noise_sd^2))
+A <- Diagonal(x = 1 / col_noise_sd^2)
 row_noise_sd <- runif(n, 0.7, 1.3)
-M <- Diagonal(x = 1 / (row_noise_sd^2))
+M <- Diagonal(x = 1 / row_noise_sd^2)
 
-fit <- genpca(X, M = M, A = A, ncomp = 3, preproc = multivarious::center())
+fit <- genpca(X, M = M, A = A, ncomp = 3,
+              preproc = multivarious::center())
 fit$sdev
 ```
 
-Recipes (swap in your data)
----------------------------
-
-Temporal AR(1) rows (smooth in time):
-```{r ar1, eval=FALSE}
-rho <- 0.7; n <- 200
-idx <- 0:(n-1)
-Sigma_r <- outer(idx, idx, function(i,j) rho^abs(i-j))
-M <- solve(Sigma_r + 1e-3 * diag(n))
+```{r hetero-plot, echo = FALSE, fig.cap = "Inverse-variance weights on columns (top) and rows (bottom). Noisier dimensions get smaller weights.", fig.height = 3.5}
+op <- par(mfrow = c(2, 1), mar = c(2.5, 4, 2, 1))
+barplot(diag(A), border = NA, col = "steelblue",
+        main = "Column weights diag(A)", names.arg = NA)
+barplot(diag(M), border = NA, col = "tomato",
+        main = "Row weights diag(M)", names.arg = NA)
+par(op)
 ```
 
-Spatial kernel (rows or cols):
-```{r rbf, eval=FALSE}
-coords <- as.matrix(expand.grid(x = 1:10, y = 1:10))
-d2 <- as.matrix(dist(coords))^2
-ell <- 2
-K <- exp(-d2 / (2 * ell^2))
-A <- solve(K + 1e-3 * diag(nrow(K)))
+## Recipes
+
+These three patterns -- AR(1) smoothing, spatial RBF kernel, graph Laplacian -- cover most structured-noise applications.
+
+### AR(1) row metric (smoothness in time)
+
+```{r ar1}
+rho     <- 0.7
+n_t     <- 60
+idx     <- 0:(n_t - 1)
+Sigma_r <- outer(idx, idx, function(i, j) rho^abs(i - j))
+M_ar1   <- solve(Sigma_r + 1e-3 * diag(n_t))
 ```
 
-Graph Laplacian (columns):
-```{r lap, eval=FALSE}
-W <- bandSparse(30, k = c(-1,0,1), diagonals = list(rep(0.2,29), rep(1,30), rep(0.2,29)))
-D <- Diagonal(x = rowSums(W))
-L <- D - W
-A <- L + 1e-2 * Diagonal(nrow(L))
+### Spatial RBF kernel
+
+```{r rbf}
+coords <- as.matrix(expand.grid(x = 1:8, y = 1:8))
+d2     <- as.matrix(dist(coords))^2
+ell    <- 2
+K      <- exp(-d2 / (2 * ell^2))
+A_rbf  <- solve(K + 1e-3 * diag(nrow(K)))
 ```
 
-Learning metrics with `gpca_mle`
---------------------------------
+### Graph Laplacian
 
-When you suspect structured noise but lack good priors, `gpca_mle()` can learn SPD metrics by alternating GPCA with matrix-normal maximum likelihood:
+```{r lap}
+W <- bandSparse(30, k = c(-1, 0, 1),
+                diagonals = list(rep(0.2, 29),
+                                 rep(1, 30),
+                                 rep(0.2, 29)))
+D     <- Diagonal(x = rowSums(W))
+A_lap <- (D - W) + 1e-2 * Diagonal(nrow(W))
+```
 
-```{r mle, eval=FALSE}
-fit_mle <- gpca_mle(X, ncomp = 3, max_iter = 10,
+```{r recipe-plots, echo = FALSE, fig.cap = "Three structured metrics. Off-diagonal banding is what couples nearby rows or variables -- it tells GPCA 'treat these dimensions as related, not independent'.", fig.width = 8, fig.height = 3}
+op <- par(mfrow = c(1, 3), mar = c(2, 2, 2, 1))
+heat(M_ar1, "Inverse AR(1)")
+heat(A_rbf, "Inverse RBF kernel")
+heat(A_lap, "Regularised Laplacian")
+par(op)
+```
+
+## Learning metrics with `gpca_mle()`
+
+When you suspect structured noise but lack good priors, `gpca_mle()` learns SPD metrics by alternating GPCA with matrix-normal maximum likelihood:
+
+```{r mle-fit}
+set.seed(1)
+n_m <- 40; p_m <- 10
+X_mle <- matrix(rnorm(n_m * p_m), n_m, p_m)
+fit_mle <- gpca_mle(X_mle, ncomp = 2, max_iter = 6,
                     lambda = 1e-3, scale_fix = "trace",
                     method = "eigen", verbose = FALSE)
-fit_mle$A
-fit_mle$M
+range(diag(as.matrix(fit_mle$M)))
+range(diag(as.matrix(fit_mle$A)))
 ```
 
-Keep `lambda` non-zero, start with small `ncomp`, and inspect warnings (they mean a metric was repaired).
+```{r mle-plot, echo = FALSE, fig.cap = "Learned row metric M (left) and column metric A (right) on i.i.d. Gaussian data. With identity-noise input the learner stays close to identity, with mild row- and column-specific damping."}
+op <- par(mfrow = c(1, 2), mar = c(2, 2, 2, 1))
+heat(fit_mle$M, "Learned M")
+heat(fit_mle$A, "Learned A")
+par(op)
+```
 
-SPD remedies in practice
-------------------------
+Keep `lambda` non-zero, start with a small `ncomp`, and watch warnings -- they signal a metric was repaired during the iteration.
+
+## SPD remedies in practice
 
 - `constraints_remedy = "ridge"` (default) adds a diagonal jitter to keep metrics SPD.
 - `"clip"` truncates tiny negative eigenvalues; `"identity"` falls back to identity if a metric misbehaves.
 - Scale metrics before use (e.g., divide by mean diagonal) to avoid ill-conditioning.
 - After fitting, check `range(eigen(A)$values)` on small problems to verify conditioning.
 
-Where next
-----------
+## Where next
 
-See `vignette("gpca-scale", package = "genpca")` for backend choices, sparse workflows, and covariance-only GPCA.
+See `vignette("gpca-scale")` for backend choices, sparse workflows, and covariance-only GPCA.

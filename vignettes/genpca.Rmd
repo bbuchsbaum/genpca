@@ -1,31 +1,159 @@
 ---
-title: "genpca: Vignette Guide"
+title: "Getting Started with genpca"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{genpca: Vignette Guide}
+  %\VignetteIndexEntry{Getting Started with genpca}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 options(rmarkdown.html_vignette.check_title = FALSE)
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse   = TRUE,
+  comment    = "#>",
+  message    = FALSE,
+  warning    = FALSE,
+  fig.width  = 6,
+  fig.height = 4,
+  out.width  = "85%"
+)
+library(genpca)
+library(Matrix)
 ```
 
-This is a short map of the genpca documentation. Each vignette is small and focused; pick the one you need.
+## Why generalized PCA?
 
-Basics
-------
-`vignette("gpca-basics", package = "genpca")` covers a quick start, identity vs diagonal metrics, choosing `ncomp`, and a tiny real-data example (USArrests).
+Standard PCA (`prcomp()`) treats every observation and every variable equally. That is fine when the data are homogeneous, but in many applications the assumption is wrong: some observations are noisier than others, some variables are correlated by design, or there is known spatial or temporal structure you want the decomposition to respect. Generalized PCA encodes that prior knowledge through a row metric `M` and a column metric `A`. When both are identity, you recover ordinary PCA.
 
-Metrics
--------
-`vignette("gpca-metrics", package = "genpca")` shows how to build practical row/column metrics (AR(1), spatial kernels, graph Laplacians, heteroscedastic weights), how `gpca_mle()` can learn metrics, and what to watch for with SPD remedies.
+## Quick start
 
-Scale & Special Cases
----------------------
-`vignette("gpca-scale", package = "genpca")` gives backend choices (`eigen`, `spectra`, `deflation`), sparse workflows, the covariance-only route (`genpca_cov`), out-of-sample projection tips, and performance notes.
+```{r quick-start}
+set.seed(1)
+X <- matrix(rnorm(80 * 30), 80, 30)
+fit <- genpca(X, ncomp = 3, preproc = multivarious::center())
+fit$sdev
+```
 
-PLS
----
-For generalized PLS/CCA, see `vignette("gplssvd-reference", package = "genpca")` for the mathematical reference and a quick-start code chunk.
+```{r quick-plot, echo = FALSE, fig.cap = "Singular values from the 3-component fit."}
+barplot(fit$sdev,
+        names.arg = paste0("PC", seq_along(fit$sdev)),
+        ylab = "Singular value", col = "grey60", border = NA)
+```
+
+With identity metrics, `genpca()` reproduces standard PCA. The interesting cases are when `M` or `A` is non-trivial.
+
+## Row weights (diagonal metric)
+
+A diagonal `M` says "weight observation `i` by `m_ii`." Useful when rows represent groups of different sizes, or when some rows are more reliable than others.
+
+```{r row-weights}
+row_wt <- runif(nrow(X), 0.5, 1.5)
+M <- Diagonal(x = row_wt)
+fit_row <- genpca(X, M = M, ncomp = 3, preproc = multivarious::center())
+head(multivarious::scores(fit_row), 4)
+```
+
+```{r row-compare, echo = FALSE, fig.cap = "Identity (left) vs row-weighted (right) component scores. Symbol size in the right panel scales with row weight.", fig.width = 7, fig.height = 3.5}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+S0 <- multivarious::scores(fit)
+S1 <- multivarious::scores(fit_row)
+plot(S0[, 1], S0[, 2], pch = 19, cex = 0.8, col = "grey40",
+     xlab = "PC1", ylab = "PC2", main = "Identity metric")
+plot(S1[, 1], S1[, 2], pch = 19,
+     cex = 0.5 + row_wt / max(row_wt),
+     col = "steelblue",
+     xlab = "PC1", ylab = "PC2", main = "Diagonal M")
+par(op)
+```
+
+## Column structure (smoothness)
+
+A non-identity column metric encodes prior structure on the variables. Here we add a small AR-style coupling between adjacent columns:
+
+```{r col-metric}
+p <- ncol(X)
+A <- Diagonal(p)
+for (i in seq_len(p - 1)) {
+  A[i, i + 1] <- 0.15
+  A[i + 1, i] <- 0.15
+}
+A <- A + 0.05 * Diagonal(p)
+fit_col <- genpca(X, A = A, ncomp = 3, preproc = multivarious::center())
+fit_col$sdev
+```
+
+```{r col-metric-plot, echo = FALSE, fig.cap = "Banded column metric A (left) and the resulting PC1 loadings, identity vs A (right). The banded A pulls adjacent loadings together, suppressing high-frequency wiggle.", fig.width = 7, fig.height = 3.5}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+flip <- function(M) as.matrix(M)[, ncol(M):1]
+image(flip(A), axes = FALSE, main = "Column metric A",
+      col = grey.colors(20, start = 0.95, end = 0.2))
+matplot(cbind(multivarious::components(fit)[, 1],
+              multivarious::components(fit_col)[, 1]),
+        type = "l", lty = 1, lwd = 2,
+        col = c("grey50", "steelblue"),
+        xlab = "Variable index", ylab = "PC1 loading",
+        main = "PC1 loadings")
+legend("topright", legend = c("Identity", "Banded A"),
+       col = c("grey50", "steelblue"), lty = 1, lwd = 2,
+       bty = "n", cex = 0.8)
+par(op)
+```
+
+## Choosing the number of components
+
+A scree plot is the quickest first look:
+
+```{r scree, fig.cap = "Variance explained by each component.", fig.height = 3}
+barplot(fit$sdev^2,
+        names.arg = paste0("PC", seq_along(fit$sdev)),
+        xlab = "Component", ylab = "Variance",
+        col = "grey60", border = NA)
+```
+
+For a more principled choice, split the rows into train and holdout, fit on the training set, and compare holdout reconstruction error across values of `ncomp`. With informative metrics, a small `ncomp` often beats a larger unweighted PCA.
+
+## Real data: USArrests
+
+```{r usarrests}
+data("USArrests")
+X_real  <- as.matrix(USArrests[, c("Murder", "Assault", "Rape")])
+pop_wt  <- USArrests$UrbanPop / mean(USArrests$UrbanPop)
+M_real  <- Diagonal(x = pop_wt)
+col_sd  <- apply(X_real, 2, sd)
+A_real  <- Diagonal(x = 1 / col_sd^2)
+
+fit_real <- genpca(X_real, M = M_real, A = A_real, ncomp = 2,
+                   preproc = multivarious::center())
+scores2d <- multivarious::scores(fit_real)
+```
+
+```{r usarrests-plot, echo = FALSE, fig.cap = "GPCA on USArrests with row weights from urbanisation and column weights inversely proportional to variance.", fig.height = 5}
+plot(scores2d[, 1], scores2d[, 2], pch = 19, col = "grey50",
+     xlab = "PC1 (weighted)", ylab = "PC2 (weighted)",
+     main = "GPCA on USArrests")
+text(scores2d[, 1], scores2d[, 2],
+     labels = abbreviate(rownames(USArrests), 4),
+     pos = 3, cex = 0.6, col = "grey20")
+```
+
+PC1 separates states by overall violent-crime rate, with high-urbanisation states pulled toward the high end through the row weights. PC2 picks up the residual contrast between assault-heavy and rape-heavy states once the dominant rate axis is removed.
+
+## Object verbs
+
+`genpca()` returns a `bi_projector` from the `multivarious` ecosystem. The verbs you reach for most:
+
+| Verb | Returns | What it gives you |
+|:--|:--|:--|
+| `multivarious::scores(fit)` | `n x k` | Observation coordinates in component space |
+| `multivarious::components(fit)` | `p x k` | Loadings (variable directions) |
+| `multivarious::project(fit, X_new)` | `n_new x k` | Out-of-sample scores |
+| `reconstruct(fit, ncomp = k)` | `n x p` | Rank-`k` reconstruction of `X` |
+
+These verbs are shared across `genpca()`, `genpls()`, `sfpca()`, and `rpls()`, so once you learn them on `genpca` they carry over.
+
+## Where next
+
+- `vignette("gpca-metrics")` covers metric recipes (AR(1), spatial kernels, graph Laplacians) and the `gpca_mle()` learner.
+- `vignette("gpca-scale")` covers backends, sparse workflows, and covariance-only GPCA.
+- `vignette("gplssvd-reference")` covers the generalized PLS / PLS-SVD interface and includes a contributor-oriented reference implementation.
