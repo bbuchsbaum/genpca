@@ -4,13 +4,21 @@ This is the first CRAN submission of `genpca`.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 2 notes
 
 * checking CRAN incoming feasibility ... NOTE
   Maintainer: 'Brad Buchsbaum <brad.buchsbaum@gmail.com>'
   New submission
 
-  This is expected for a first submission.
+  Expected for a first submission.
+
+* checking C++ specification ... NOTE
+  Specified C++14: please drop specification unless essential
+
+  The C++14 specification is essential. The package's C++ sources use
+  RcppArmadillo, which requires a C++14 compiler in current releases.
+  `SystemRequirements: C++14` is declared in DESCRIPTION and
+  `CXX_STD = CXX14` is set in `src/Makevars[.win]`.
 
 ## Test environments
 

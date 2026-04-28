@@ -15,8 +15,10 @@ resource_files:
 - albers.js
 - albers-header.html
 
-vignette: |
-  %\VignetteIndexEntry{Getting Started with genpca} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
+vignette: >
+  %\VignetteIndexEntry{Getting Started with genpca}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include = FALSE}

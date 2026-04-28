@@ -15,8 +15,10 @@ resource_files:
 - albers.js
 - albers-header.html
 
-vignette: |
-  %\VignetteIndexEntry{Generalized PLS-SVD: Explicit Whitening Reference} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
+vignette: >
+  %\VignetteIndexEntry{Generalized PLS-SVD: Explicit Whitening Reference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include = FALSE}

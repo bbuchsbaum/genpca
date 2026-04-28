@@ -39,7 +39,9 @@ Suggests:
     irlba,
     clue,
     knitr,
-    rmarkdown
+    rmarkdown,
+    ggplot2,
+    albersdown
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
