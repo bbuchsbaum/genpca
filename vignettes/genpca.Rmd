@@ -48,6 +48,7 @@ cat(sprintf(
 ))
 ```
 
+
 ## Why generalized PCA?
 
 Standard PCA (`prcomp()`) treats every observation and every variable equally. That is fine when the data are homogeneous, but in many applications the assumption is wrong: some observations are noisier than others, some variables are correlated by design, or there is known spatial or temporal structure you want the decomposition to respect. Generalized PCA encodes that prior knowledge through a row metric `M` and a column metric `A`. When both are identity, you recover ordinary PCA.

@@ -48,6 +48,7 @@ cat(sprintf(
 ))
 ```
 
+
 This vignette walks through the choices that matter once your data outgrows the defaults: which backend to pick, when to switch to a covariance-only fit, and how to project out-of-sample observations.
 
 ## Backend selection

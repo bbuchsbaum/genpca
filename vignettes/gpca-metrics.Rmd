@@ -54,6 +54,7 @@ cat(sprintf(
 ))
 ```
 
+
 This vignette collects practical recipes for row and column metrics, plus notes on SPD remedies and the experimental `gpca_mle()` learner.
 
 ## Why metrics

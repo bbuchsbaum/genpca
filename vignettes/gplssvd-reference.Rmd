@@ -48,6 +48,7 @@ cat(sprintf(
 ))
 ```
 
+
 This vignette has two audiences. End users who just want to run generalized PLS on two blocks should read the **Quick practical use** section and stop. Contributors who want to verify the whitening identities behind `gplssvd_op()` should continue to the explicit reference implementation below.
 
 ## Quick practical use
