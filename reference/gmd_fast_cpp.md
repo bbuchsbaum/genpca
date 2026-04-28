@@ -19,7 +19,11 @@ gmd_fast_cpp(
   maxit = 1000L,
   seed = 1234L,
   topk = TRUE,
-  cache = TRUE
+  cache = TRUE,
+  auto_topk = TRUE,
+  topk_ratio = 0.08,
+  topk_min_dim = 200L,
+  diag_fast = TRUE
 )
 ```
 
@@ -45,7 +49,7 @@ gmd_fast_cpp(
 
 - maxit:
 
-  maximum iterations (ignored, kept for API compatibility)
+  maximum iterations for the Spectra eigensolver. Default 1000.
 
 - seed:
 
@@ -62,6 +66,26 @@ gmd_fast_cpp(
   dense. Defaults to TRUE. Use
   [`gmd_clear_cache`](https://bbuchsbaum.github.io/genpca/reference/gmd_clear_cache.md)
   to clear.
+
+- auto_topk:
+
+  logical; when TRUE (default), use top-k only when `k/min(n,p)` is
+  small and `min(n,p)` is large enough.
+
+- topk_ratio:
+
+  threshold used by `auto_topk`. If `k/min(n,p) <= topk_ratio`, top-k is
+  used. Default 0.08.
+
+- topk_min_dim:
+
+  minimum `min(n,p)` required before top-k is used under `auto_topk`.
+  Default 200.
+
+- diag_fast:
+
+  logical; if TRUE (default) and both constraints are diagonal, use a
+  weighted-SVD fast path.
 
 ## Value
 

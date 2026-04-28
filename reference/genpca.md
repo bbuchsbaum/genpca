@@ -13,15 +13,22 @@ genpca(
   A = NULL,
   M = NULL,
   ncomp = NULL,
-  method = c("eigen", "spectra", "deflation"),
+  method = c("eigen", "auto", "spectra", "randomized", "deflation"),
   constraints_remedy = c("ridge", "error", "clip", "identity"),
   preproc = multivarious::pass(),
   threshold = 1e-06,
+  maxit_deflation = 500L,
   use_cpp = TRUE,
   maxeig = 800,
   warn_approx = TRUE,
   maxit_spectra = 1000,
   tol_spectra = 1e-09,
+  oversample = 20L,
+  n_power = 1L,
+  n_polish = 0L,
+  jitter_metric = 1e-10,
+  seed_randomized = 1234L,
+  tol_polish_randomized = 1e-04,
   verbose = FALSE
 )
 
@@ -39,7 +46,7 @@ gmdLA(
   verbose = FALSE
 )
 
-gmd_deflationR(X, Q, R, k, thr = 1e-06, verbose = FALSE)
+gmd_deflationR(X, Q, R, k, thr = 1e-06, maxit = 500L, verbose = FALSE)
 
 # S3 method for class 'genpca'
 truncate(x, ncomp)
@@ -81,9 +88,11 @@ ncomp(x)
 - method:
 
   Character string specifying the computation method. One of `"eigen"`
-  (default, uses `gmdLA`), `"spectra"` (uses matrix-free C++/Spectra
-  implementation `gmd_fast_cpp`), or `"deflation"` (uses
-  `gmd_deflationR` or `gmd_deflation_cpp`).
+  (default, uses `gmdLA`), `"auto"` (heuristic choice among `"eigen"`,
+  `"spectra"`, and `"randomized"`), `"spectra"` (uses matrix-free
+  C++/Spectra implementation `gmd_fast_cpp`), `"randomized"`
+  (approximate randomized block solver `gmd_randomized`), or
+  `"deflation"` (uses `gmd_deflationR` or `gmd_deflation_cpp`).
 
 - constraints_remedy:
 
@@ -101,6 +110,11 @@ ncomp(x)
 
   Convergence tolerance for the `"deflation"` method's inner loop.
   Default \`1e-6\`.
+
+- maxit_deflation:
+
+  Maximum iterations per component for the `"deflation"` method. Default
+  \`500\`.
 
 - use_cpp:
 
@@ -133,9 +147,43 @@ ncomp(x)
   Tolerance for the Spectra iterative solver when `method = "spectra"`.
   Default \`1e-9\`.
 
+- oversample:
+
+  Oversampling for `method = "randomized"` (sketch size =
+  `ncomp + oversample`). Default \`20\`.
+
+- n_power:
+
+  Number of power iterations for `method = "randomized"`. Default \`1\`.
+
+- n_polish:
+
+  Number of optional block-polish iterations for
+  `method = "randomized"`. Default \`0\`.
+
+- jitter_metric:
+
+  Small jitter used in metric orthonormalization for
+  `method = "randomized"`. Default \`1e-10\`.
+
+- seed_randomized:
+
+  Optional seed for `method = "randomized"`. Default \`1234\`.
+
+- tol_polish_randomized:
+
+  Relative tolerance used for early stopping of polish iterations in
+  `method = "randomized"`. Set \`0\` to disable early stop. Default
+  \`1e-4\`.
+
 - verbose:
 
   Logical. If \`TRUE\`, print progress messages. Default \`FALSE\`.
+
+- maxit:
+
+  Maximum number of iterations for deflation convergence. Default
+  \`500\`.
 
 ## Value
 
@@ -199,14 +247,39 @@ AV = I. (Allen et al., 2014). Three methods are available via the
   based on `gmdLA`. It explicitly forms and decomposes a \\p \times p\\
   or \\n \times n\\ matrix (depending on `n` vs `p`).
 
+- `"auto"`: Chooses among `"eigen"`, `"spectra"`, and `"randomized"`
+  using heuristics on shape, rank ratio (`ncomp / min(n,p)`), and
+  constraint structure.
+
 - `"spectra"`: Uses a matrix-free iterative approach via the RcppSpectra
   package to solve the same eigen problem as `"eigen"` but without
   forming the large intermediate matrix. Generally faster and uses less
   memory for large `n` or `p`. Requires C++ compiler and RcppSpectra.
 
+- `"randomized"`: Uses a randomized block range finder and small
+  projected eigendecomposition. This is an approximate low-pass method
+  that is often much faster for wide dense matrices with sparse metrics
+  when only top components are needed.
+
 - `"deflation"`: Uses an iterative power/deflation algorithm. Can be
   slower but potentially uses less memory than `"eigen"` for very large
   dense problems where `ncomp` is small.
+
+## Backend Guidance
+
+- Use `method = "auto"` as the default in production pipelines.
+
+- Use `"eigen"` when you need a stable reference solution on
+  small/medium problems.
+
+- Use `"spectra"` for larger matrix-free iterative solves where memory
+  pressure is a concern.
+
+- Use `"randomized"` for wide low-rank settings (`p >> n`) with sparse
+  metrics when throughput matters most.
+
+- Use `"deflation"` when you only need a few components and can tolerate
+  iterative convergence behavior.
 
 For pre-computed covariance matrices C = X'MX, see
 [`genpca_cov`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
@@ -239,7 +312,7 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 
   # Standard PCA (A=I, M=I, centered) - using default method="eigen"
   gpca_std_eigen <- genpca(X, ncomp = 5, preproc = multivarious::center(), verbose = FALSE)
-  
+
   # Standard PCA using Spectra method (requires C++ build)
   # gpca_std_spectra <- try(genpca(X, ncomp = 5,
   #                              preproc = multivarious::center(),
@@ -272,5 +345,11 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 #> [1] "Total Var Explained (Eigen): 13 %"
 #> [1] "Weighted GPCA Sdev:"
 #> [1] 24.79929 24.23576 23.57776
-#> Error in components(gpca_weighted): could not find function "components"
+#>            PC1         PC2          PC3
+#> C1 -0.02654255  0.04444090 -0.063163088
+#> C2  0.38534643 -0.13459026 -0.000021882
+#> C3 -0.06053140  0.07895713 -0.093587789
+#> C4  0.04387758 -0.01422663  0.003160916
+#> C5  0.06087768  0.01772540 -0.071200767
+#> C6 -0.00294182 -0.08799976 -0.174320612
 ```

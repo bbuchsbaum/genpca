@@ -76,3 +76,16 @@ genplsc(
 ## Value
 
 See \`genpls()\`
+
+## Examples
+
+``` r
+set.seed(1)
+X <- matrix(rnorm(60 * 5), 60, 5)
+Y <- matrix(rnorm(60 * 4), 60, 4)
+fit <- genplsc(X, Y, ncomp = 2,
+               preproc_x = multivarious::center(),
+               preproc_y = multivarious::center())
+fit$d
+#> [1] 24.43306 23.88050
+```

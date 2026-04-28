@@ -68,3 +68,14 @@ gplssvd_op(
 ## Value
 
 list with elements d, u, v, p, q, fi, fj, lx, ly, k, dims, center, scale
+
+## Examples
+
+``` r
+set.seed(1)
+X <- matrix(rnorm(40 * 6), 40, 6)
+Y <- matrix(rnorm(40 * 4), 40, 4)
+op <- gplssvd_op(X, Y, k = 2, center = TRUE)
+round(op$d, 3)
+#> [1] 20.428 14.384
+```

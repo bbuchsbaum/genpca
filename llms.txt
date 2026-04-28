@@ -36,6 +36,7 @@ al. (2016).
 - **Multiple computational backends**:
   - `eigen`: Direct eigendecomposition for small-to-medium problems
   - `spectra`: Matrix-free C++ implementation for large/sparse data
+  - `randomized`: Block-sketch approximation for wide low-rank settings
   - `deflation`: Sequential extraction for memory-constrained scenarios
 
 ### Advanced Methods
@@ -53,6 +54,18 @@ al. (2016).
 - Unified interface for preprocessing, projection, reconstruction, and
   transfer learning
 - Support for sparse matrices via the `Matrix` package
+
+## Backend Selection Guide
+
+Use `method = "auto"` unless you have a strong reason to pin a backend.
+
+| Method       | Best for                                           | Pros                                                       | Cons                                                                                                                                             |
+|--------------|----------------------------------------------------|------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `eigen`      | Small/medium problems, exact reference runs        | Most stable reference behavior                             | Builds larger intermediate matrices; for very large sparse constraints may rely on truncated eigensolve (`maxeig`) and become slower/approximate |
+| `spectra`    | Large diagonal/sparse-friendly problems            | Matrix-free iterative solve; lower memory                  | Accuracy/performance can depend on conditioning and iteration behavior                                                                           |
+| `randomized` | Wide (`p >> n`), sparse-metric, low-rank workloads | Often fastest in wide settings; block GEMM/SpMM path       | Approximate by design; tune `oversample`, `n_power`, `n_polish`                                                                                  |
+| `deflation`  | Few components with limited memory                 | Low memory, component-by-component extraction              | Can converge slowly; C++ path currently expects sparse metrics                                                                                   |
+| `auto`       | Default production usage                           | Chooses among `eigen`/`spectra`/`randomized` heuristically | Heuristics may not be optimal for every hardware/data regime                                                                                     |
 
 ## Installation
 
@@ -215,6 +228,21 @@ Issues and PRs welcome. Please open a ticket with a minimal example,
 your R session info, and (if relevant) a pointer to the metric matrices
 that reproduce the behavior.
 
+## Albers theme
+
+This package uses the albersdown theme. Vignettes are styled with
+`vignettes/albers.css` and a local `vignettes/albers.js`; the palette
+family is provided via `params$family` (default ‘red’). The pkgdown site
+uses `template: { package: albersdown }`.
+
+## Albers theme
+
+This package uses the albersdown theme. Existing vignette theme hooks
+are replaced so `albers.css` and local `albers.js` render consistently
+on CRAN and GitHub Pages. The palette family is provided via
+`params$family` (default ‘red’). The pkgdown site uses
+`template: { package: albersdown }`.
+
 # Package index
 
 ## All functions
@@ -231,6 +259,8 @@ that reproduce the behavior.
   : Experimental ML estimation of GPCA metrics
 - [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md)
   : Generalized PLS-SVD via Implicit Operator (memory-safe)
+- [`mnpca_mrl()`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md)
+  : Matrix-Normal PCA via Maximum Regularized Likelihood
 - [`transfer(`*`<cross_projector>`*`)`](https://bbuchsbaum.github.io/genpca/reference/transfer.cross_projector.md)
   : Compatibility wrapper for multivarious::transfer
 - [`truncate()`](https://bbuchsbaum.github.io/genpca/reference/truncate.md)
@@ -240,10 +270,8 @@ that reproduce the behavior.
 
 ### All vignettes
 
-- [genpca: Vignette
-  Guide](https://bbuchsbaum.github.io/genpca/articles/genpca.md):
-- [GPCA Basics: Getting
-  Started](https://bbuchsbaum.github.io/genpca/articles/gpca-basics.md):
+- [Getting Started with
+  genpca](https://bbuchsbaum.github.io/genpca/articles/genpca.md):
 - [GPCA Metrics: Building M and
   A](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md):
 - [GPCA at Scale and Special

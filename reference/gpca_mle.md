@@ -118,5 +118,14 @@ if (requireNamespace("multivarious", quietly = TRUE)) {
   dim(res$A); dim(res$M)
   res$loglik_path
 }
-#> Error in gpca_mle(X, ncomp = 2, max_iter = 5, lambda = 0.001, scale_fix = "trace",     verbose = FALSE): could not find function "gpca_mle"
+#> Warning: `reverse_transform()` was deprecated in multivarious 0.3.0.
+#> ℹ Please use `inverse_transform()` instead.
+#> ℹ reverse_transform() is deprecated. Use inverse_transform() for a more
+#>   standard interface.
+#> ℹ The deprecated feature was likely used in the genpca package.
+#>   Please report the issue at <https://github.com/bbuchsbaum/genpca/issues>.
+#> 'as(<ddenseMatrix>, "dgeMatrix")' is deprecated.
+#> Use 'as(as(., "generalMatrix"), "unpackedMatrix")' instead.
+#> See help("Deprecated") and help("Matrix-deprecated").
+#> [1] 105.03314  84.68565  90.89784  84.59021  90.72233
 ```

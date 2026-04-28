@@ -14,6 +14,8 @@
   : Experimental ML estimation of GPCA metrics
 - [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md)
   : Generalized PLS-SVD via Implicit Operator (memory-safe)
+- [`mnpca_mrl()`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md)
+  : Matrix-Normal PCA via Maximum Regularized Likelihood
 - [`transfer(`*`<cross_projector>`*`)`](https://bbuchsbaum.github.io/genpca/reference/transfer.cross_projector.md)
   : Compatibility wrapper for multivarious::transfer
 - [`truncate()`](https://bbuchsbaum.github.io/genpca/reference/truncate.md)

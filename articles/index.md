@@ -2,10 +2,8 @@
 
 ### All vignettes
 
-- [genpca: Vignette
-  Guide](https://bbuchsbaum.github.io/genpca/articles/genpca.md):
-- [GPCA Basics: Getting
-  Started](https://bbuchsbaum.github.io/genpca/articles/gpca-basics.md):
+- [Getting Started with
+  genpca](https://bbuchsbaum.github.io/genpca/articles/genpca.md):
 - [GPCA Metrics: Building M and
   A](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md):
 - [GPCA at Scale and Special

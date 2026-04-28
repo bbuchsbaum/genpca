@@ -2,9 +2,12 @@
 
 ## Authors
 
-- **Brad Buchsbaum**. Author, maintainer.
+- **Brad Buchsbaum**. Author, maintainer, copyright holder.
 
 ## Citation
+
+Source:
+[`DESCRIPTION`](https://github.com/bbuchsbaum/genpca/blob/master/DESCRIPTION)
 
 Buchsbaum B (2026). *genpca: Generalized Principal Component Analysis*.
 R package version 0.1.0, <https://bbuchsbaum.github.io/genpca/>.

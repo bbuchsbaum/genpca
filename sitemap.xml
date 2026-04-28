@@ -4,13 +4,13 @@
 <url><loc>https://bbuchsbaum.github.io/genpca/CLAUDE.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/LICENSE-text.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/articles/genpca.html</loc></url>
-<url><loc>https://bbuchsbaum.github.io/genpca/articles/gpca-basics.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/articles/gpca-scale.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/articles/gplssvd-reference.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/articles/index.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/authors.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/index.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/news/index.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/as_weight_operator.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/constraints_utils.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/dot-evict_lru.html</loc></url>
@@ -30,8 +30,10 @@
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/gpca_mle.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/index.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/reference/is_diagonal_metric.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/is_identity_or_diag.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/is_spd.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/plsutils.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/reexports.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/rpls.html</loc></url>

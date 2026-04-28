@@ -59,6 +59,5 @@ fit <- rpls(X, Y, K = 2)
 # Transfer new X data to Y space
 new_X <- matrix(rnorm(10 * 10), 10, 10)
 transferred <- transfer(fit, new_X, from = "X", to = "Y")
-#> Error in transfer(fit, new_X, from = "X", to = "Y"): could not find function "transfer"
 # }
 ```
