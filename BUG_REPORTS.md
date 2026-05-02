@@ -301,6 +301,7 @@ transfer operations
 Add missing imports to `/Users/bbuchsbaum/code/genpca/NAMESPACE`:
 
 ``` r
+
 importFrom(multivarious,project)
 importFrom(multivarious,partial_project)
 importFrom(utils,getS3method)
@@ -311,6 +312,7 @@ importFrom(utils,getS3method)
 Add to `/Users/bbuchsbaum/code/genpca/R/transfer_wrappers.R`:
 
 ``` r
+
 #' @importFrom utils getS3method
 ```
 

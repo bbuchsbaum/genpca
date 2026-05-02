@@ -6,13 +6,13 @@ covariance-only fit, and how to project out-of-sample observations.
 
 ## Backend selection
 
-| Method       | Best for                           | Pros                                       | Cons                                                                                                   |
-|:-------------|:-----------------------------------|:-------------------------------------------|:-------------------------------------------------------------------------------------------------------|
-| `eigen`      | Small / medium dense problems      | Robust reference behaviour                 | Can be expensive at scale; very large sparse constraints may trigger truncated eigensolve via `maxeig` |
-| `spectra`    | Larger matrix-free solves          | Lower memory than dense eigendecomp        | Iterative behaviour can vary by conditioning                                                           |
-| `randomized` | Wide (`p >> n`) low-rank workloads | Fast block GEMM / SpMM path                | Approximation error depends on tuning                                                                  |
-| `deflation`  | Few components, tight memory       | Low memory footprint                       | Can converge slowly; monitor iteration warnings                                                        |
-| `auto`       | Default production usage           | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime                                                         |
+| Method | Best for | Pros | Cons |
+|:---|:---|:---|:---|
+| `eigen` | Small / medium dense problems | Robust reference behaviour | Can be expensive at scale; very large sparse constraints may trigger truncated eigensolve via `maxeig` |
+| `spectra` | Larger matrix-free solves | Lower memory than dense eigendecomp | Iterative behaviour can vary by conditioning |
+| `randomized` | Wide (`p >> n`) low-rank workloads | Fast block GEMM / SpMM path | Approximation error depends on tuning |
+| `deflation` | Few components, tight memory | Low memory footprint | Can converge slowly; monitor iteration warnings |
+| `auto` | Default production usage | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime |
 
 In practice, leave it on `"auto"` unless you have a reason to pin a
 backend.
@@ -23,6 +23,7 @@ A small head-to-head on a dense problem so you can see how the singular
 values agree across paths:
 
 ``` r
+
 set.seed(11)
 n <- 150; p <- 60
 X <- matrix(rnorm(n * p), n, p)
@@ -39,7 +40,7 @@ data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
 #>       method elapsed   top_sv
-#> 1      eigen   0.112 19.48896
+#> 1      eigen   0.113 19.48896
 #> 2 randomized   0.007 19.14753
 ```
 
@@ -57,6 +58,7 @@ choice for large sparse problems. The chunk below is shown but not
 evaluated to keep the vignette fast; it is the pattern to copy:
 
 ``` r
+
 set.seed(42)
 X_sparse <- rsparsematrix(800, 300, density = 0.005)
 fit_sp <- genpca(X_sparse, ncomp = 5, method = "spectra",
@@ -72,6 +74,7 @@ When you already have the cross-product `C = X' M X`,
 avoids touching the full data matrix:
 
 ``` r
+
 set.seed(123)
 n <- 100; p <- 15
 X <- matrix(rnorm(n * p), n, p)
@@ -94,6 +97,7 @@ Fit on training rows, then project held-out observations into the same
 component space:
 
 ``` r
+
 set.seed(7)
 X <- matrix(rnorm(200 * 30), 200, 30)
 fit <- genpca(X[1:150, ], ncomp = 4,

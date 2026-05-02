@@ -37,15 +37,15 @@ R CMD check genpca_*.tar.gz
 
 ### Core Statistical Methods
 
-| File             | Function                                                                                                                                       | Purpose                                       |
-|------------------|------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|
-| `gpca.R`         | [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)                                                                          | Generalized PCA with row/column metrics       |
-| `gpca_cov.R`     | [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)                                                                  | Covariance-based GPCA (pre-computed C = X’MX) |
-| `genpls.R`       | [`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md), [`genplsc()`](https://bbuchsbaum.github.io/genpca/reference/genplsc.md) | Two-block generalized PLS-SVD                 |
-| `gplssvd_op.R`   | [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md)                                                                  | Memory-efficient PLS via implicit operators   |
-| `gep_subspace.R` |                                                                                                                                                | Generalized eigenvalue problem methods        |
-| `sfpca.R`        |                                                                                                                                                | Sparse functional PCA                         |
-| `rpls.R`         |                                                                                                                                                | Regularized partial least squares             |
+| File | Function | Purpose |
+|----|----|----|
+| `gpca.R` | [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md) | Generalized PCA with row/column metrics |
+| `gpca_cov.R` | [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md) | Covariance-based GPCA (pre-computed C = X’MX) |
+| `genpls.R` | [`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md), [`genplsc()`](https://bbuchsbaum.github.io/genpca/reference/genplsc.md) | Two-block generalized PLS-SVD |
+| `gplssvd_op.R` | [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md) | Memory-efficient PLS via implicit operators |
+| `gep_subspace.R` |  | Generalized eigenvalue problem methods |
+| `sfpca.R` |  | Sparse functional PCA |
+| `rpls.R` |  | Regularized partial least squares |
 
 ### Computational Backends
 

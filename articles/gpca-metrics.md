@@ -20,6 +20,7 @@ The simplest non-trivial metric is a diagonal that down-weights noisy
 rows or columns:
 
 ``` r
+
 set.seed(42)
 n <- 60; p <- 20
 X <- matrix(rnorm(n * p), n, p)
@@ -50,6 +51,7 @@ Laplacian – cover most structured-noise applications.
 ### AR(1) row metric (smoothness in time)
 
 ``` r
+
 rho     <- 0.7
 n_t     <- 60
 idx     <- 0:(n_t - 1)
@@ -60,6 +62,7 @@ M_ar1   <- solve(Sigma_r + 1e-3 * diag(n_t))
 ### Spatial RBF kernel
 
 ``` r
+
 coords <- as.matrix(expand.grid(x = 1:8, y = 1:8))
 d2     <- as.matrix(dist(coords))^2
 ell    <- 2
@@ -70,6 +73,7 @@ A_rbf  <- solve(K + 1e-3 * diag(nrow(K)))
 ### Graph Laplacian
 
 ``` r
+
 W <- bandSparse(30, k = c(-1, 0, 1),
                 diagonals = list(rep(0.2, 29),
                                  rep(1, 30),
@@ -94,6 +98,7 @@ learns SPD metrics by alternating GPCA with matrix-normal maximum
 likelihood:
 
 ``` r
+
 set.seed(1)
 n_m <- 40; p_m <- 10
 X_mle <- matrix(rnorm(n_m * p_m), n_m, p_m)

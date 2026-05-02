@@ -10,6 +10,7 @@ should continue to the explicit reference implementation below.
 ## Quick practical use
 
 ``` r
+
 set.seed(123)
 N <- 150
 X <- matrix(rnorm(N * 8), N, 8)
@@ -58,6 +59,7 @@ runs a dense SVD. It is intentionally small and dense; the package’s
 operator-based path avoids materialising the whitened matrices.
 
 ``` r
+
 make_sqrt_mats <- function(W, n) {
   if (is.null(W)) {
     list(sqrt = Diagonal(n), invsqrt = Diagonal(n), full = Diagonal(n))
@@ -145,6 +147,7 @@ Run the reference on a small block, run
 with the same metrics, and compare:
 
 ``` r
+
 set.seed(1)
 N <- 20; I <- 8; J <- 6
 X  <- matrix(rnorm(N * I), N, I)

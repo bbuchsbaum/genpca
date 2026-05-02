@@ -14,6 +14,7 @@ identity, you recover ordinary PCA.
 ## Quick start
 
 ``` r
+
 set.seed(1)
 X <- matrix(rnorm(80 * 30), 80, 30)
 fit <- genpca(X, ncomp = 3, preproc = multivarious::center())
@@ -38,6 +39,7 @@ represent groups of different sizes, or when some rows are more reliable
 than others.
 
 ``` r
+
 row_wt <- runif(nrow(X), 0.5, 1.5)
 M <- Diagonal(x = row_wt)
 fit_row <- genpca(X, M = M, ncomp = 3, preproc = multivarious::center())
@@ -62,6 +64,7 @@ A non-identity column metric encodes prior structure on the variables.
 Here we add a small AR-style coupling between adjacent columns:
 
 ``` r
+
 p <- ncol(X)
 A <- Diagonal(p)
 for (i in seq_len(p - 1)) {
@@ -87,6 +90,7 @@ high-frequency wiggle.
 A scree plot is the quickest first look:
 
 ``` r
+
 barplot(fit$sdev^2,
         names.arg = paste0("PC", seq_along(fit$sdev)),
         xlab = "Component", ylab = "Variance",
@@ -106,6 +110,7 @@ a larger unweighted PCA.
 ## Real data: USArrests
 
 ``` r
+
 data("USArrests")
 X_real  <- as.matrix(USArrests[, c("Murder", "Assault", "Rape")])
 pop_wt  <- USArrests$UrbanPop / mean(USArrests$UrbanPop)
@@ -136,12 +141,12 @@ rape-heavy states once the dominant rate axis is removed.
 returns a `bi_projector` from the `multivarious` ecosystem. The verbs
 you reach for most:
 
-| Verb                                | Returns     | What it gives you                          |
-|:------------------------------------|:------------|:-------------------------------------------|
-| `multivarious::scores(fit)`         | `n x k`     | Observation coordinates in component space |
-| `multivarious::components(fit)`     | `p x k`     | Loadings (variable directions)             |
-| `multivarious::project(fit, X_new)` | `n_new x k` | Out-of-sample scores                       |
-| `reconstruct(fit, ncomp = k)`       | `n x p`     | Rank-`k` reconstruction of `X`             |
+| Verb | Returns | What it gives you |
+|:---|:---|:---|
+| `multivarious::scores(fit)` | `n x k` | Observation coordinates in component space |
+| `multivarious::components(fit)` | `p x k` | Loadings (variable directions) |
+| `multivarious::project(fit, X_new)` | `n_new x k` | Out-of-sample scores |
+| `reconstruct(fit, ncomp = k)` | `n x p` | Rank-`k` reconstruction of `X` |
 
 These verbs are shared across
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md),

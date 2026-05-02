@@ -59,17 +59,18 @@ al. (2016).
 
 Use `method = "auto"` unless you have a strong reason to pin a backend.
 
-| Method       | Best for                                           | Pros                                                       | Cons                                                                                                                                             |
-|--------------|----------------------------------------------------|------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| `eigen`      | Small/medium problems, exact reference runs        | Most stable reference behavior                             | Builds larger intermediate matrices; for very large sparse constraints may rely on truncated eigensolve (`maxeig`) and become slower/approximate |
-| `spectra`    | Large diagonal/sparse-friendly problems            | Matrix-free iterative solve; lower memory                  | Accuracy/performance can depend on conditioning and iteration behavior                                                                           |
-| `randomized` | Wide (`p >> n`), sparse-metric, low-rank workloads | Often fastest in wide settings; block GEMM/SpMM path       | Approximate by design; tune `oversample`, `n_power`, `n_polish`                                                                                  |
-| `deflation`  | Few components with limited memory                 | Low memory, component-by-component extraction              | Can converge slowly; C++ path currently expects sparse metrics                                                                                   |
-| `auto`       | Default production usage                           | Chooses among `eigen`/`spectra`/`randomized` heuristically | Heuristics may not be optimal for every hardware/data regime                                                                                     |
+| Method | Best for | Pros | Cons |
+|----|----|----|----|
+| `eigen` | Small/medium problems, exact reference runs | Most stable reference behavior | Builds larger intermediate matrices; for very large sparse constraints may rely on truncated eigensolve (`maxeig`) and become slower/approximate |
+| `spectra` | Large diagonal/sparse-friendly problems | Matrix-free iterative solve; lower memory | Accuracy/performance can depend on conditioning and iteration behavior |
+| `randomized` | Wide (`p >> n`), sparse-metric, low-rank workloads | Often fastest in wide settings; block GEMM/SpMM path | Approximate by design; tune `oversample`, `n_power`, `n_polish` |
+| `deflation` | Few components with limited memory | Low memory, component-by-component extraction | Can converge slowly; C++ path currently expects sparse metrics |
+| `auto` | Default production usage | Chooses among `eigen`/`spectra`/`randomized` heuristically | Heuristics may not be optimal for every hardware/data regime |
 
 ## Installation
 
 ``` r
+
 # install.packages("devtools")
 devtools::install_github("bbuchsbaum/genpca")
 ```
@@ -77,6 +78,7 @@ devtools::install_github("bbuchsbaum/genpca")
 You’ll also want these runtime dependencies installed:
 
 ``` r
+
 install.packages(c("Matrix", "RSpectra", "multivarious"))
 # Optional for some utilities / tests
 install.packages(c("irlba", "knitr", "rmarkdown"))
@@ -87,6 +89,7 @@ install.packages(c("irlba", "knitr", "rmarkdown"))
 ### Basic Usage
 
 ``` r
+
 library(genpca)
 set.seed(1)
 X <- matrix(rnorm(200 * 50), 200, 50)
@@ -101,6 +104,7 @@ head(multivarious::components(fit))  # loadings (p × k)
 ### Weighted GPCA
 
 ``` r
+
 # Example: Survey data with population weights
 library(Matrix)
 pop_weights <- runif(nrow(X), 0.5, 1.5)  # population sizes
@@ -117,6 +121,7 @@ fit_weighted <- genpca(X, M = M, A = A, ncomp = 5,
 ### Covariance-based GPCA
 
 ``` r
+
 # When you have pre-computed covariance C = X'MX
 C <- crossprod(X, M %*% X)
 fit_cov <- genpca_cov(C, R = A, ncomp = 5, method = "gmd")
@@ -126,6 +131,7 @@ fit_cov <- genpca_cov(C, R = A, ncomp = 5, method = "gmd")
 ### Generalized PLS
 
 ``` r
+
 # Two-block analysis with canonical PLS
 Y <- matrix(rnorm(200 * 20), 200, 20)
 pls <- genpls(X, Y, ncomp = 3, 
@@ -174,6 +180,7 @@ When `M = I` and `A = I`, GPCA reduces to standard PCA.
 Build locally:
 
 ``` r
+
 devtools::build_vignettes()
 browseVignettes("genpca")
 ```
@@ -191,6 +198,7 @@ browseVignettes("genpca")
 Run tests locally:
 
 ``` r
+
 library(testthat)
 library(pkgload)
 pkgload::load_all()

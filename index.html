@@ -135,39 +135,39 @@
 <col width="25%">
 <col width="25%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Method</th>
 <th>Best for</th>
 <th>Pros</th>
 <th>Cons</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>eigen</code></td>
 <td>Small/medium problems, exact reference runs</td>
 <td>Most stable reference behavior</td>
 <td>Builds larger intermediate matrices; for very large sparse constraints may rely on truncated eigensolve (<code>maxeig</code>) and become slower/approximate</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>spectra</code></td>
 <td>Large diagonal/sparse-friendly problems</td>
 <td>Matrix-free iterative solve; lower memory</td>
 <td>Accuracy/performance can depend on conditioning and iteration behavior</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>randomized</code></td>
 <td>Wide (<code>p &gt;&gt; n</code>), sparse-metric, low-rank workloads</td>
 <td>Often fastest in wide settings; block GEMM/SpMM path</td>
 <td>Approximate by design; tune <code>oversample</code>, <code>n_power</code>, <code>n_polish</code>
 </td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>deflation</code></td>
 <td>Few components with limited memory</td>
 <td>Low memory, component-by-component extraction</td>
 <td>Can converge slowly; C++ path currently expects sparse metrics</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>auto</code></td>
 <td>Default production usage</td>
 <td>Chooses among <code>eigen</code>/<code>spectra</code>/<code>randomized</code> heuristically</td>
