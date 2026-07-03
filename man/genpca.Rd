@@ -76,7 +76,7 @@ symmetric n x n PSD matrix. If `NULL`, defaults to identity.}
 
 \item{constraints_remedy}{Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.}
 
-\item{preproc}{Pre‑processing transformer object from the **multivarious** package
+\item{preproc}{Pre-processing transformer object from the **multivarious** package
 (default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
 See `?multivarious::prep` for options.}
 
@@ -129,16 +129,16 @@ An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::
                  (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
     \item{sdev}{Generalised singular values d_k.}
     \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.}
-    \item{preproc}{The `multivarious` pre‑processing object used.}
+    \item{preproc}{The `multivarious` pre-processing object used.}
     \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
     \item{propv}{Proportion of generalized variance explained by each component.}
     \item{cumv}{Cumulative proportion of generalized variance explained.}
   }
 }
 \description{
-Implements the Generalised Least‑Squares Matrix Decomposition of
+Implements the Generalised Least-Squares Matrix Decomposition of
 Allen, Grosenick & Taylor (2014) for data observed in a **row**
-inner‑product space M and a **column** inner‑product space A.
+inner-product space M and a **column** inner-product space A.
 Setting M = I_n, A = I_p recovers ordinary PCA.
 }
 \details{
@@ -149,7 +149,7 @@ to reuse the cached decomposition in subsequent calls.
 }
 \section{Method}{
 
-We compute the rank‑ncomp factors UDVT that minimise
+We compute the rank-ncomp factors UDVT that minimise
 \deqn{ \|X - UDV^\top\|_{M,A}^2
       = \mathrm{tr}\!\bigl(M\, (X-UDV^\top)\,A\,(X-UDV^\top)^\top\bigr) }
 subject to UT M U = I, VT AV = I. (Allen et al., 2014).
@@ -216,8 +216,8 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 }
 \references{
 Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-*A Generalized Least‑Squares Matrix Decomposition.*
-Journal of the American Statistical Association, 109(505), 145‑159.
+*A Generalized Least-Squares Matrix Decomposition.*
+Journal of the American Statistical Association, 109(505), 145-159.
 arXiv:1102.3074.
 }
 \seealso{

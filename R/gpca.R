@@ -84,7 +84,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
     A_result <- A  # Already sparse, keep as is
   } else if (is(A, "dsyMatrix") || is(A, "dpoMatrix")) {
     # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
-    A_result <- methods::as(A, "dgeMatrix")
+    A_result <- as_dge(A)
   } else {
     A_result <- A  # Keep other dense formats as is
   }
@@ -95,7 +95,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
     M_result <- M  # Already sparse, keep as is
   } else if (is(M, "dsyMatrix") || is(M, "dpoMatrix")) {
     # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
-    M_result <- methods::as(M, "dgeMatrix")
+    M_result <- as_dge(M)
   } else {
     M_result <- M  # Keep other dense formats as is
   }
@@ -103,15 +103,26 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
   list(A = A_result, M = M_result)
 }
 
+is_pass_preproc <- function(preproc) {
+  steps <- NULL
+  if (inherits(preproc, "prepper")) {
+    steps <- preproc$steps
+  } else if (inherits(preproc, "pre_processor") && !is.null(preproc$preproc$steps)) {
+    steps <- preproc$preproc$steps
+  }
+
+  length(steps) == 1L && inherits(steps[[1L]], "pass")
+}
+
 #' Generalised Principal Components Analysis (GPCA)
 #'
-#' Implements the Generalised Least‑Squares Matrix Decomposition of
+#' Implements the Generalised Least-Squares Matrix Decomposition of
 #' Allen, Grosenick & Taylor (2014) for data observed in a **row**
-#' inner‑product space M and a **column** inner‑product space A.
+#' inner-product space M and a **column** inner-product space A.
 #' Setting M = I_n, A = I_p recovers ordinary PCA.
 #'
 #' @section Method:
-#' We compute the rank‑ncomp factors UDVT that minimise
+#' We compute the rank-ncomp factors UDVT that minimise
 #' \deqn{ \|X - UDV^\top\|_{M,A}^2
 #'       = \mathrm{tr}\!\bigl(M\, (X-UDV^\top)\,A\,(X-UDV^\top)^\top\bigr) }
 #' subject to UT M U = I, VT AV = I. (Allen et al., 2014).
@@ -144,7 +155,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #' @param ncomp Number of components to extract. Defaults to `min(dim(X))`. Must be positive.
 #' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
 #' @param constraints_remedy Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.
-#' @param preproc Pre‑processing transformer object from the **multivarious** package
+#' @param preproc Pre-processing transformer object from the **multivarious** package
 #'                (default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
 #'                See `?multivarious::prep` for options.
 #' @param threshold Convergence tolerance for the \code{"deflation"} method's inner loop. Default `1e-6`.
@@ -180,7 +191,7 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'                  (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
 #'     \item{sdev}{Generalised singular values d_k.}
 #'     \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.}
-#'     \item{preproc}{The `multivarious` pre‑processing object used.}
+#'     \item{preproc}{The `multivarious` pre-processing object used.}
 #'     \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
 #'     \item{propv}{Proportion of generalized variance explained by each component.}
 #'     \item{cumv}{Cumulative proportion of generalized variance explained.}
@@ -188,8 +199,8 @@ prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "
 #'
 #' @references
 #' Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-#' *A Generalized Least‑Squares Matrix Decomposition.*
-#' Journal of the American Statistical Association, 109(505), 145‑159.
+#' *A Generalized Least-Squares Matrix Decomposition.*
+#' Journal of the American Statistical Association, 109(505), 145-159.
 #' arXiv:1102.3074.
 #'
 #' @seealso \code{\link{genpca_cov}} for GPCA on pre-computed covariance matrices,
@@ -309,9 +320,15 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 
   # Prepare and apply pre-processing using fit_transform API
   if (verbose) message("Applying pre-processing...")
-  ft <- multivarious::fit_transform(preproc, X)
-  procres <- ft$preproc
-  Xp <- ft$transformed
+  if (methods::is(X, "sparseMatrix") && is_pass_preproc(preproc)) {
+    ft <- multivarious::fit_transform(preproc, matrix(0, nrow = 1L, ncol = ncol(X)))
+    procres <- ft$preproc
+    Xp <- X
+  } else {
+    ft <- multivarious::fit_transform(preproc, X)
+    procres <- ft$preproc
+    Xp <- ft$transformed
+  }
 
   n <- nrow(Xp)
   p <- ncol(Xp)
@@ -375,15 +392,15 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     if (verbose) message(paste0("Using iterative deflation (", ifelse(use_cpp, "C++", "R"), ") to extract ", ncomp, " components..."))
     if (use_cpp) {
       # C++ deflation backend expects sparse metrics.
-      M_cpp <- methods::as(M, "dgCMatrix")
-      A_cpp <- methods::as(A, "dgCMatrix")
+      M_cpp <- as_dgc(M)
+      A_cpp <- as_dgc(A)
     }
     if (n < p) {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Matrix::t(Xp), A_cpp, M_cpp, ncomp,
-                                      thr = threshold,
-                                      maxit = maxit_deflation,
-                                      verbose = verbose)
+          svdfit <- gmd_deflation_cpp_dispatch(Matrix::t(Xp), A_cpp, M_cpp, ncomp,
+                                               thr = threshold,
+                                               maxit = maxit_deflation,
+                                               verbose = verbose)
           if (is.matrix(svdfit$d)) {
             svdfit$d <- svdfit$d[, 1] # Ensure d is vector
           } else {
@@ -401,10 +418,10 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
         svdfit <- list(u = svdfit$v, v = svdfit$u, d = svdfit$d, k = svdfit$k, cumv = svdfit$cumv, propv = svdfit$propv)
     } else {
         if (use_cpp) {
-          svdfit <- gmd_deflation_cpp(Xp, M_cpp, A_cpp, ncomp,
-                                      thr = threshold,
-                                      maxit = maxit_deflation,
-                                      verbose = verbose)
+          svdfit <- gmd_deflation_cpp_dispatch(Xp, M_cpp, A_cpp, ncomp,
+                                               thr = threshold,
+                                               maxit = maxit_deflation,
+                                               verbose = verbose)
           if (is.matrix(svdfit$d)) {
             svdfit$d <- svdfit$d[, 1]
           } else {
@@ -421,7 +438,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     # Deflation methods should return propv/cumv, but double check
     if (is.null(svdfit$propv) || is.null(svdfit$cumv)) {
        if (verbose) message(" Calculating variance explained for deflation method...")
-       total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
+       total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
        if (total_variance > 1e-8) {
           svdfit$propv <- svdfit$d^2 / total_variance
           svdfit$cumv <- cumsum(svdfit$propv)
@@ -1028,6 +1045,21 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
 
 
 
+#' @keywords internal
+gmd_deflation_cpp_dispatch <- function(X, Q, R, k, thr = 1e-7, maxit = 500L,
+                                       verbose = FALSE) {
+  if (methods::is(X, "sparseMatrix")) {
+    if (exists("gmd_deflation_cpp_sp", mode = "function")) {
+      return(gmd_deflation_cpp_sp(as_dgc(X), as_dgc(Q), as_dgc(R), k,
+                                  thr = thr, maxit = maxit, verbose = verbose))
+    }
+    warning("Sparse C++ deflation backend is unavailable; falling back to R deflation to avoid densifying X.")
+    return(gmd_deflationR(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose))
+  }
+
+  gmd_deflation_cpp(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose)
+}
+
 #' @rdname genpca
 #' @param maxit Maximum number of iterations for deflation convergence. Default `500`.
 #' @keywords internal
@@ -1046,10 +1078,8 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   vgmd <- matrix(0.0, p, k)
   dgmd <- numeric(k)
   propv <- numeric(k)
-  Xhat <- X
-
   # Calculate total variance once: trace(X' Q X R)
-  qrnorm <- tryCatch(sum(Matrix::diag(Matrix::crossprod(X, Q %*% X) %*% R)),
+  qrnorm <- tryCatch(sum((Q %*% X) * (X %*% R)), # tr(X'QXR) without forming p x p
                     error = function(e) {
                         warning("Could not compute total variance trace: ", e$message)
                         NA_real_
@@ -1061,6 +1091,26 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   }
 
   k_found <- 0
+
+  residual_mv <- function(w, n_prev) {
+    y <- X %*% w
+    if (n_prev > 0) {
+      idx <- seq_len(n_prev)
+      coeff <- dgmd[idx] * as.numeric(Matrix::crossprod(vgmd[, idx, drop = FALSE], w))
+      y <- y - ugmd[, idx, drop = FALSE] %*% coeff
+    }
+    as.matrix(y)
+  }
+
+  residual_t_mv <- function(z, n_prev) {
+    y <- Matrix::crossprod(X, z)
+    if (n_prev > 0) {
+      idx <- seq_len(n_prev)
+      coeff <- dgmd[idx] * as.numeric(Matrix::crossprod(ugmd[, idx, drop = FALSE], z))
+      y <- y - vgmd[, idx, drop = FALSE] %*% coeff
+    }
+    as.matrix(y)
+  }
   for (i in 1:k) {
     if (verbose) message(paste(" Deflation component", i))
     # Initialize u, v for power iteration
@@ -1077,8 +1127,8 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
       oldu <- u
       oldv <- v
 
-      # Update u: u_hat = Xhat R v; normalize u = u_hat / sqrt(u_hat' Q u_hat)
-      uhat <- Xhat %*% (R %*% v)
+      # Update u: u_hat = X_residual R v; normalize u = u_hat / sqrt(u_hat' Q u_hat)
+      uhat <- residual_mv(R %*% v, k_found)
       u_norm_sq <- as.numeric(Matrix::crossprod(uhat, Q) %*% uhat)
       if (u_norm_sq < thr^2) { # Check for near zero norm
           if (verbose) message("  u norm near zero, stopping power iteration for component ", i)
@@ -1086,8 +1136,8 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
       }
       u <- uhat / sqrt(as.numeric(u_norm_sq))
 
-      # Update v: v_hat = Xhat' Q u; normalize v = v_hat / sqrt(v_hat' R v_hat)
-      vhat <- Matrix::crossprod(Xhat, (Q %*% u))
+      # Update v: v_hat = X_residual' Q u; normalize v = v_hat / sqrt(v_hat' R v_hat)
+      vhat <- residual_t_mv(Q %*% u, k_found)
       v_norm_sq <- as.numeric(Matrix::crossprod(vhat, R) %*% vhat)
        if (v_norm_sq < thr^2) { # Check for near zero norm
           if (verbose) message("  v norm near zero, stopping power iteration for component ", i)
@@ -1112,8 +1162,8 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
         break # Exit outer for loop
     }
 
-    # Calculate singular value d = u' Q X_hat R v (use Xhat)
-    d_i <- Matrix::crossprod(u, Q) %*% Xhat %*% (R %*% v)
+    # Calculate singular value d = u' Q X_residual R v
+    d_i <- Matrix::crossprod(u, Q) %*% residual_mv(R %*% v, k_found)
     current_d <- as.numeric(d_i)
 
     # Check for degenerate component
@@ -1127,11 +1177,6 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
     dgmd[k_found] <- current_d
     ugmd[, k_found] <- u[, 1]
     vgmd[, k_found] <- v[, 1]
-
-    # Deflate Xhat = Xhat - d * u v'
-    if (k_found < k) { # No need to deflate after the last requested component
-        Xhat <- Xhat - dgmd[k_found] * u %*% Matrix::t(v)
-    }
 
     # Calculate proportion of variance for this component
     propv[k_found] <- dgmd[k_found]^2 / qrnorm

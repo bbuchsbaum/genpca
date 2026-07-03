@@ -199,14 +199,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // gmd_deflation_cpp
-List gmd_deflation_cpp(const arma::mat& X, arma::sp_mat Q, arma::sp_mat R, int k, double thr, int maxit, bool verbose);
+List gmd_deflation_cpp(const arma::mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, int k, double thr, int maxit, bool verbose);
 RcppExport SEXP _genpca_gmd_deflation_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP thrSEXP, SEXP maxitSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type Q(QSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
     Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
@@ -215,38 +215,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// sgmd_deflation_cpp
-List sgmd_deflation_cpp(const arma::sp_mat& X, arma::sp_mat Q, arma::sp_mat R, int k, double thr, int maxit, bool verbose);
-RcppExport SEXP _genpca_sgmd_deflation_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP thrSEXP, SEXP maxitSEXP, SEXP verboseSEXP) {
+// gmd_deflation_cpp_sp
+List gmd_deflation_cpp_sp(const arma::sp_mat& X, const arma::sp_mat& Q, const arma::sp_mat& R, int k, double thr, int maxit, bool verbose);
+RcppExport SEXP _genpca_gmd_deflation_cpp_sp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP, SEXP thrSEXP, SEXP maxitSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::sp_mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type Q(QSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type R(RSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type R(RSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< double >::type thr(thrSEXP);
     Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(sgmd_deflation_cpp(X, Q, R, k, thr, maxit, verbose));
+    rcpp_result_gen = Rcpp::wrap(gmd_deflation_cpp_sp(X, Q, R, k, thr, maxit, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
-// gmdLA_cpp
-List gmdLA_cpp(const arma::mat& X, arma::sp_mat Q, arma::mat R, int k);
-RcppExport SEXP _genpca_gmdLA_cpp(SEXP XSEXP, SEXP QSEXP, SEXP RSEXP, SEXP kSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type Q(QSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type R(RSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    rcpp_result_gen = Rcpp::wrap(gmdLA_cpp(X, Q, R, k));
-    return rcpp_result_gen;
-END_RCPP
-}
-
 static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_fast_cpp_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dn, 7},
     {"_genpca_gmd_fast_cpp_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_sp, 7},
@@ -259,8 +244,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_randomized_cpp_qsp_rdn", (DL_FUNC) &_genpca_gmd_randomized_cpp_qsp_rdn, 11},
     {"_genpca_gmd_randomized_cpp_qdn_rsp", (DL_FUNC) &_genpca_gmd_randomized_cpp_qdn_rsp, 11},
     {"_genpca_gmd_deflation_cpp", (DL_FUNC) &_genpca_gmd_deflation_cpp, 7},
-    {"_genpca_sgmd_deflation_cpp", (DL_FUNC) &_genpca_sgmd_deflation_cpp, 7},
-    {"_genpca_gmdLA_cpp", (DL_FUNC) &_genpca_gmdLA_cpp, 4},
+    {"_genpca_gmd_deflation_cpp_sp", (DL_FUNC) &_genpca_gmd_deflation_cpp_sp, 7},
     {NULL, NULL, 0}
 };
 

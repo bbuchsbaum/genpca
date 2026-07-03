@@ -45,11 +45,6 @@ gmd_deflation_cpp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose = FA
     .Call(`_genpca_gmd_deflation_cpp`, X, Q, R, k, thr, maxit, verbose)
 }
 
-sgmd_deflation_cpp <- function(X, Q, R, k, thr = 1e-5, maxit = 500L, verbose = FALSE) {
-    .Call(`_genpca_sgmd_deflation_cpp`, X, Q, R, k, thr, maxit, verbose)
+gmd_deflation_cpp_sp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose = FALSE) {
+    .Call(`_genpca_gmd_deflation_cpp_sp`, X, Q, R, k, thr, maxit, verbose)
 }
-
-gmdLA_cpp <- function(X, Q, R, k) {
-    .Call(`_genpca_gmdLA_cpp`, X, Q, R, k)
-}
-

@@ -1,60 +1,29 @@
 #define ARMA_64BIT_WORD 1
 #include <RcppArmadillo.h>
+#include <cmath>
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::plugins(cpp11)]]
 
 using namespace Rcpp;
 using namespace arma;
 
-// This is a simple example of exporting a C++ function to R. You can
-// source this function into an R session using the Rcpp::sourceCpp 
-// function (or via the Source button on the editor toolbar). Learn
-// more about Rcpp at:
+// Generalized power-iteration deflation (Allen, Grosenick & Taylor, 2014):
+//   uhat = Xhat R v;  u = uhat / sqrt(u' Q u)
+//   vhat = Xhat' Q u; v = vhat / sqrt(v' R v)
+//   d_i  = u' Q X R v
+// Degenerate directions (zero norm in the metric) or near-zero singular
+// values stop extraction early and results are trimmed, matching the R
+// implementation gmd_deflationR().
 //
-//   http://www.rcpp.org/
-//   http://adv-r.had.co.nz/Rcpp.html
-//   http://gallery.rcpp.org/
-//
-
-// ugmd = matrix(nrow = n,ncol = k)
-//   vgmd = matrix(nrow = p, ncol = k)
-//   dgmd = rep(0,k)
-//   propv = rep(0,k)
-//   Xhat = X
-//   
-//   u = rnorm(n)
-//   v = rnorm(p)
-//   
-//   qrnorm = sum(diag(t(X) %*% Q %*% X %*% R))
-//   
-//   cumv = rep(0,k)
-//   
-//   thr = 1e-6
-// for(i in 1:k){
-//   err=1
-//   while(err > thr){
-//     oldu = u
-//     oldv = v
-//     uhat = Xhat %*% R %*% v
-//     u = uhat/as.double(sqrt(t(uhat)%*% Q %*% uhat))
-//     vhat = t(Xhat) %*% Q %*% u
-//     v = vhat/as.double(sqrt(t(vhat) %*% R %*% vhat))
-//     err = t(oldu - u) %*% (oldu - u) + t(oldv -v ) %*% (oldv - v)
-//   }
-//   dgmd[i] = t(u) %*% Q %*% X %*% R %*% v
-//     ugmd[,i] = u
-//     vgmd[,i] = v
-//     Xhat = Xhat - dgmd[i] *  u %*% t(v)
-//     propv[i] = dgmd[i]^2/as.double(qrnorm)
-//     cumv[i] = sum(propv[1:i])
-// }
-
+// The residual is applied implicitly.  After j components have been extracted:
+//   X_j  w = X w  - U_j (d_j * (V_j' w))
+//   X_j' z = X' z - V_j (d_j * (U_j' z))
+// This keeps sparse X sparse and avoids a full dense residual copy.
 
 // large dimension should be in ROWS (if columns is X, then pass (t(X), R,))
 
-//[[Rcpp::export]]
-List gmd_deflation_cpp(const arma::mat &X, arma::sp_mat Q, arma::sp_mat R,
-                       int k, double thr=1e-7, int maxit=500, bool verbose=false) {
+template <typename MatX>
+List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat &R,
+                        int k, double thr=1e-7, int maxit=500, bool verbose=false) {
   if (maxit < 1) {
     stop("maxit must be >= 1.");
   }
@@ -65,38 +34,70 @@ List gmd_deflation_cpp(const arma::mat &X, arma::sp_mat Q, arma::sp_mat R,
   arma::vec dgmd(k, fill::zeros);
   arma::vec propv(k, fill::zeros);
   arma::vec cumv(k, fill::zeros);
-  arma::mat Xhat = X;
-  
+
   arma::vec u = randn(n);
   arma::vec v = randn(p);
-  
-  double qrnorm = 1;
-  
-  if (p > n) {
-    qrnorm = trace(X * R * X.t() * Q);
-  } else {
-    qrnorm = trace(X.t() * Q * X * R);
-  }
-  if (qrnorm < 1e-12) {
+
+  // qrnorm = tr(X' Q X R) = accu((Q X) % (X R)); avoids any n x n / p x p
+  // dense intermediate (trace is cyclic, so one expression covers both shapes).
+  double qrnorm = arma::accu((Q * X) % (X * R));
+  if (!std::isfinite(qrnorm) || qrnorm < 1e-12) {
     warning("Total generalized variance is near zero; explained variance may be unstable.");
     qrnorm = 1.0;
   }
 
+  int k_found = 0;
+
+  auto residual_mv = [&](const arma::vec& w, const int n_prev) -> arma::vec {
+    arma::vec y = X * w;
+    if (n_prev > 0) {
+      const arma::uword nprev = static_cast<arma::uword>(n_prev);
+      const arma::uword last = nprev - 1;
+      arma::vec coeff = dgmd.head(nprev) % (vgmd.cols(0, last).t() * w);
+      y -= ugmd.cols(0, last) * coeff;
+    }
+    return y;
+  };
+
+  auto residual_t_mv = [&](const arma::vec& z, const int n_prev) -> arma::vec {
+    arma::vec y = X.t() * z;
+    if (n_prev > 0) {
+      const arma::uword nprev = static_cast<arma::uword>(n_prev);
+      const arma::uword last = nprev - 1;
+      arma::vec coeff = dgmd.head(nprev) % (ugmd.cols(0, last).t() * z);
+      y -= vgmd.cols(0, last) * coeff;
+    }
+    return y;
+  };
+
   for (int i=0; i<k; i++) {
     double err = 1;
     int iter = 0;
+    bool degenerate = false;
     while (err > thr && iter < maxit) {
       iter += 1;
-      arma::vec oldu = vec(u);
-      arma::vec oldv = vec(v);
-      
-      arma::vec uhat = Xhat * (R * v);
-      u = uhat / sqrt(uhat.t() * (Q * uhat)).at(0,0);
+      arma::vec oldu = u;
+      arma::vec oldv = v;
 
-      arma::vec vhat = Xhat.t() * (Q * u);
-      v = vhat / sqrt(vhat.t() * (R * vhat)).at(0,0);
-      
-      err = sum(((oldu - u).t() * (oldu - u)) + ((oldv -v ).t() * (oldv - v)));
+      arma::vec uhat = residual_mv(R * v, k_found);
+      double u_norm = std::sqrt(arma::as_scalar(uhat.t() * (Q * uhat)));
+      if (!std::isfinite(u_norm) || u_norm <= 0.0) { degenerate = true; break; }
+      u = uhat / u_norm;
+
+      arma::vec vhat = residual_t_mv(Q * u, k_found);
+      double v_norm = std::sqrt(arma::as_scalar(vhat.t() * (R * vhat)));
+      if (!std::isfinite(v_norm) || v_norm <= 0.0) { degenerate = true; break; }
+      v = vhat / v_norm;
+
+      err = arma::accu(arma::square(oldu - u)) + arma::accu(arma::square(oldv - v));
+    }
+
+    if (degenerate) {
+      if (verbose) {
+        Rcout << "Degenerate direction at component " << (i + 1) << "; stopping deflation." << std::endl;
+      }
+      warning("Deflation stopped early at component %d (degenerate direction).", i + 1);
+      break;
     }
 
     if (iter >= maxit && err > thr) {
@@ -105,182 +106,39 @@ List gmd_deflation_cpp(const arma::mat &X, arma::sp_mat Q, arma::sp_mat R,
       }
       warning("Power iteration reached maxit at component %d (maxit=%d).", i + 1, maxit);
     }
-    
-    double d_i = (u.t() * Q * X * R * v).eval().at(0,0);
-    dgmd(i) = d_i;
-    ugmd.col(i) = u;
-    vgmd.col(i) = v;
-    if (i < (k - 1)) {
-      Xhat = Xhat - d_i * u * v.t();
+
+    double d_i = arma::as_scalar((Q * u).t() * residual_mv(R * v, k_found));
+    if (!std::isfinite(d_i) || std::fabs(d_i) < thr) {
+      warning("Deflation stopped early at component %d (singular value near zero).", i + 1);
+      break;
     }
-    propv(i) = pow(d_i,2) / qrnorm;
-    cumv(i) = (i > 0) ? (cumv(i - 1) + propv(i)) : propv(i);
+
+    dgmd(k_found) = d_i;
+    ugmd.col(k_found) = u;
+    vgmd.col(k_found) = v;
+    propv(k_found) = d_i * d_i / qrnorm;
+    cumv(k_found) = (k_found > 0) ? (cumv(k_found - 1) + propv(k_found)) : propv(k_found);
+    k_found += 1;
   }
 
   return List::create(
-    Named("d") = dgmd,
-    Named("v") = vgmd,
-    Named("u") = ugmd,
-    Named("k") = k,
-    Named("cumv") = cumv,
-    Named("propv") = propv
+    Named("d") = dgmd.head(k_found),
+    Named("v") = vgmd.head_cols(k_found),
+    Named("u") = ugmd.head_cols(k_found),
+    Named("k") = k_found,
+    Named("cumv") = cumv.head(k_found),
+    Named("propv") = propv.head(k_found)
   );
-  
 }
 
 //[[Rcpp::export]]
-List sgmd_deflation_cpp(const arma::sp_mat &X, arma::sp_mat Q, arma::sp_mat R,
-                        int k, double thr=1e-5, int maxit=500, bool verbose=false) {
-  if (maxit < 1) {
-    stop("maxit must be >= 1.");
-  }
-  int n = X.n_rows;
-  int p = X.n_cols;
-  arma::mat ugmd(n, k, fill::zeros);
-  arma::mat vgmd(p, k, fill::zeros);
-  arma::vec dgmd(k, fill::zeros);
-  arma::vec propv(k, fill::zeros);
-  arma::vec cumv(k, fill::zeros);
-  arma::sp_mat Xhat = X;
-  
-  arma::vec u = randn(n);
-  arma::vec v = randn(p);
-  
-  double qrnorm = 1;
-  
-  if (p > n) {
-    qrnorm = trace(X * R * X.t() * Q);
-  } else {
-    qrnorm = trace(X.t() * Q * X * R);
-  }
-  if (qrnorm < 1e-12) {
-    warning("Total generalized variance is near zero; explained variance may be unstable.");
-    qrnorm = 1.0;
-  }
-  
-  for (int i=0; i<k; i++) {
-    double err = 1;
-    int iter = 0;
-    while (err > thr && iter < maxit) {
-      iter += 1;
-      arma::vec oldu = vec(u);
-      arma::vec oldv = vec(v);
-      
-      arma::vec uhat = Xhat * R * v;
-      u = uhat / sqrt(uhat.t() * Q * uhat).at(0,0);
-
-      arma::vec vhat = Xhat.t() * Q * u;
-      v = vhat / sqrt(vhat.t() * R * vhat).at(0,0);
-      
-      err = sum(((oldu - u).t() * (oldu - u)) + ((oldv -v ).t() * (oldv - v)));
-    }
-
-    if (iter >= maxit && err > thr) {
-      if (verbose) {
-        Rcout << "Power iteration reached maxit for sparse component " << (i + 1) << "." << std::endl;
-      }
-      warning("Sparse power iteration reached maxit at component %d (maxit=%d).", i + 1, maxit);
-    }
-    
-    double d_i = (u.t() * Q * X * R * v).eval().at(0,0);
-    dgmd(i) = d_i;
-    ugmd.col(i) = u;
-    vgmd.col(i) = v;
-    if (i < (k - 1)) {
-      Xhat = Xhat - d_i * u * v.t();
-    }
-    propv(i) = pow(d_i,2) / qrnorm;
-    cumv(i) = (i > 0) ? (cumv(i - 1) + propv(i)) : propv(i);
-  }
-  
-  return List::create(
-    Named("d") = dgmd,
-    Named("v") = vgmd,
-    Named("u") = ugmd,
-    Named("k") = k,
-    Named("cumv") = cumv,
-    Named("propv") = propv
-  );
-  
+List gmd_deflation_cpp(const arma::mat &X, const arma::sp_mat &Q, const arma::sp_mat &R,
+                       int k, double thr=1e-7, int maxit=500, bool verbose=false) {
+  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose);
 }
 
 //[[Rcpp::export]]
-List gmdLA_cpp(const arma::mat &X, arma::sp_mat Q, arma::mat R, int k) {
-  int n = X.n_rows;
-  //int p = X.n_cols;
-  arma::vec r_eigval;
-  arma::mat r_eigvec;
-  arma::eig_sym(r_eigval, r_eigvec, R);
-  
-  arma::uvec keep = arma::reverse(arma::find(r_eigval > 0 && arma::abs(r_eigval) > 1e-7));
-  r_eigvec = r_eigvec.cols(keep);
-  r_eigval = r_eigval(keep);
-  
-  arma::mat Rtilde = r_eigvec * arma::diagmat(sqrt(r_eigval)) * r_eigvec.t();
-  
-  arma::vec inv_values = 1 / sqrt(r_eigval);
-  arma::mat Rtilde_inv = r_eigvec * arma::diagmat(inv_values) * r_eigvec.t();
-  
-  //return List::create(r_eigvec, r_eigval, keep, Rtilde);
-
-  arma::mat inmat = X.t() * Q * X;
-  arma::mat RtinRt = Rtilde * inmat * Rtilde;
-  arma::mat XR = X * R;
-  // 
-  
-  arma::mat RnR = R * inmat * R;
-  arma::vec eigval;
-  arma::mat eigvec;
-   
-  arma::eig_sym(eigval, eigvec, RtinRt);
-  
-  keep = arma::reverse(arma::find(arma::abs(eigval) > 1e-7));
-  k = std::min<int>(keep.n_elem, k);
-
-  arma::mat vgmd = Rtilde_inv * eigvec.cols(keep.subvec(0,k-1));
-  arma::vec dgmd = sqrt(eigval(keep.subvec(0,k-1)));
-  arma::mat ugmd(n,k);
-  
-  //propv <- dgmd ^ 2 / sum(diag(as.matrix(inmat %*% R)))
-  double normalizing_number = 1;
-  
-  for (int i=0; i<k; i++) {
-   // normalizing.number = sqrt(vgmd[, i] %*% RnR %*% vgmd[, i])
-    normalizing_number = sqrt(vgmd.col(i).t() * RnR * vgmd.col(i)).at(0,0);
-    ugmd.col(i) = XR * vgmd.col(i) / normalizing_number;
-  }
-  
-  // cumv = rep(0, k)
-  // propv <- dgmd ^ 2 / sum(diag(as.matrix(inmat %*% R)))
-  // normalizing.number <- 1
-  // 
-  return List::create(Named("d")=dgmd, Named("u")=ugmd, Named("v")=vgmd);
+List gmd_deflation_cpp_sp(const arma::sp_mat &X, const arma::sp_mat &Q, const arma::sp_mat &R,
+                          int k, double thr=1e-7, int maxit=500, bool verbose=false) {
+  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose);
 }
-
-
-
-
-
-// You can include R code blocks in C++ files processed with sourceCpp
-// (useful for testing and development). The R code will be automatically 
-// run after the compilation.
-//
-
-/*** R
-library(Matrix)
-#Q <- sparseMatrix(i=c(2,5,7,9), j=c(5,7,12,15), x=c(2,2,2,2), dims=c(15,15))
-#R <- sparseMatrix(i=c(2,5,7,9), j=c(5,7,12,15), x=c(3,2,2,2),dims=c(15,15))
-
-N=100
-M=5000
-X <- matrix(rnorm(N*M),N,M)
-Q <- neighborweights::spatial_smoother(as.matrix(1:N), nnk=12) + diag(x=1, nrow(X), nrow(X))
-R <- neighborweights::spatial_smoother(as.matrix(1:M), nnk=12) + Diagonal(x=1, n=ncol(X))
-gmd_deflation_cpp(X,Q,R,5)
-gmd_deflation_cpp(t(X),R,Q,5)
-
-gmdLA_cpp(X,Q,R,10)
-
-#gmdLA_cpp(X, Q, as.matrix(R), 1,N,N) 
-
-*/

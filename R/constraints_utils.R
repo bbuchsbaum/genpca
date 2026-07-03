@@ -18,10 +18,35 @@ is_spd <- function(A, tol = 1e-6) {
     return(FALSE)
   }
   ok <- TRUE
-  tryCatch({
+  # suppressWarnings: LAPACK/CHOLMOD emit rank-deficiency warnings for the
+  # matrices this probe is designed to reject; only success/failure matters.
+  suppressWarnings(tryCatch({
     Matrix::Cholesky(A, LDL = FALSE, Imult = 0, super = TRUE)
-  }, error = function(e) ok <<- FALSE)
+  }, error = function(e) ok <<- FALSE))
   ok
+}
+
+#' @title Coerce to general CSC sparse matrix (dgCMatrix)
+#' @description Replacement for the deprecated direct `as(., "dgCMatrix")`
+#' coercion from symmetric/triangular/diagonal Matrix classes.
+#' @param A a matrix or Matrix
+#' @return a dgCMatrix
+#' @keywords internal
+as_dgc <- function(A) {
+  if (inherits(A, "dgCMatrix")) return(A)
+  if (!inherits(A, "Matrix")) A <- Matrix::Matrix(A, sparse = TRUE)
+  methods::as(methods::as(methods::as(A, "dMatrix"), "generalMatrix"), "CsparseMatrix")
+}
+
+#' @title Coerce dense symmetric Matrix classes to general dense (dgeMatrix)
+#' @description Replacement for the deprecated direct `as(., "dgeMatrix")`
+#' coercion from dsyMatrix/dpoMatrix.
+#' @param A a dense Matrix
+#' @return a dgeMatrix
+#' @keywords internal
+as_dge <- function(A) {
+  if (inherits(A, "dgeMatrix")) return(A)
+  methods::as(methods::as(A, "generalMatrix"), "unpackedMatrix")
 }
 
 #' @title Ensure SPD (sparse-friendly)
