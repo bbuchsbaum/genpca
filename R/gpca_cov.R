@@ -170,26 +170,42 @@ genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALS
 
   if (verbose) message("Computing eigen factorization of R...")
 
-  # Eigen factorization of R to build R^{1/2} and R^{-1/2} on range(R)
-  Re <- eigen(as.matrix(R), symmetric = TRUE)
-  vals <- pmax(Re$values, 0)
-  keep <- which(vals > tol)
-  if (length(keep) == 0L) stop("R is (numerically) zero.")
+  # Factorization of R to build R^{1/2} and R^{-1/2} on range(R).
+  # Diagonal R (including the weight-vector case) needs no eigendecomposition.
+  if (Matrix::isDiagonal(R)) {
+    r_diag <- pmax(as.numeric(Matrix::diag(R)), 0)
+    keep <- which(r_diag > tol)
+    if (length(keep) == 0L) stop("R is (numerically) zero.")
+    s_all <- sqrt(r_diag)
+    Rsqrt <- Matrix::Diagonal(p, x = s_all)                                # R^{1/2}
+    Rmhalf <- Matrix::Diagonal(p, x = ifelse(r_diag > tol, 1 / s_all, 0))  # R^{-1/2} on range(R)
+  } else {
+    Re <- eigen(as.matrix(R), symmetric = TRUE)
+    vals <- pmax(Re$values, 0)
+    keep <- which(vals > tol)
+    if (length(keep) == 0L) stop("R is (numerically) zero.")
 
-  U <- Re$vectors[, keep, drop = FALSE]
-  s <- sqrt(vals[keep])
-  Rsqrt <- U %*% (s * t(U))                 # R^{1/2}
-  Rmhalf <- U %*% ((1 / s) * t(U))           # R^{-1/2} on range(R)
+    U <- Re$vectors[, keep, drop = FALSE]
+    s <- sqrt(vals[keep])
+    Rsqrt <- U %*% (s * t(U))                 # R^{1/2}
+    Rmhalf <- U %*% ((1 / s) * t(U))           # R^{-1/2} on range(R)
+  }
 
   if (verbose) message("Computing R^{1/2} C R^{1/2}...")
 
   # Core step per Allen: eigen of B = R^{1/2} C R^{1/2}
-  B <- Rsqrt %*% as.matrix(C) %*% Rsqrt
+  B <- as.matrix(Rsqrt %*% C %*% Rsqrt)
   B <- 0.5 * (B + t(B))  # Ensure symmetry
 
   if (verbose) message("Computing eigendecomposition...")
 
-  Ee <- eigen(B, symmetric = TRUE)
+  # Iterative top-k solver when few components are requested from a large B;
+  # "LA" (largest algebraic) so tiny negative eigenvalues cannot be selected.
+  if (!is.null(ncomp) && ncomp >= 1L && p > 100L && ncomp < (p - 1L)) {
+    Ee <- RSpectra::eigs_sym(B, k = ncomp, which = "LA")
+  } else {
+    Ee <- eigen(B, symmetric = TRUE)
+  }
   lam_all <- pmax(Ee$values, 0)
 
   # Keep positive eigenvalues
@@ -206,8 +222,8 @@ genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALS
   # Map back: V = R^{-1/2} Z  (so that V' R V = I)
   V <- Rmhalf %*% Z
 
-  # Variance accounting in Allen's GPCA: total = tr(C R)
-  total <- sum(Matrix::diag(as.matrix(C) %*% R))
+  # Variance accounting in Allen's GPCA: total = tr(C R) = sum(C * R) (both symmetric)
+  total <- sum(C * R)
   propv <- as.numeric(lam / ifelse(total > 0, total, 1))
   cumv <- cumsum(propv)
 
@@ -317,18 +333,30 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
   if (verbose) message("Solving generalized eigenproblem C v = lambda R v...")
 
   # --- Solve C v = lambda R v in the range of R (handles semidefinite R)
-  # Eigen-decompose R = U diag(gamma) U^T, keep gamma > tol
-  ER <- eigen(as.matrix(R), symmetric = TRUE)
-  gamma <- pmax(ER$values, 0)
-  keep <- which(gamma > tol)
-  if (length(keep) == 0L) stop("R is numerically zero; no components can be extracted.")
-  U <- ER$vectors[, keep, drop = FALSE]
-  gam_sqrt_inv <- 1 / sqrt(gamma[keep])
-  Lminushalf <- diag(gam_sqrt_inv)                 # Lambda^{-1/2}
+  # Eigen-decompose R = U diag(gamma) U^T, keep gamma > tol.
+  # Diagonal R needs no eigendecomposition: U is a sparse column selection.
+  if (Matrix::isDiagonal(R)) {
+    gamma <- pmax(as.numeric(Matrix::diag(R)), 0)
+    keep <- which(gamma > tol)
+    if (length(keep) == 0L) stop("R is numerically zero; no components can be extracted.")
+    U <- Matrix::sparseMatrix(i = keep, j = seq_along(keep), x = 1,
+                              dims = c(p, length(keep)))
+    gam_sqrt_inv <- 1 / sqrt(gamma[keep])
+  } else {
+    ER <- eigen(as.matrix(R), symmetric = TRUE)
+    gamma <- pmax(ER$values, 0)
+    keep <- which(gamma > tol)
+    if (length(keep) == 0L) stop("R is numerically zero; no components can be extracted.")
+    U <- ER$vectors[, keep, drop = FALSE]
+    gam_sqrt_inv <- 1 / sqrt(gamma[keep])
+  }
 
-  # Work in reduced coordinates: S = Lambda^{-1/2} (U^T C U) Lambda^{-1/2}
-  CU <- crossprod(U, as.matrix(C) %*% U)           # U^T C U
-  Sred <- Lminushalf %*% CU %*% Lminushalf         # whitened covariance
+  # Work in reduced coordinates: S = Lambda^{-1/2} (U^T C U) Lambda^{-1/2},
+  # applied as row/column scaling rather than dense diagonal matmuls.
+  CU <- as.matrix(Matrix::crossprod(U, C %*% U))   # U^T C U
+  Sred <- gam_sqrt_inv * CU
+  Sred <- sweep(Sred, 2, gam_sqrt_inv, `*`)
+  Sred <- 0.5 * (Sred + t(Sred))
   ES <- eigen(Sred, symmetric = TRUE)
 
   # Filter positive eigenvalues
@@ -341,7 +369,7 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
   W  <- ES$vectors[, pos, drop = FALSE][, 1:ncomp, drop = FALSE]
 
   # Map back: V = U Lambda^{-1/2} W  (R-orthonormal: V^T R V = I)
-  V <- U %*% (Lminushalf %*% W)
+  V <- as.matrix(U %*% (gam_sqrt_inv * W))
 
   # Explained variance: sum(lambda) equals trace(R^{-1/2} C R^{-1/2}) over range(R)
   total_var <- sum(diag(Sred))

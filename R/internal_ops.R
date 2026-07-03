@@ -8,8 +8,14 @@
 #'   matrix or a diagonal specification and returns a list of closures that apply
 #'   `W`, `W^{1/2}`, and `W^{-1/2}` to vectors/matrices. Identity and diagonal
 #'   cases use fast paths; general SPD uses an eigen-based symmetric square root.
+#'   The list also carries `kind` (one of `"identity"`, `"diag"`, `"general"`)
+#'   and `mult_sqrt_right(x)` computing `x %*% W^{1/2}`, so callers can pick
+#'   sparsity-preserving strategies.
 #' - `.build_pls_operator(X, Y, MX, MY, WX, WY)` builds the implicit operator
-#'   `v -> WX^{1/2} X^T MX^{1/2} MY^{1/2} Y WY^{1/2} v` and its adjoint.
+#'   `v -> WX^{1/2} X^T MX^{1/2} MY^{1/2} Y WY^{1/2} v` and its adjoint. When the
+#'   whitened blocks `Xe = MX^{1/2} X WX^{1/2}` and `Ye = MY^{1/2} Y WY^{1/2}`
+#'   can be materialized without densifying sparse data, they are precomputed
+#'   once so each matrix-vector product costs two multiplies instead of six.
 #'
 #' These helpers assume inputs are conformable and (when required) symmetric PSD;
 #' callers are responsible for any validation or coercion.
@@ -18,73 +24,82 @@
 #' @noRd
 
 # Build metric operators for a symmetric (PS) matrix W:
-# returns closures: mult (W %*% x), mult_sqrt (W^{1/2} x), mult_invsqrt (W^{-1/2} x)
+# returns closures: mult (W %*% x), mult_sqrt (W^{1/2} x), mult_invsqrt (W^{-1/2} x),
+# mult_sqrt_right (x %*% W^{1/2}), plus a `kind` tag.
 .metric_operators <- function(W, n_expected = NULL) {
-  to_Matrix <- function(A) if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
-
   # Identity
   if (is.null(W)) {
+    id <- function(x) x
     return(list(
-      mult = function(x) x,
-      mult_sqrt = function(x) x,
-      mult_invsqrt = function(x) x
+      kind = "identity",
+      mult = id,
+      mult_sqrt = id,
+      mult_invsqrt = id,
+      mult_sqrt_right = id
     ))
   }
 
-  # Diagonal from numeric
-  if (is.numeric(W) && !is.null(n_expected) && length(W) == n_expected) {
+  # Diagonal supplied as a numeric vector
+  if (is.numeric(W) && is.null(dim(W))) {
+    if (!is.null(n_expected) && length(W) != n_expected) {
+      stop("numeric weight vector has length ", length(W),
+           " but length ", n_expected, " is required")
+    }
     d <- as.numeric(W)
-    d[d < 0] <- 0
-    ds <- sqrt(d)
-    invds <- ifelse(ds > 0, 1 / ds, 0)
-    D  <- Matrix::Diagonal(x = d)
-    Ds <- Matrix::Diagonal(x = ds)
-    Dis <- Matrix::Diagonal(x = invds)
-    return(list(
-      mult = function(x) D %*% x,
-      mult_sqrt = function(x) Ds %*% x,
-      mult_invsqrt = function(x) Dis %*% x
-    ))
+  } else if (inherits(W, "diagonalMatrix")) {
+    if (!is.null(n_expected) && nrow(W) != n_expected) {
+      stop("weight matrix is ", nrow(W), " x ", ncol(W),
+           " but dimension ", n_expected, " is required")
+    }
+    d <- as.numeric(Matrix::diag(W))
+  } else {
+    d <- NULL
   }
 
-  # DiagonalMatrix
-  if (inherits(W, "diagonalMatrix")) {
-    d  <- as.numeric(Matrix::diag(W))
+  # Diagonal fast path: `v * x` recycles column-wise, i.e. row scaling for
+  # matrices (dense or sparse) and plain elementwise for vectors.
+  if (!is.null(d)) {
     d[d < 0] <- 0
     ds <- sqrt(d)
     invds <- ifelse(ds > 0, 1 / ds, 0)
-    Ds <- Matrix::Diagonal(x = ds)
-    Dis <- Matrix::Diagonal(x = invds)
     return(list(
-      mult = function(x) W %*% x,
-      mult_sqrt = function(x) Ds %*% x,
-      mult_invsqrt = function(x) Dis %*% x
+      kind = "diag",
+      mult = function(x) d * x,
+      mult_sqrt = function(x) ds * x,
+      mult_invsqrt = function(x) invds * x,
+      mult_sqrt_right = function(x) {
+        if (inherits(x, "Matrix")) x %*% Matrix::Diagonal(x = ds)
+        else x * rep(ds, each = nrow(x))
+      }
     ))
   }
 
   # General symmetric PSD -> symmetric sqrt via eigen
-  W <- to_Matrix(W)
+  if (!is.null(n_expected) && (nrow(W) != n_expected || ncol(W) != n_expected)) {
+    stop("weight matrix is ", nrow(W), " x ", ncol(W),
+         " but dimension ", n_expected, " is required")
+  }
+  W <- if (inherits(W, "Matrix")) W else Matrix::Matrix(W, sparse = FALSE)
   W <- Matrix::forceSymmetric(W, uplo = "U")
   if (exists("ensure_spd", mode = "function")) W <- ensure_spd(W)
   Wd <- as.matrix(W)
   es <- eigen(Wd, symmetric = TRUE)
   lam <- pmax(es$values, 0)
-  Q   <- es$vectors
+  # dgeMatrix products call BLAS directly (no base-R NaN scan per product)
+  Q <- Matrix::Matrix(es$vectors, sparse = FALSE)
+  sqrt_lam <- sqrt(lam)
+  invsqrt_lam <- ifelse(lam > 0, 1 / sqrt_lam, 0)
+  apply_factored <- function(x, scal) {
+    alpha <- scal * Matrix::crossprod(Q, x) # row scaling, no k x k diag matmul
+    Q %*% alpha
+  }
   list(
+    kind = "general",
     mult = function(x) W %*% x,
-    mult_sqrt = function(x) {
-      X <- as.matrix(x)
-      alpha <- crossprod(Q, X)
-      if (length(lam) > 0) alpha <- diag(sqrt(lam), nrow = length(lam)) %*% alpha
-      Matrix::Matrix(Q %*% alpha, sparse = FALSE)
-    },
-    mult_invsqrt = function(x) {
-      X <- as.matrix(x)
-      alpha <- crossprod(Q, X)
-      invs <- ifelse(lam > 0, 1 / sqrt(lam), 0)
-      if (length(invs) > 0) alpha <- diag(invs, nrow = length(invs)) %*% alpha
-      Matrix::Matrix(Q %*% alpha, sparse = FALSE)
-    }
+    mult_sqrt = function(x) apply_factored(x, sqrt_lam),
+    mult_invsqrt = function(x) apply_factored(x, invsqrt_lam),
+    # W^{1/2} is symmetric, so x %*% W^{1/2} = t(W^{1/2} t(x))
+    mult_sqrt_right = function(x) t(apply_factored(t(x), sqrt_lam))
   )
 }
 
@@ -92,8 +107,9 @@
 #'
 #' @param X Matrix `n x p`
 #' @param Y Matrix `n x q`
-#' @param MX,MY,WX,WY Lists of metric closures with elements `mult`, `mult_sqrt`, `mult_invsqrt`
-#' @return A list with `S_mv`, `ST_mv`, and `dims = c(p, q)`
+#' @param MX,MY,WX,WY Metric operator lists from `.metric_operators()`
+#' @return A list with `S_mv`, `ST_mv`, `dims = c(p, q)`, `materialized`, and
+#'   (when materialized) the whitened blocks `Xe`, `Ye`.
 #' @keywords internal
 #' @noRd
 #'
@@ -102,21 +118,41 @@
   # X: n x p, Y: n x q; MX,MY,WX,WY are metric operator lists (mult/mult_sqrt/...)
   p <- ncol(X)
   q <- ncol(Y)
+
+  # Materializing Xe = MX^{1/2} X WX^{1/2} is safe unless X is sparse and a
+  # metric is dense-general (which would densify X). Scaling metrics preserve
+  # sparsity, and for dense X the whitened copy has the same footprint as X.
+  can_mat <- function(A, Mrow, Wcol) {
+    !inherits(A, "sparseMatrix") ||
+      (Mrow$kind != "general" && Wcol$kind != "general")
+  }
+
+  if (can_mat(X, MX, WX) && can_mat(Y, MY, WY)) {
+    # Store dense blocks as dgeMatrix: Matrix products call BLAS directly,
+    # skipping base R's per-product NaN scan of the full matrix.
+    as_dge <- function(A) if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
+    Xe <- as_dge(WX$mult_sqrt_right(MX$mult_sqrt(X)))
+    Ye <- as_dge(WY$mult_sqrt_right(MY$mult_sqrt(Y)))
+    S_mv  <- function(v, args = NULL) as.matrix(Matrix::crossprod(Xe, Ye %*% v))
+    ST_mv <- function(u, args = NULL) as.matrix(Matrix::crossprod(Ye, Xe %*% u))
+    return(list(S_mv = S_mv, ST_mv = ST_mv, dims = c(p, q),
+                materialized = TRUE, Xe = Xe, Ye = Ye))
+  }
+
+  # Lazy path: apply the whitening chain per product. When both blocks share
+  # the same row metric, MX^{1/2} MY^{1/2} = MX, so the middle collapses to a
+  # single multiply (and avoids compounding square-root error).
+  mid <- if (identical(MX, MY)) MX$mult else function(x) MX$mult_sqrt(MY$mult_sqrt(x))
+  mid_t <- if (identical(MX, MY)) MX$mult else function(x) MY$mult_sqrt(MX$mult_sqrt(x))
   S_mv <- function(v, args = NULL) {
-    v2 <- WY$mult_sqrt(v)
-    t1 <- Y %*% v2
-    t2 <- MY$mult_sqrt(t1)
-    t3 <- MX$mult_sqrt(t2)
-    t4 <- Matrix::crossprod(X, t3)
-    as.matrix(WX$mult_sqrt(t4))
+    t1 <- Y %*% WY$mult_sqrt(v)
+    t2 <- Matrix::crossprod(X, mid(t1))
+    as.matrix(WX$mult_sqrt(t2))
   }
   ST_mv <- function(u, args = NULL) {
-    u2 <- WX$mult_sqrt(u)
-    s1 <- X %*% u2
-    s2 <- MX$mult_sqrt(s1)
-    s3 <- MY$mult_sqrt(s2)
-    s4 <- Matrix::crossprod(Y, s3)
-    as.matrix(WY$mult_sqrt(s4))
+    s1 <- X %*% WX$mult_sqrt(u)
+    s2 <- Matrix::crossprod(Y, mid_t(s1))
+    as.matrix(WY$mult_sqrt(s2))
   }
-  list(S_mv = S_mv, ST_mv = ST_mv, dims = c(p, q))
+  list(S_mv = S_mv, ST_mv = ST_mv, dims = c(p, q), materialized = FALSE)
 }

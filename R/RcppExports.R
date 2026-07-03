@@ -48,3 +48,22 @@ gmd_deflation_cpp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose = FA
 gmd_deflation_cpp_sp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose = FALSE) {
     .Call(`_genpca_gmd_deflation_cpp_sp`, X, Q, R, k, thr, maxit, verbose)
 }
+
+#' Coordinate descent for the SFPCA penalized quadratic subproblem
+#'
+#' Internal solver for `min_x 0.5 x'Sx - b'x + P(x; lambda)` with sparse SPD
+#' `S` and an L1 or SCAD penalty.
+#'
+#' @param S sparse SPD matrix (`dgCMatrix`)
+#' @param b numeric vector, linear term
+#' @param x0 numeric vector, warm start
+#' @param lambda penalty level (must be >= 0)
+#' @param penalty 0 for L1, 1 for SCAD
+#' @param scad_a SCAD shape parameter (> 2)
+#' @param max_sweeps maximum number of full-equivalent sweeps
+#' @param tol convergence tolerance on the KKT residual (gradient units)
+#' @return list with `x`, `sweeps`, and `kkt` (max KKT residual)
+#' @keywords internal
+sfpca_cd_solve_cpp <- function(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol) {
+    .Call(`_genpca_sfpca_cd_solve_cpp`, S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
+}

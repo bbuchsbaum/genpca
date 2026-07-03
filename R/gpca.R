@@ -452,11 +452,11 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     if (verbose) message(paste0("Using one-shot eigen decomposition (gmdLA) to extract ", ncomp, " components..."))
     if (n < p) {
         if (verbose) message(" (n < p, using dual formulation)")
-        ret <- gmdLA(Matrix::t(Xp), A, M, k = ncomp, n_orig = p, p_orig = n,
-                      maxeig = maxeig, use_dual = TRUE,
-                      warn_approx = warn_approx, verbose = verbose)
-        # Swap u and v back
-        svdfit <- list(u = ret$v, v = ret$u, d = ret$d, k = ret$k, cumv = ret$cumv, propv = ret$propv)
+        # Dual formulation works on the n x n problem directly: eigendecompose
+        # M^{1/2} (X A X') M^{1/2} instead of the p x p primal target.
+        svdfit <- gmdLA(Xp, M, A, k = ncomp, n_orig = n, p_orig = p,
+                        maxeig = maxeig, use_dual = TRUE,
+                        warn_approx = warn_approx, verbose = verbose)
     } else {
         svdfit <- gmdLA(Xp, M, A, k = ncomp, n_orig = n, p_orig = p,
                         maxeig = maxeig, use_dual = FALSE,
@@ -475,7 +475,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 
       # Calculate variance explained
       if (verbose) message(" Calculating variance explained for Spectra method...")
-      total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
+      total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
       if (total_variance < 1e-8) {
           propv <- rep(0, spectra_res$k)
           warning("Total generalized variance is near zero.")
@@ -531,7 +531,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
       )
 
       if (verbose) message(" Calculating variance explained for randomized method...")
-      total_variance <- sum(Matrix::diag(Matrix::crossprod(Xp, M) %*% Xp %*% A))
+      total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
       if (total_variance < 1e-8) {
         propv <- rep(0, rand_res$k)
         warning("Total generalized variance is near zero.")
@@ -912,6 +912,21 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
     return(decomp)
   }
 
+  # Top-k eigenpairs of a symmetric target matrix. RSpectra::eigs_sym requires
+  # k < dim, so full-rank requests (and tiny problems, where dense is exact and
+  # cheap) fall back to base::eigen.
+  top_eigs <- function(target_mat, k_req, label) {
+    dim_t <- nrow(target_mat)
+    if (k_req >= dim_t - 1L || dim_t <= 100L) {
+      es <- eigen(as.matrix(target_mat), symmetric = TRUE)
+      keep <- seq_len(min(k_req, dim_t))
+      list(values = es$values[keep], vectors = es$vectors[, keep, drop = FALSE])
+    } else {
+      tryCatch(RSpectra::eigs_sym(target_mat, k = k_req, which = "LM"),
+               error = function(e) stop("Eigen decomp failed in gmdLA (", label, "): ", e$message))
+    }
+  }
+
   # --- Main Logic --- #
   if (!use_dual) { # Primal: n_orig >= p_orig
       if (verbose) message(" gmdLA: Using primal approach (n >= p)")
@@ -927,10 +942,9 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       target_mat <- Rtilde %*% XQX %*% Rtilde # p x p symmetric
 
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
-      k_request <- min(k, p_orig - 1) # Cannot request more than dim-1 for RSpectra
+      k_request <- min(k, p_orig)
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (primal)")
-      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k = k_request, which = "LM"),
-                          error = function(e) {stop("Eigen decomp failed in gmdLA (primal): ", e$message)})
+      eig_res <- top_eigs(target_mat, k_request, "primal")
 
       valid_idx <- which(eig_res$values > eigen_tol)
       if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (primal).")
@@ -946,25 +960,22 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       vgmd <- Rtilde.inv %*% eig_vecs # ov (p x k_found)
 
       if (verbose) message("  Calculating ou (U)...")
-      # Revert to OLD normalization method for ugmd (as per user request)
-      XR <- X %*% R
-      # RnR = R %*% (X' Q X) %*% R. XQX already calculated above.
-      RnR <- R %*% XQX %*% R
-
+      # ugmd_i = X R vgmd_i / ||vgmd_i||_{RnR}, with RnR = R (X'QX) R.
+      # Work with W = R vgmd (p x k) so no p x p product beyond XQX is formed:
+      # the norm is (R v_i)' XQX (R v_i) and X R v_i = X W_i.
+      W <- R %*% vgmd                                   # p x k_found
+      norms_sq <- as.numeric(Matrix::colSums(W * (XQX %*% W)))
       ugmd <- matrix(0.0, n_orig, k_found)
-      for (i in 1:k_found) {
-          # Use the normalization factor from the OLD gmdLA version
-          vgmd_i <- vgmd[, i, drop = FALSE]
-          normalizing_number_sq <- Matrix::crossprod(vgmd_i, RnR) %*% vgmd_i
-          if (as.numeric(normalizing_number_sq) > tol^2) { # Check squared norm > tol^2
-             normalizing_number <- sqrt(as.numeric(normalizing_number_sq))
-             ugmd[, i] <- as.vector(XR %*% vgmd_i / normalizing_number)
-          } else {
-             # Handle near-zero norm case (e.g., set column to zero)
-             ugmd[, i] <- 0.0
-             warning("Near-zero norm encountered during old ugmd normalization for component ", i)
-          }
+      ok <- is.finite(norms_sq) & (norms_sq > tol^2)
+      if (any(!ok)) {
+          warning("Near-zero norm encountered during ugmd normalization for component(s) ",
+                  paste(which(!ok), collapse = ", "))
       }
+      if (any(ok)) {
+          XW <- as.matrix(X %*% W[, ok, drop = FALSE])  # n x sum(ok), one BLAS call
+          ugmd[, ok] <- sweep(XW, 2, sqrt(norms_sq[ok]), `/`)
+      }
+      total_variance <- sum(XQX * R)                    # tr(X'QX R), reuses XQX
   } else { # Dual: n_orig < p_orig
       if (verbose) message(" gmdLA: Using dual approach (n < p)")
       Q_decomp <- compute_sqrtm(Q, paste0(cache_attr_name, "_Q"), "Q")
@@ -979,10 +990,9 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       target_mat <- Qtilde %*% XRXt %*% Qtilde # n x n symmetric
 
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
-      k_request <- min(k, n_orig - 1) # Cannot request more than dim-1 for RSpectra
+      k_request <- min(k, n_orig)
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (dual)")
-      eig_res <- tryCatch(RSpectra::eigs_sym(target_mat, k = k_request, which = "LM"),
-                          error = function(e) {stop("Eigen decomp failed in gmdLA (dual): ", e$message)})
+      eig_res <- top_eigs(target_mat, k_request, "dual")
 
       valid_idx <- which(eig_res$values > eigen_tol)
       if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (dual).")
@@ -997,28 +1007,28 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       if (verbose) message("  Calculating ou (U = Q^(-1/2) * eigenvectors)...")
       ugmd <- Qtilde.inv %*% eig_vecs # ou (n x k_found)
 
-      if (verbose) message("  Calculating ov (V)...")
-      Xt_ugmd <- Matrix::crossprod(X, ugmd) # p x k_found
+      if (verbose) message("  Calculating ov (V = X' Q U D^{-1})...")
+      # The GMD factors satisfy vgmd = X' Q ugmd D^{-1} (row metric included).
+      Xt_ugmd <- Matrix::crossprod(X, Q %*% ugmd) # p x k_found
       vgmd_unnorm <- sweep(Xt_ugmd, 2, dgmd, `/`) # p x k_found
 
+      # Renormalize in the R metric (numerical no-op in exact arithmetic)
+      norms_sq <- as.numeric(Matrix::colSums(vgmd_unnorm * (R %*% vgmd_unnorm)))
       vgmd <- matrix(0.0, p_orig, k_found)
-      for (i in 1:k_found) {
-          v_i <- vgmd_unnorm[, i, drop = FALSE]
-          norm_factor_sq <- as.numeric(Matrix::crossprod(v_i, R %*% v_i))
-          if (norm_factor_sq > tol) {
-              vgmd[, i] <- as.vector(v_i / sqrt(norm_factor_sq))
-          }
+      ok <- is.finite(norms_sq) & (norms_sq > tol)
+      if (any(ok)) {
+          vgmd[, ok] <- sweep(as.matrix(vgmd_unnorm[, ok, drop = FALSE]), 2,
+                              sqrt(norms_sq[ok]), `/`)
       }
+      total_variance <- sum(Q * XRXt)             # tr(X'QX R) = tr(Q X R X'), reuses XRXt
   }
 
   # Calculate explained variance
   if (verbose) message(" Calculating explained variance...")
-  # Trace(X' Q X R) is invariant under primal/dual formulation (using args passed to gmdLA)
-  total_variance <- tryCatch(sum(Matrix::diag(Matrix::crossprod(X, Q) %*% X %*% R)),
-                           error = function(e) {
-                              warning("Could not compute total variance trace: ", e$message)
-                              NA_real_
-                           })
+  # total_variance = tr(X' Q X R), computed in each branch from the Gram matrix
+  # already in scope (no p x p / n x n products are re-formed here).
+  total_variance <- as.numeric(total_variance)
+  if (!is.finite(total_variance)) total_variance <- NA_real_
 
   if (is.na(total_variance) || total_variance < tol) {
       propv <- rep(0, k_found)
@@ -1078,6 +1088,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   vgmd <- matrix(0.0, p, k)
   dgmd <- numeric(k)
   propv <- numeric(k)
+
   # Calculate total variance once: trace(X' Q X R)
   qrnorm <- tryCatch(sum((Q %*% X) * (X %*% R)), # tr(X'QXR) without forming p x p
                     error = function(e) {
@@ -1111,6 +1122,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
     }
     as.matrix(y)
   }
+
   for (i in 1:k) {
     if (verbose) message(paste(" Deflation component", i))
     # Initialize u, v for power iteration

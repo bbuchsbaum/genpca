@@ -2,8 +2,6 @@ library(testthat)
 library(Matrix)
 library(RSpectra)
 
-context("sfpca function")
-
 test_that("Rank-1 matrix is recovered correctly", {
   set.seed(123)
   n <- 10
@@ -16,9 +14,9 @@ test_that("Rank-1 matrix is recovered correctly", {
   result <- sfpca(X, K = 1, spat_cds = spat_cds, verbose = FALSE,
                   lambda_v = .001, lambda_u = .001, alpha_v = 0, alpha_u = 0)
 
-  u_est <- result$u[, 1]
-  v_est <- result$v[, 1]
-  d_est <- result$d[1]
+  u_est <- result$ou[, 1]
+  v_est <- multivarious::components(result)[, 1]
+  d_est <- multivarious::sdev(result)[1]
 
   # Handle sign ambiguity - fix both u and v signs consistently
   sign_uv <- sign(crossprod(u_est, u_true) * crossprod(v_est, v_true))
@@ -57,7 +55,7 @@ test_that("Orthogonal columns result in smooth components", {
   # Use K=1 since the matrix may not support K=2 after deflation
   result <- sfpca(X, K = 1, spat_cds = spat_cds, verbose = FALSE)
 
-  v_est <- result$v
+  v_est <- multivarious::components(result)
 
   # Compute smoothness measure based on spat_cds
   distances <- as.matrix(dist(t(spat_cds)))
@@ -80,8 +78,8 @@ test_that("Sparse signals result in sparse components", {
                   alpha_u = 0, alpha_v = 0,  # Disable spatial smoothing
                   verbose = FALSE)
 
-  u_est <- result$u
-  v_est <- result$v
+  u_est <- result$ou
+  v_est <- multivarious::components(result)
 
   # Check sparsity - with proper ISTA updates and no spatial smoothing
   # At least one component should show sparsity

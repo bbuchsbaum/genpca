@@ -17,51 +17,20 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
     return(function(x) x)
   }
 
-  # For diagonal matrices, we can optimize
+  # For diagonal matrices, we can optimize: d_op * x recycles column-wise,
+  # which is row scaling for matrices and plain elementwise for vectors.
   if (Matrix::isDiagonal(W)) {
     d <- diag(W)
-
-    if (sqrt && inverse) {
-      # W^{-1/2}
-      d_op <- 1 / sqrt(d)
-      return(function(x) {
-        if (is.matrix(x) || inherits(x, "Matrix")) {
-          # Column-wise multiplication for matrices
-          sweep(x, 1, d_op, "*")
-        } else {
-          x * d_op
-        }
-      })
+    d_op <- if (sqrt && inverse) {
+      1 / sqrt(d)          # W^{-1/2}
     } else if (sqrt && !inverse) {
-      # W^{1/2}
-      d_op <- sqrt(d)
-      return(function(x) {
-        if (is.matrix(x) || inherits(x, "Matrix")) {
-          sweep(x, 1, d_op, "*")
-        } else {
-          x * d_op
-        }
-      })
+      sqrt(d)              # W^{1/2}
     } else if (!sqrt && inverse) {
-      # W^{-1}
-      d_op <- 1 / d
-      return(function(x) {
-        if (is.matrix(x) || inherits(x, "Matrix")) {
-          sweep(x, 1, d_op, "*")
-        } else {
-          x * d_op
-        }
-      })
+      1 / d                # W^{-1}
     } else {
-      # W
-      return(function(x) {
-        if (is.matrix(x) || inherits(x, "Matrix")) {
-          sweep(x, 1, d, "*")
-        } else {
-          x * d
-        }
-      })
+      d                    # W
     }
+    return(function(x) d_op * x)
   }
 
   # For general symmetric PSD matrices use shared metric operators

@@ -77,31 +77,32 @@ genpls <- function(X, Y,
   svd_backend <- match.arg(svd_backend)
   stopifnot(length(ncomp) == 1L, ncomp >= 1)
 
-  to_Matrix <- function(A) {
-    if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
-  }
-
-  X <- to_Matrix(X)
-  Y <- to_Matrix(Y)
   n <- nrow(X)
-  px <- ncol(X)
-  py <- ncol(Y)
   if (nrow(Y) != n) stop("X and Y must have the same number of rows.")
 
-  # Preprocess (e.g., centering/scaling) via multivarious
-  # multivarious expects base matrices; preserve sparsity where possible
-  Xbase <- if (inherits(X, "sparseMatrix")) as(X, "matrix") else as.matrix(X)
-  Ybase <- if (inherits(Y, "sparseMatrix")) as(Y, "matrix") else as.matrix(Y)
-  # Use fit_transform API (prep/init_transform are deprecated in multivarious >= 0.3.0)
-  ft_x <- multivarious::fit_transform(preproc_x, Xbase)
-  ft_y <- multivarious::fit_transform(preproc_y, Ybase)
-  proc_x <- ft_x$preproc
-  proc_y <- ft_y$preproc
-  Xp <- ft_x$transformed
-  Yp <- ft_y$transformed
-  # Convert to Matrix; use sparse=TRUE if input was sparse and preprocessing allows
-  Xp <- to_Matrix(Xp)
-  Yp <- to_Matrix(Yp)
+  # Preprocess (e.g., centering/scaling) via multivarious, which requires base
+  # matrices. Sparse inputs with a no-op preprocessor skip the densification:
+  # the pass() prepper is fitted on a placeholder with the right column count
+  # and the sparse data flow to the operator untouched.
+  is_pass_prepper <- function(p) {
+    inherits(p, "prepper") &&
+      all(vapply(p$steps, inherits, logical(1), "pass"))
+  }
+  prep_block <- function(A, preproc) {
+    if (inherits(A, "sparseMatrix") && is_pass_prepper(preproc)) {
+      ft <- multivarious::fit_transform(preproc, matrix(0, 1L, ncol(A)))
+      list(proc = ft$preproc, A = A)
+    } else {
+      ft <- multivarious::fit_transform(preproc, as.matrix(A))
+      list(proc = ft$preproc, A = ft$transformed)
+    }
+  }
+  bx <- prep_block(X, preproc_x)
+  by <- prep_block(Y, preproc_y)
+  proc_x <- bx$proc
+  proc_y <- by$proc
+  Xp <- bx$A
+  Yp <- by$A
 
   # Delegate to operator implementation (already memory-safe)
   if (verbose) message("Computing top-", ncomp, " GPLSSVD components via operator (", svd_backend, ") ...")
@@ -111,12 +112,11 @@ genpls <- function(X, Y,
                    k = ncomp, center = FALSE, scale = FALSE,
                    svd_backend = svd_backend, svd_opts = svd_opts)
 
-  # Derive projection weights for multivarious wrapper
-  # Use Diagonal for efficient column scaling: Fi %*% D^{-1}
+  # Derive projection weights for multivarious wrapper: W_X p = Fi D^{-1}
+  # (`rep(invd, each = nrow)` scales column j by 1/d[j])
   invd <- ifelse(op$d > 0, 1 / op$d, 0)
-  Dinv <- Matrix::Diagonal(x = invd)
-  vx <- as.matrix(op$fi %*% Dinv)  # W_X p = Fi D^{-1}
-  vy <- as.matrix(op$fj %*% Dinv)  # W_Y q = Fj D^{-1}
+  vx <- op$fi * rep(invd, each = nrow(op$fi))
+  vy <- op$fj * rep(invd, each = nrow(op$fj))
 
   obj <- multivarious::cross_projector(
     vx = vx,
@@ -127,13 +127,13 @@ genpls <- function(X, Y,
   )
 
   # Attach GPLSSVD details for direct access
-  obj$d  <- as.numeric(op$d)
-  obj$p  <- as.matrix(op$p)
-  obj$q  <- as.matrix(op$q)
-  obj$fi <- as.matrix(op$fi)
-  obj$fj <- as.matrix(op$fj)
-  obj$lx <- as.matrix(op$lx)
-  obj$ly <- as.matrix(op$ly)
+  obj$d  <- op$d
+  obj$p  <- op$p
+  obj$q  <- op$q
+  obj$fi <- op$fi
+  obj$fj <- op$fj
+  obj$lx <- op$lx
+  obj$ly <- op$ly
   obj$metrics <- list(Ax = Ax, Ay = Ay, Mx = Mx, My = My)
   obj$ncomp   <- ncomp
   obj$backend <- svd_backend

@@ -29,7 +29,8 @@ gmd_fast_diag <- function(X, q_diag, r_diag, k, tol, maxit, topk) {
   r_invsqrt <- ifelse(r_sqrt > tol, 1 / r_sqrt, 0)
 
   # Match gmdLA target: singular values of Q^{1/2} X R^{1/2}.
-  Xw <- sweep(X, 1, q_sqrt, `*`)
+  # Row scaling via recycling; column scaling via sweep.
+  Xw <- q_sqrt * X
   Xw <- sweep(Xw, 2, r_sqrt, `*`)
 
   sv <- NULL
@@ -66,13 +67,13 @@ gmd_fast_diag <- function(X, q_diag, r_diag, k, tol, maxit, topk) {
   Uw <- Uw[, keep, drop = FALSE]
   Vw <- Vw[, keep, drop = FALSE]
 
-  # Metric-orthonormal factors.
-  ov <- sweep(Vw, 1, r_invsqrt, `*`)
-  ou <- sweep(Uw, 1, q_invsqrt, `*`)
+  # Metric-orthonormal factors (row scaling via recycling).
+  ov <- r_invsqrt * Vw
+  ou <- q_invsqrt * Uw
   # Components in original space: C = R^{1/2} * right-singular-vectors
-  components <- sweep(Vw, 1, r_sqrt, `*`)
+  components <- r_sqrt * Vw
   # Scores in returned parametrization: U = Q X C
-  scores <- sweep(X %*% components, 1, q_diag, `*`)
+  scores <- q_diag * (X %*% components)
 
   list(u = scores, v = components, ou = ou, ov = ov, d = d)
 }
@@ -159,8 +160,8 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
   if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
 
   # coerce symmetric dense forms that trip Rcpp
-  if (inherits(Q, "dsyMatrix")) Q <- methods::as(Q, "dgeMatrix")
-  if (inherits(R, "dsyMatrix")) R <- methods::as(R, "dgeMatrix")
+  if (inherits(Q, "dsyMatrix")) Q <- as_dge(Q)
+  if (inherits(R, "dsyMatrix")) R <- as_dge(R)
 
   min_dim <- min(n, p)
   use_topk <- should_use_topk(k, min_dim, topk, auto_topk, topk_ratio, topk_min_dim)
@@ -183,14 +184,14 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
     if (!methods::is(R, "sparseMatrix") && isTRUE(cache)) {
       L_R <- get_chol_lower_dense(R)
       if (methods::is(Q, "sparseMatrix")) {
-        res <- gmd_fast_cpp_primal_sp(X, methods::as(Q, "dgCMatrix"), L_R, k, tol, maxit, use_topk)
+        res <- gmd_fast_cpp_primal_sp(X, as_dgc(Q), L_R, k, tol, maxit, use_topk)
       } else {
         res <- gmd_fast_cpp_primal_dn(X, as.matrix(Q), L_R, k, tol, maxit, use_topk)
       }
     } else {
       # fall back to non-cached path
       if (methods::is(Q, "sparseMatrix") || methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_sp(X, methods::as(Q, "dgCMatrix"), methods::as(R, "dgCMatrix"), k, tol, maxit, use_topk)
+        res <- gmd_fast_cpp_sp(X, as_dgc(Q), as_dgc(R), k, tol, maxit, use_topk)
       } else {
         res <- gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol, maxit, use_topk)
       }
@@ -200,13 +201,13 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
     if (!methods::is(Q, "sparseMatrix") && isTRUE(cache)) {
       L_Q <- get_chol_lower_dense(Q)
       if (methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_dual_sp(X, L_Q, methods::as(R, "dgCMatrix"), k, tol, maxit, use_topk)
+        res <- gmd_fast_cpp_dual_sp(X, L_Q, as_dgc(R), k, tol, maxit, use_topk)
       } else {
         res <- gmd_fast_cpp_dual_dn(X, L_Q, as.matrix(R), k, tol, maxit, use_topk)
       }
     } else {
       if (methods::is(Q, "sparseMatrix") || methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_sp(X, methods::as(Q, "dgCMatrix"), methods::as(R, "dgCMatrix"), k, tol, maxit, use_topk)
+        res <- gmd_fast_cpp_sp(X, as_dgc(Q), as_dgc(R), k, tol, maxit, use_topk)
       } else {
         res <- gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol, maxit, use_topk)
       }
@@ -451,8 +452,8 @@ gmd_randomized <- function(X, Q, R, k,
       if (methods::is(Q, "sparseMatrix") && methods::is(R, "sparseMatrix")) {
         gmd_randomized_cpp_sp(
           X = X,
-          Q = methods::as(Q, "dgCMatrix"),
-          R = methods::as(R, "dgCMatrix"),
+          Q = as_dgc(Q),
+          R = as_dgc(R),
           k = as.integer(k),
           oversample = as.integer(oversample),
           n_power = as.integer(n_power),
@@ -465,7 +466,7 @@ gmd_randomized <- function(X, Q, R, k,
       } else if (methods::is(Q, "sparseMatrix")) {
         gmd_randomized_cpp_qsp_rdn(
           X = X,
-          Q = methods::as(Q, "dgCMatrix"),
+          Q = as_dgc(Q),
           R = as.matrix(R),
           k = as.integer(k),
           oversample = as.integer(oversample),
@@ -480,7 +481,7 @@ gmd_randomized <- function(X, Q, R, k,
         gmd_randomized_cpp_qdn_rsp(
           X = X,
           Q = as.matrix(Q),
-          R = methods::as(R, "dgCMatrix"),
+          R = as_dgc(R),
           k = as.integer(k),
           oversample = as.integer(oversample),
           n_power = as.integer(n_power),

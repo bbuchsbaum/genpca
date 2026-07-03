@@ -232,6 +232,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sfpca_cd_solve_cpp
+Rcpp::List sfpca_cd_solve_cpp(const Eigen::Map<Eigen::SparseMatrix<double>> S, const Eigen::Map<Eigen::VectorXd> b, const Eigen::Map<Eigen::VectorXd> x0, const double lambda, const int penalty, const double scad_a, const int max_sweeps, const double tol);
+RcppExport SEXP _genpca_sfpca_cd_solve_cpp(SEXP SSEXP, SEXP bSEXP, SEXP x0SEXP, SEXP lambdaSEXP, SEXP penaltySEXP, SEXP scad_aSEXP, SEXP max_sweepsSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::SparseMatrix<double>> >::type S(SSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type b(bSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type x0(x0SEXP);
+    Rcpp::traits::input_parameter< const double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< const int >::type penalty(penaltySEXP);
+    Rcpp::traits::input_parameter< const double >::type scad_a(scad_aSEXP);
+    Rcpp::traits::input_parameter< const int >::type max_sweeps(max_sweepsSEXP);
+    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(sfpca_cd_solve_cpp(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
+
 static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_fast_cpp_dn", (DL_FUNC) &_genpca_gmd_fast_cpp_dn, 7},
     {"_genpca_gmd_fast_cpp_sp", (DL_FUNC) &_genpca_gmd_fast_cpp_sp, 7},
@@ -245,6 +264,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genpca_gmd_randomized_cpp_qdn_rsp", (DL_FUNC) &_genpca_gmd_randomized_cpp_qdn_rsp, 11},
     {"_genpca_gmd_deflation_cpp", (DL_FUNC) &_genpca_gmd_deflation_cpp, 7},
     {"_genpca_gmd_deflation_cpp_sp", (DL_FUNC) &_genpca_gmd_deflation_cpp_sp, 7},
+    {"_genpca_sfpca_cd_solve_cpp", (DL_FUNC) &_genpca_sfpca_cd_solve_cpp, 8},
     {NULL, NULL, 0}
 };
 

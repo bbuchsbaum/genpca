@@ -2,7 +2,10 @@
 #'
 #' Compute the top-k singular triplets of \eqn{S = Xe' Ye} without
 #' materializing the whitened matrices \eqn{Xe = Mx^{1/2} X Wx^{1/2}},
-#' \eqn{Ye = My^{1/2} Y Wy^{1/2}}. Works with dense/sparse constraints.
+#' \eqn{Ye = My^{1/2} Y Wy^{1/2}} when doing so would densify sparse data.
+#' When the whitening is sparsity-preserving (identity/diagonal metrics) or
+#' the data are dense, the whitened blocks are precomputed once so each
+#' matrix-vector product in the iterative SVD costs two multiplies.
 #'
 #' @param X n x I matrix (numeric or Matrix)
 #' @param Y n x J matrix (numeric or Matrix)
@@ -35,48 +38,43 @@ gplssvd_op <- function(X, Y,
   }
   k <- as.integer(k)
 
-  if (!requireNamespace("Matrix", quietly = TRUE)) stop("Matrix package required.")
-  if (svd_backend == "RSpectra" && !requireNamespace("RSpectra", quietly = TRUE)) {
-    stop("RSpectra package required for svd_backend='RSpectra'.")
-  }
-  if (svd_backend == "irlba" && !requireNamespace("irlba", quietly = TRUE)) {
-    stop("irlba package required for svd_backend='irlba'.")
-  }
-
-  to_Matrix <- function(A) {
-    if (inherits(A, "Matrix")) A else Matrix::Matrix(A, sparse = FALSE)
-  }
-
-  X <- to_Matrix(X)
-  Y <- to_Matrix(Y)
   N <- nrow(X)
   I <- ncol(X)
   J <- ncol(Y)
   stopifnot(nrow(Y) == N)
 
   # Validate k against matrix dimensions
- if (k > min(I, J)) {
+  if (k > min(I, J)) {
     warning("k (", k, ") exceeds min(ncol(X), ncol(Y)) = ", min(I, J),
             "; will return at most ", min(I, J), " components")
     k <- min(I, J)
   }
 
-  # Column center/scale prior to constraints
+  # Column center/scale prior to constraints; keeps base matrices base and
+  # Matrix objects Matrix (centering a sparse matrix necessarily densifies).
   cs <- function(A, do_center, do_scale) {
-    A <- to_Matrix(A)
-    cen <- if (isTRUE(do_center)) Matrix::Matrix(Matrix::colMeans(A), nrow = 1) else NULL
-    if (!is.null(cen)) {
-      A <- A - Matrix::Matrix(rep(1, nrow(A)), ncol = 1) %*% cen
+    cen <- rep(0, ncol(A))
+    scl <- rep(1, ncol(A))
+    if (isTRUE(do_center)) {
+      cen <- as.numeric(Matrix::colMeans(A))
+      if (inherits(A, "Matrix")) {
+        A <- A - Matrix::Matrix(rep(1, nrow(A)), ncol = 1) %*%
+          Matrix::Matrix(cen, nrow = 1)
+      } else {
+        A <- A - rep(cen, each = nrow(A))
+      }
     }
-    scl <- NULL
     if (isTRUE(do_scale)) {
       s <- sqrt(Matrix::colSums(A^2) / pmax(nrow(A) - 1, 1))
       s[s == 0] <- 1
-      A <- A %*% Matrix::Diagonal(x = 1 / as.numeric(s))
-      scl <- s
+      scl <- as.numeric(s)
+      if (inherits(A, "Matrix")) {
+        A <- A %*% Matrix::Diagonal(x = 1 / scl)
+      } else {
+        A <- A * rep(1 / scl, each = nrow(A))
+      }
     }
-    list(A = A, center = if (is.null(cen)) rep(0, ncol(A)) else as.numeric(cen),
-         scale = if (is.null(scl)) rep(1, ncol(A)) else as.numeric(scl))
+    list(A = A, center = cen, scale = scl)
   }
 
   Xcs <- cs(X, center, scale)
@@ -84,47 +82,62 @@ gplssvd_op <- function(X, Y,
   X <- Xcs$A
   Y <- Ycs$A
 
-  # Metric operators (shared helper)
+  # Metric operators (shared helper); reuse when both blocks share a metric
   MX <- .metric_operators(XLW, N)
-  MY <- .metric_operators(YLW, N)
+  MY <- if (identical(XLW, YLW)) MX else .metric_operators(YLW, N)
   WX <- .metric_operators(XRW, I)
-  WY <- .metric_operators(YRW, J)
+  WY <- if (identical(XRW, YRW) && (is.null(XRW) || J == I)) {
+    WX
+  } else {
+    .metric_operators(YRW, J)
+  }
 
   # Linear operators for S = t(Xe) %*% Ye (shared builder)
   opc <- .build_pls_operator(X, Y, MX, MY, WX, WY)
-  S_mv  <- opc$S_mv
-  ST_mv <- opc$ST_mv
 
   # Small-dense fallback for stability on toy sizes
-  if (I <= 64 && J <= 64) {
+  use_dense <- (I <= 64 && J <= 64)
+  if (!use_dense) {
+    if (svd_backend == "RSpectra" && !requireNamespace("RSpectra", quietly = TRUE)) {
+      stop("RSpectra package required for svd_backend='RSpectra'.")
+    }
+    if (svd_backend == "irlba" && !requireNamespace("irlba", quietly = TRUE)) {
+      stop("irlba package required for svd_backend='irlba'.")
+    }
+  }
+
+  if (use_dense) {
     # Build S explicitly in the same algebra as the implicit operator:
     # S = WX^{1/2} X^T MX^{1/2} MY^{1/2} Y WY^{1/2}
-    T1 <- MY$mult_sqrt(Y)              # n x J
-    T2 <- MX$mult_sqrt(T1)             # n x J
-    T3 <- Matrix::crossprod(X, T2)     # I x J
-    T4 <- WX$mult_sqrt(T3)             # I x J
-    S  <- t(WY$mult_sqrt(t(T4)))       # I x J (right-mult by WY^{1/2})
+    S <- if (isTRUE(opc$materialized)) {
+      Matrix::crossprod(opc$Xe, opc$Ye)
+    } else {
+      T3 <- Matrix::crossprod(X, MX$mult_sqrt(MY$mult_sqrt(Y)))
+      WY$mult_sqrt_right(WX$mult_sqrt(T3))
+    }
     svdS <- svd(as.matrix(S))
-    u <- Matrix::Matrix(svdS$u[, seq_len(k), drop = FALSE], sparse = FALSE)
-    v <- Matrix::Matrix(svdS$v[, seq_len(k), drop = FALSE], sparse = FALSE)
+    u <- svdS$u[, seq_len(k), drop = FALSE]
+    v <- svdS$v[, seq_len(k), drop = FALSE]
     d <- svdS$d[seq_len(k)]
   } else if (svd_backend == "RSpectra") {
-    sv <- RSpectra::svds(A = S_mv, k = k, nu = k, nv = k,
-                         opts = svd_opts, Atrans = ST_mv, dim = c(I, J))
-    u <- Matrix::Matrix(sv$u, sparse = FALSE)
-    v <- Matrix::Matrix(sv$v, sparse = FALSE)
+    sv <- RSpectra::svds(A = opc$S_mv, k = k, nu = k, nv = k,
+                         opts = svd_opts, Atrans = opc$ST_mv, dim = c(I, J))
+    u <- sv$u
+    v <- sv$v
     d <- sv$d
   } else {
-    # irlba operator path via mult() callback. Pass a dummy A for dims.
-    A0 <- matrix(0, I, J)
+    # irlba operator path via mult() callback. The dummy A supplies dims only,
+    # so use an empty sparse matrix rather than allocating I x J dense zeros.
+    A0 <- Matrix::sparseMatrix(i = integer(0), j = integer(0),
+                               dims = c(I, J), x = numeric(0))
     mult_fun <- function(x, y) {
       # Handle both mult(A, v) and mult(v, A) calling styles
       if (is.matrix(x) || inherits(x, "Matrix")) {
         # x is A, y is vector(s): return A %*% y
-        return(S_mv(y))
+        opc$S_mv(y)
       } else {
         # x is vector(s), y is A: return t(A) %*% x
-        return(ST_mv(x))
+        opc$ST_mv(x)
       }
     }
     sv <- irlba::irlba(A0,
@@ -134,31 +147,42 @@ gplssvd_op <- function(X, Y,
                        maxit = if (!is.null(svd_opts$maxitr)) svd_opts$maxitr else 1000,
                        mult = mult_fun,
                        fastpath = FALSE)
-    u <- Matrix::Matrix(sv$u, sparse = FALSE)
-    v <- Matrix::Matrix(sv$v, sparse = FALSE)
+    u <- sv$u
+    v <- sv$v
     d <- sv$d
   }
 
+  u <- as.matrix(u)
+  v <- as.matrix(v)
+
   # Generalized singular vectors & component scores
-  p <- WX$mult_invsqrt(u)
-  q <- WY$mult_invsqrt(v)
-  # Use Diagonal for efficient scaling by singular values
-  Dmat <- Matrix::Diagonal(x = d)
-  Fi <- WX$mult(p %*% Dmat)
-  Fj <- WY$mult(q %*% Dmat)
-  Lx <- MX$mult_sqrt(X %*% WX$mult(p))
-  Ly <- MY$mult_sqrt(Y %*% WY$mult(q))
+  p <- as.matrix(WX$mult_invsqrt(u))
+  q <- as.matrix(WY$mult_invsqrt(v))
+  # Fi = WX p D, Fj = WY q D: `rep(d, each = nrow)` scales column j by d[j]
+  Fi <- as.matrix(WX$mult(p))
+  Fi <- Fi * rep(d, each = nrow(Fi))
+  Fj <- as.matrix(WY$mult(q))
+  Fj <- Fj * rep(d, each = nrow(Fj))
+  # Latent variables Lx = MX^{1/2} X WX p = Xe u (identical for symmetric
+  # PSD square roots, since WX WX^{-1/2} = WX^{1/2} on the range of WX)
+  if (isTRUE(opc$materialized)) {
+    Lx <- as.matrix(opc$Xe %*% u)
+    Ly <- as.matrix(opc$Ye %*% v)
+  } else {
+    Lx <- as.matrix(MX$mult_sqrt(X %*% WX$mult(p)))
+    Ly <- as.matrix(MY$mult_sqrt(Y %*% WY$mult(q)))
+  }
 
   list(
     d  = as.numeric(d),
-    u  = Matrix::Matrix(u, sparse = FALSE),
-    v  = Matrix::Matrix(v, sparse = FALSE),
-    p  = Matrix::Matrix(p, sparse = FALSE),
-    q  = Matrix::Matrix(q, sparse = FALSE),
-    fi = Matrix::Matrix(Fi, sparse = FALSE),
-    fj = Matrix::Matrix(Fj, sparse = FALSE),
-    lx = Matrix::Matrix(Lx, sparse = FALSE),
-    ly = Matrix::Matrix(Ly, sparse = FALSE),
+    u  = u,
+    v  = v,
+    p  = p,
+    q  = q,
+    fi = Fi,
+    fj = Fj,
+    lx = Lx,
+    ly = Ly,
 
     k = k,
     dims = list(N = N, I = I, J = J),

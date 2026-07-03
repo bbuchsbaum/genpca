@@ -133,14 +133,14 @@ class PrimalSymOp {
 
   void perform_op(const double* x_in, double* y_out) const {
     arma::vec x(const_cast<double*>(x_in), dim_, false, true);
-    // z = L_R x
-    arma::vec z = L_R_ * x;
+    // z = L_R x (L_R lower triangular -> trmv, half the flops of full gemv)
+    arma::vec z = arma::trimatl(L_R_) * x;
     // t = X' Q X z
     arma::vec t = X_ * z;
     t = Q_ * t;
     t = X_.t() * t;
     // y = L_R^T t
-    arma::vec y = L_R_.t() * t;
+    arma::vec y = arma::trimatu(L_R_.t()) * t;
     std::memcpy(y_out, y.memptr(), sizeof(double) * static_cast<size_t>(dim_));
   }
 
@@ -163,12 +163,12 @@ class DualSymOp {
 
   void perform_op(const double* x_in, double* y_out) const {
     arma::vec x(const_cast<double*>(x_in), dim_, false, true);
-    // y = L_Q^T X R X^T L_Q x
-    arma::vec t = L_Q_ * x;
+    // y = L_Q^T X R X^T L_Q x (L_Q lower triangular -> trmv)
+    arma::vec t = arma::trimatl(L_Q_) * x;
     t = X_.t() * t;
     t = R_ * t;
     t = X_ * t;
-    arma::vec y = L_Q_.t() * t;
+    arma::vec y = arma::trimatu(L_Q_.t()) * t;
     std::memcpy(y_out, y.memptr(), sizeof(double) * static_cast<size_t>(dim_));
   }
 
@@ -203,7 +203,7 @@ Rcpp::List gmd_primal_impl(const arma::mat& X,
   if (!ok) {
     // Fallback: full matrix construction + dense eigendecomposition.
     arma::mat S = X.t() * (Q * X);
-    arma::mat M = L_R.t() * S * L_R;
+    arma::mat M = arma::trimatu(L_R.t()) * S * arma::trimatl(L_R);
     if (!arma::eig_sym(eval, Z, M)) Rcpp::stop("eig_sym failed (primal fallback).");
     arma::uvec ord = topk_indices_desc(eval, k_use);
     Z = Z.cols(ord);
@@ -226,16 +226,19 @@ Rcpp::List gmd_primal_impl(const arma::mat& X,
   arma::mat ov = arma::solve(arma::trimatu(L_R.t()), Z, arma::solve_opts::fast);
 
   // Components C = R ov = L_R Z
-  arma::mat C = L_R * Z;                    // p x k
+  arma::mat C = arma::trimatl(L_R) * Z;     // p x k
+
+  // XC is reused for both ou and the scores; keeps everything n x k
+  arma::mat XC = X * C;                     // n x k
 
   // ou from X R ov = ou diag(d)
-  arma::mat ou = X * C;                     // n x k
+  arma::mat ou = XC;
   for (int i = 0; i < static_cast<int>(d.n_elem); ++i) {
     if (d(i) > tol) ou.col(i) /= d(i); else ou.col(i).zeros();
   }
 
-  // scores U = Q X C
-  arma::mat U = (Q * X) * C;                // n x k
+  // scores U = Q (X C); associates as n x k to avoid an n x p intermediate
+  arma::mat U = Q * XC;                     // n x k
 
   return Rcpp::List::create(
       Rcpp::Named("u") = U,
@@ -269,7 +272,7 @@ Rcpp::List gmd_dual_impl(const arma::mat& X,
 
   if (!ok) {
     // Fallback: full matrix construction + dense eigendecomposition.
-    arma::mat B = L_Q.t() * X;
+    arma::mat B = arma::trimatu(L_Q.t()) * X;
     arma::mat RBt = R * B.t();
     arma::mat M = B * RBt;
     if (!arma::eig_sym(eval, Z, M)) Rcpp::stop("eig_sym failed (dual fallback).");
@@ -294,7 +297,7 @@ Rcpp::List gmd_dual_impl(const arma::mat& X,
   arma::mat ou = arma::solve(arma::trimatu(L_Q.t()), Z, arma::solve_opts::fast);
 
   // ov = X^T Q ou / d = X^T (L_Q Z) / d
-  arma::mat ov = X.t() * (L_Q * Z);      // (p x k)
+  arma::mat ov = X.t() * (arma::trimatl(L_Q) * Z);   // (p x k)
   for (int i = 0; i < static_cast<int>(d.n_elem); ++i) {
     if (d(i) > tol) ov.col(i) /= d(i); else ov.col(i).zeros();
   }
@@ -302,8 +305,9 @@ Rcpp::List gmd_dual_impl(const arma::mat& X,
   // Components C = R ov
   arma::mat C = R * ov;
 
-  // Scores U = Q X C = (L_Q L_Q^T) X C = L_Q * (L_Q^T X) * C
-  arma::mat U = L_Q * ((L_Q.t() * X) * C);
+  // Scores U = Q X C = L_Q (L_Q^T (X C)); associates as n x k throughout
+  arma::mat XC = X * C;                              // n x k
+  arma::mat U = arma::trimatl(L_Q) * (arma::trimatu(L_Q.t()) * XC);
 
   return Rcpp::List::create(
       Rcpp::Named("u") = U,
