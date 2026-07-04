@@ -45,10 +45,10 @@ M <- Diagonal(x = row_wt)
 fit_row <- genpca(X, M = M, ncomp = 3, preproc = multivarious::center())
 head(multivarious::scores(fit_row), 4)
 #>             PC1         PC2        PC3
-#> Obs1 -0.6081369 -0.56870409  0.3255369
-#> Obs2 -1.6138469 -0.95435834 -0.5040896
-#> Obs3 -0.2417079  4.12986019  1.7555520
-#> Obs4  1.1451390 -0.05141449 -1.3684167
+#> Obs1  0.6081369 -0.56870409  0.3255369
+#> Obs2  1.6138469 -0.95435834 -0.5040896
+#> Obs3  0.2417079  4.12986019  1.7555520
+#> Obs4 -1.1451390 -0.05141449 -1.3684167
 ```
 
 ![Identity (left) vs row-weighted (right) component scores. Symbol size

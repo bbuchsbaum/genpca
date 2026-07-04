@@ -1,8 +1,8 @@
 # Generalised Principal Components Analysis (GPCA)
 
-Implements the Generalised Least‑Squares Matrix Decomposition of Allen,
+Implements the Generalised Least-Squares Matrix Decomposition of Allen,
 Grosenick & Taylor (2014) for data observed in a \*\*row\*\*
-inner‑product space M and a \*\*column\*\* inner‑product space A.
+inner-product space M and a \*\*column\*\* inner-product space A.
 Setting M = I_n, A = I_p recovers ordinary PCA.
 
 ## Usage
@@ -101,7 +101,7 @@ ncomp(x)
 
 - preproc:
 
-  Pre‑processing transformer object from the \*\*multivarious\*\*
+  Pre-processing transformer object from the \*\*multivarious\*\*
   package (default \`multivarious::pass()\`). Use
   \`multivarious::center()\` for centered GPCA. See
   \`?multivarious::prep\` for options.
@@ -212,7 +212,7 @@ An object of class \`c("genpca", "bi_projector")\` inheriting from
 
 - preproc:
 
-  The \`multivarious\` pre‑processing object used.
+  The \`multivarious\` pre-processing object used.
 
 - A, M:
 
@@ -237,7 +237,7 @@ calls.
 
 ## Method
 
-We compute the rank‑ncomp factors UDVT that minimise \$\$ \\X -
+We compute the rank-ncomp factors UDVT that minimise \$\$ \\X -
 UDV^\top\\\_{M,A}^2 = \mathrm{tr}\\\bigl(M\\
 (X-UDV^\top)\\A\\(X-UDV^\top)^\top\bigr) \$\$ subject to UT M U = I, VT
 AV = I. (Allen et al., 2014). Three methods are available via the
@@ -289,8 +289,8 @@ to A).
 ## References
 
 Allen, G. I., Grosenick, L., & Taylor, J. (2014). \*A Generalized
-Least‑Squares Matrix Decomposition.\* Journal of the American
-Statistical Association, 109(505), 145‑159. arXiv:1102.3074.
+Least-Squares Matrix Decomposition.\* Journal of the American
+Statistical Association, 109(505), 145-159. arXiv:1102.3074.
 
 ## See also
 
@@ -345,11 +345,11 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 #> [1] "Total Var Explained (Eigen): 13 %"
 #> [1] "Weighted GPCA Sdev:"
 #> [1] 24.79929 24.23576 23.57776
-#>            PC1         PC2          PC3
-#> C1 -0.02654255  0.04444090 -0.063163088
-#> C2  0.38534643 -0.13459026 -0.000021882
-#> C3 -0.06053140  0.07895713 -0.093587789
-#> C4  0.04387758 -0.01422663  0.003160916
-#> C5  0.06087768  0.01772540 -0.071200767
-#> C6 -0.00294182 -0.08799976 -0.174320612
+#>            PC1         PC2           PC3
+#> C1  0.02654255 -0.04444090  6.316309e-02
+#> C2 -0.38534643  0.13459026  2.188201e-05
+#> C3  0.06053140 -0.07895713  9.358779e-02
+#> C4 -0.04387758  0.01422663 -3.160916e-03
+#> C5 -0.06087768 -0.01772540  7.120077e-02
+#> C6  0.00294182  0.08799976  1.743206e-01
 ```

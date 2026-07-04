@@ -2,7 +2,10 @@
 
 Compute the top-k singular triplets of \\S = Xe' Ye\\ without
 materializing the whitened matrices \\Xe = Mx^{1/2} X Wx^{1/2}\\, \\Ye =
-My^{1/2} Y Wy^{1/2}\\. Works with dense/sparse constraints.
+My^{1/2} Y Wy^{1/2}\\ when doing so would densify sparse data. When the
+whitening is sparsity-preserving (identity/diagonal metrics) or the data
+are dense, the whitened blocks are precomputed once so each
+matrix-vector product in the iterative SVD costs two multiplies.
 
 ## Usage
 

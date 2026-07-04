@@ -124,8 +124,5 @@ if (requireNamespace("multivarious", quietly = TRUE)) {
 #>   standard interface.
 #> ℹ The deprecated feature was likely used in the genpca package.
 #>   Please report the issue at <https://github.com/bbuchsbaum/genpca/issues>.
-#> 'as(<ddenseMatrix>, "dgeMatrix")' is deprecated.
-#> Use 'as(as(., "generalMatrix"), "unpackedMatrix")' instead.
-#> See help("Deprecated") and help("Matrix-deprecated").
 #> [1] 105.03314  84.68565  90.89784  84.59021  90.72233
 ```

@@ -11,6 +11,8 @@
 <url><loc>https://bbuchsbaum.github.io/genpca/authors.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/index.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/news/index.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/reference/as_dgc.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/reference/as_dge.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/as_weight_operator.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/constraints_utils.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/dot-evict_lru.html</loc></url>
@@ -38,6 +40,7 @@
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/reexports.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/rpls.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/sfpca.html</loc></url>
+<url><loc>https://bbuchsbaum.github.io/genpca/reference/sfpca_cd_solve_cpp.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/solve_gep_subspace.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/transfer.cross_projector.html</loc></url>
 <url><loc>https://bbuchsbaum.github.io/genpca/reference/truncate.html</loc></url>

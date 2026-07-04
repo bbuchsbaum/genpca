@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Getting Started with genpca • genpca</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting Started with genpca">
 </head>
@@ -110,10 +110,10 @@ sizes, or when some rows are more reliable than others.</p>
 <span><span class="va">fit_row</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_row</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             PC1         PC2        PC3</span></span>
-<span><span class="co">#&gt; Obs1 -0.6081369 -0.56870409  0.3255369</span></span>
-<span><span class="co">#&gt; Obs2 -1.6138469 -0.95435834 -0.5040896</span></span>
-<span><span class="co">#&gt; Obs3 -0.2417079  4.12986019  1.7555520</span></span>
-<span><span class="co">#&gt; Obs4  1.1451390 -0.05141449 -1.3684167</span></span></code></pre></div>
+<span><span class="co">#&gt; Obs1  0.6081369 -0.56870409  0.3255369</span></span>
+<span><span class="co">#&gt; Obs2  1.6138469 -0.95435834 -0.5040896</span></span>
+<span><span class="co">#&gt; Obs3  0.2417079  4.12986019  1.7555520</span></span>
+<span><span class="co">#&gt; Obs4 -1.1451390 -0.05141449 -1.3684167</span></span></code></pre></div>
 <div class="figure">
 <img src="genpca_files/figure-html/row-compare-1.png" class="r-plt" alt="Identity (left) vs row-weighted (right) component scores. Symbol size in the right panel scales with row weight." width="85%"><p class="caption">
 Identity (left) vs row-weighted (right) component scores. Symbol size in

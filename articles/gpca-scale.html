@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>GPCA at Scale and Special Cases • genpca</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="GPCA at Scale and Special Cases">
 </head>
@@ -150,7 +150,7 @@ singular values agree across paths:</p>
 <span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       method elapsed   top_sv</span></span>
 <span><span class="co">#&gt; 1      eigen   0.113 19.48896</span></span>
-<span><span class="co">#&gt; 2 randomized   0.007 19.14753</span></span></code></pre></div>
+<span><span class="co">#&gt; 2 randomized   0.009 19.14753</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="Singular values from the eigen and randomized paths agree to plotting precision on this dense problem." width="85%"><p class="caption">
 Singular values from the eigen and randomized paths agree to plotting
@@ -206,10 +206,10 @@ same component space:</p>
 <span><span class="va">scores_test</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">X</span><span class="op">[</span><span class="fl">151</span><span class="op">:</span><span class="fl">200</span>, <span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scores_test</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;            PC1        PC2        PC3        PC4</span></span>
-<span><span class="co">#&gt; [1,] 1.9323426 -0.4080526 -0.1924407 -0.6673048</span></span>
-<span><span class="co">#&gt; [2,] 0.3498745  0.6490485  0.2579339  0.9996621</span></span>
-<span><span class="co">#&gt; [3,] 0.9590113  0.9305126 -1.4603670 -1.1496702</span></span>
-<span><span class="co">#&gt; [4,] 0.1125973  1.0845757 -0.2493420 -1.2509707</span></span></code></pre></div>
+<span><span class="co">#&gt; [1,] 1.9323426  0.4080526  0.1924407  0.6673048</span></span>
+<span><span class="co">#&gt; [2,] 0.3498745 -0.6490485 -0.2579339 -0.9996621</span></span>
+<span><span class="co">#&gt; [3,] 0.9590113 -0.9305126  1.4603670  1.1496702</span></span>
+<span><span class="co">#&gt; [4,] 0.1125973 -1.0845757  0.2493420  1.2509707</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/oos-plot-1.png" class="r-plt" alt="Training scores (grey) and out-of-sample scores (blue) projected into the same component space." width="85%"><p class="caption">
 Training scores (grey) and out-of-sample scores (blue) projected into
