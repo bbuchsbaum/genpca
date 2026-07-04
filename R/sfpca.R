@@ -43,24 +43,32 @@ second_diff_matrix <- function(n) {
 #' automatically (see Details). The spatial smoothness penalty is constructed based on
 #' provided spatial coordinates.
 #'
-#' Each rank-1 problem is solved by alternating exact solves of the penalized
+#' Each rank-1 problem is solved by alternating solves of the penalized
 #' quadratic subproblems (via C++ coordinate descent) followed by rescaling
 #' onto the smoothness-metric ball, in the constraint form of Allen & Weylandt
-#' (2019). For the convex `"l1"` penalty this yields a monotonically
-#' non-decreasing objective.
+#' (2019). For the convex `"l1"` penalty with subproblems solved to tolerance
+#' (the internal `exact_inner = TRUE` path, used by the monotonicity test) the
+#' objective is monotonically non-decreasing; the default inexact path
+#' tightens the inner tolerance to a floor before it may declare convergence,
+#' reproducing the same terminal iterates but without an every-iteration
+#' monotonicity guarantee (it may also stop at `max_iter`).
 #'
-#' When `lambda_u` or `lambda_v` is `NULL` it is selected per component by BIC
-#' along a regularization path: `lambda_max = max(abs(b))` (the smallest value
-#' whose subproblem solution is exactly zero, where `b` is the matrix-vector
-#' product with the other factor fixed at the SVD initializer) is computed in
-#' closed form, `nlambda` values are laid log-spaced down to
-#' `lambda_min_ratio * lambda_max`, coordinate descent is warm-started along
-#' the path, and the value minimizing
+#' When `lambda_u` or `lambda_v` is `NULL` it is selected per component by a
+#' BIC-style criterion along a regularization path. For the convex `"l1"`
+#' penalty `lambda_max = max(abs(b))` is, in closed form, the smallest value
+#' whose subproblem solution is exactly zero (at `x = 0` the `S x` term
+#' vanishes, so the KKT condition `|b_j| <= lambda` does not depend on `S`);
+#' where `b` is the matrix-vector product with the other factor fixed at the
+#' SVD initializer. For the non-convex `"scad"` penalty the same value anchors
+#' the path but is not a global-optimality threshold. `nlambda` values are
+#' laid log-spaced down to `lambda_min_ratio * lambda_max`, coordinate descent
+#' is warm-started along the path, and the value minimizing
 #' `log(RSS / (n p)) + df * log(n p) / (n p)` is chosen, with `df` the support
-#' size of the solution (Allen & Weylandt, 2019). The all-zero solution (at
-#' `lambda_max`) is a legitimate candidate: if no rank-1 structure justifies
-#' its degrees of freedom, the component is returned as exactly zero with
-#' `d = 0`.
+#' size of the solution and `RSS` the one-sided rank-1 residual sum of squares
+#' with the opposite factor held fixed (a selection heuristic, not the BIC of
+#' the fully alternated rank-1 model). The all-zero solution (at `lambda_max`)
+#' is a legitimate candidate: if no rank-1 structure justifies its degrees of
+#' freedom, the component is returned as exactly zero with `d = 0`.
 #'
 #' When `alpha_u` or `alpha_v` is `NULL` it defaults to
 #' `1 / lambda_max(Omega)`, so the roughest direction of the smoothness
@@ -183,6 +191,15 @@ sfpca <- function(X, K, spat_cds,
   # identity term and cond(I + alpha * Omega) <= 2 however Omega was scaled.
   alpha_u_use <- if (is.null(alpha_u)) default_alpha(Omega_u) else alpha_u
   alpha_v_use <- if (is.null(alpha_v)) default_alpha(Omega_v) else alpha_v
+  # S = I + alpha * Omega must stay SPD for the coordinate-descent subproblems
+  # to be convex; a negative or non-finite alpha breaks that precondition (the
+  # C++ solver only checks a positive diagonal, which is not sufficient).
+  for (nm in c("alpha_u", "alpha_v")) {
+    a <- get(paste0(nm, "_use"))
+    if (length(a) != 1 || !is.finite(a) || a < 0) {
+      stop("`", nm, "` must be a single finite non-negative number.")
+    }
+  }
   if (verbose && (is.null(alpha_u) || is.null(alpha_v))) {
     cat("Default smoothness weights: alpha_u =", alpha_u_use,
         "alpha_v =", alpha_v_use, "\n")
@@ -267,9 +284,12 @@ sfpca <- function(X, K, spat_cds,
   dimnames(u_list) <- list(rn, comp_names)
   dimnames(v_list) <- list(cn, comp_names)
 
-  # Scores are the samples projected into component space: F = X V = U D
-  # (multivarious `scores()`); loadings are the sparse right factors V
-  # (`components()`). sweep avoids the diag(d) scalar trap when K == 1.
+  # Scores of the sfpca deflation model X ~= U D V': F = U D (samples in
+  # component space), exposed via multivarious `scores()`; loadings are the
+  # sparse right factors V (`components()`). The columns of `u_list`/`v_list`
+  # are Euclidean unit vectors but, unlike an SVD, are NOT mutually orthogonal
+  # across components, so reconstruction uses t(V) (see reconstruct.sfpca),
+  # not the pseudoinverse. sweep avoids the diag(d) scalar trap when K == 1.
   scores_mat <- sweep(u_list, 2, d_list, `*`)
 
   # sfpca does no preprocessing; build a fitted pass() pre_processor the same
@@ -278,16 +298,43 @@ sfpca <- function(X, K, spat_cds,
                                          matrix(0, nrow = 1L, ncol = p))$preproc
 
   multivarious::bi_projector(
-    v = v_list,             # loadings / components (right factors)
+    v = v_list,             # loadings / components (right factors, unit-norm)
     s = scores_mat,         # scores = U D
     sdev = d_list,          # singular values
     preproc = procres,      # identity preprocessing
-    ou = u_list,            # orthonormal left factors (M = I here)
-    ov = v_list,            # orthonormal right factors (A = I here)
+    ou = u_list,            # left factors (unit-norm columns, M = I here)
+    ov = v_list,            # right factors (unit-norm columns, A = I here)
     lambda_u = lambda_u_list, lambda_v = lambda_v_list,
     alpha_u = alpha_u_list, alpha_v = alpha_v_list,
     classes = "sfpca"
   )
+}
+
+# Reconstruct the sfpca deflation model X ~= U D V'.
+#
+# sfpca components are Euclidean unit vectors but NOT mutually orthogonal, so
+# V'V != I. The inherited reconstruct.bi_projector reconstructs through the
+# Moore-Penrose pseudoinverse of the loadings (scores %*% pinv(V)), which for
+# non-orthogonal V does NOT return the rank-`comp` model U D V' that sfpca
+# actually fits and deflates with. This method restores the intended
+# semantics: reconstruct = scores[, comp] %*% t(V[, comp]) = U D V'. sfpca does
+# no preprocessing, so no inverse transform is required.
+#' @exportS3Method
+reconstruct.sfpca <- function(x, comp = seq_len(multivarious::ncomp(x)),
+                              rowind = NULL,
+                              colind = NULL,
+                              ...) {
+  ncomp <- multivarious::ncomp(x)
+  if (any(comp < 1) || any(comp > ncomp)) {
+    stop("`comp` must index existing components (1:", ncomp, ").")
+  }
+  S_all <- multivarious::scores(x)
+  V_all <- multivarious::components(x)
+  rowind <- if (is.null(rowind)) seq_len(nrow(S_all)) else rowind
+  colind <- if (is.null(colind)) seq_len(nrow(V_all)) else colind
+  S <- S_all[rowind, comp, drop = FALSE]      # U D
+  V <- V_all[colind, comp, drop = FALSE]      # loadings
+  S %*% t(V)
 }
 
 # Deprecation shim for the pre-0.1 list return shape. `sfpca()` now returns a
@@ -460,7 +507,10 @@ sfpca_res_fnorm2 <- function(F2_X, X, U = NULL, d = numeric(0), V = NULL) {
   cross <- sum(d * colSums(as.matrix(U) * XV))
   Gu <- crossprod(as.matrix(U))
   Gv <- crossprod(as.matrix(V))
-  F2_X - 2 * cross + sum(outer(d, d) * Gu * Gv)
+  # The three terms can be large and nearly cancel at high signal scale; the
+  # true residual norm is non-negative, so clamp away catastrophic-cancellation
+  # noise before it reaches log(RSS) downstream.
+  max(F2_X - 2 * cross + sum(outer(d, d) * Gu * Gv), 0)
 }
 
 # Sparsity penalty selection for one subproblem side. lambda_max = ||b||_inf

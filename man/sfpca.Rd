@@ -94,24 +94,32 @@ automatically (see Details). The spatial smoothness penalty is constructed based
 provided spatial coordinates.
 }
 \details{
-Each rank-1 problem is solved by alternating exact solves of the penalized
+Each rank-1 problem is solved by alternating solves of the penalized
 quadratic subproblems (via C++ coordinate descent) followed by rescaling
 onto the smoothness-metric ball, in the constraint form of Allen & Weylandt
-(2019). For the convex `"l1"` penalty this yields a monotonically
-non-decreasing objective.
+(2019). For the convex `"l1"` penalty with subproblems solved to tolerance
+(the internal `exact_inner = TRUE` path, used by the monotonicity test) the
+objective is monotonically non-decreasing; the default inexact path
+tightens the inner tolerance to a floor before it may declare convergence,
+reproducing the same terminal iterates but without an every-iteration
+monotonicity guarantee (it may also stop at `max_iter`).
 
-When `lambda_u` or `lambda_v` is `NULL` it is selected per component by BIC
-along a regularization path: `lambda_max = max(abs(b))` (the smallest value
-whose subproblem solution is exactly zero, where `b` is the matrix-vector
-product with the other factor fixed at the SVD initializer) is computed in
-closed form, `nlambda` values are laid log-spaced down to
-`lambda_min_ratio * lambda_max`, coordinate descent is warm-started along
-the path, and the value minimizing
+When `lambda_u` or `lambda_v` is `NULL` it is selected per component by a
+BIC-style criterion along a regularization path. For the convex `"l1"`
+penalty `lambda_max = max(abs(b))` is, in closed form, the smallest value
+whose subproblem solution is exactly zero (at `x = 0` the `S x` term
+vanishes, so the KKT condition `|b_j| <= lambda` does not depend on `S`);
+where `b` is the matrix-vector product with the other factor fixed at the
+SVD initializer. For the non-convex `"scad"` penalty the same value anchors
+the path but is not a global-optimality threshold. `nlambda` values are
+laid log-spaced down to `lambda_min_ratio * lambda_max`, coordinate descent
+is warm-started along the path, and the value minimizing
 `log(RSS / (n p)) + df * log(n p) / (n p)` is chosen, with `df` the support
-size of the solution (Allen & Weylandt, 2019). The all-zero solution (at
-`lambda_max`) is a legitimate candidate: if no rank-1 structure justifies
-its degrees of freedom, the component is returned as exactly zero with
-`d = 0`.
+size of the solution and `RSS` the one-sided rank-1 residual sum of squares
+with the opposite factor held fixed (a selection heuristic, not the BIC of
+the fully alternated rank-1 model). The all-zero solution (at `lambda_max`)
+is a legitimate candidate: if no rank-1 structure justifies its degrees of
+freedom, the component is returned as exactly zero with `d = 0`.
 
 When `alpha_u` or `alpha_v` is `NULL` it defaults to
 `1 / lambda_max(Omega)`, so the roughest direction of the smoothness
