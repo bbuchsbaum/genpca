@@ -25,7 +25,7 @@ is_identity_or_diag <- function(M, eps = 1e-15) {
 #' @param k maximum rank
 #' @param which "LA" for largest algebraic
 #' @param eps small numeric for safety
-#' @param tol tolerance for PRIMME
+#' @param tol tolerance for the iterative eigensolver
 #' @return list(Q=..., lam=...) with length(lam)=k_eff
 #' @keywords internal
 #' @noRd
@@ -34,15 +34,15 @@ partial_eig_once <- function(M, k = 50, which = "LA", eps = 1e-15, tol = 1e-6) {
   k_eff <- min(k, nrow(M), ncol(M))
   k_eff <- max(k_eff, 1)
 
-  # For small matrices, base eigen() is more accurate than the
-  # iterative solver used by PRIMME.  This helps avoid numeric
-  # discrepancies in unit tests comparing to direct SVD.
-  if (nrow(M) <= 50) {
+  # For small or full-rank requests, base eigen() is more accurate and avoids
+  # asking RSpectra for k >= n eigenpairs.
+  if (nrow(M) <= 50 || k_eff >= nrow(M)) {
     es <- eigen(as.matrix(M), symmetric = TRUE)
     lam <- pmax(es$values[seq_len(k_eff)], 0)
     Q   <- es$vectors[, seq_len(k_eff), drop = FALSE]
   } else {
-    es <- PRIMME::eigs_sym(M, NEig = k_eff, which = which, tol = tol)
+    es <- RSpectra::eigs_sym(M, k = k_eff, which = which,
+                              opts = list(tol = tol))
     lam <- pmax(es$values, 0)
     Q   <- es$vectors
   }

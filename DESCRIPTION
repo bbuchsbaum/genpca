@@ -26,7 +26,6 @@ Imports:
     multivarious,
     assertthat,
     methods,
-    PRIMME,
     digest
 LinkingTo:
     Rcpp,
