@@ -17,6 +17,7 @@ Dutilleul
 Eqs
 Escoufier
 GEMM
+GLS
 GMD
 GPCA
 GPLSSVD
@@ -45,6 +46,7 @@ RBF
 RPLS
 RSpectra
 Regularised
+Rightarrow
 SFPCA
 SPD
 Salkind
@@ -78,6 +80,7 @@ canonicalized
 cdots
 colind
 cumv
+denoising
 densifies
 densify
 des
@@ -96,10 +99,12 @@ eigenanalysis
 eigencomponents
 eigendecomp
 eigendecomposition
+eigendirections
 eigenproblem
 eigensolve
 eigensolver
 embeddings
+emphasises
 eqs
 et
 factorizations
@@ -119,6 +124,7 @@ initializer
 irlba
 iter
 kkt
+labelled
 langle
 le
 literatures
@@ -127,6 +133,7 @@ ly
 mapsto
 materialising
 mathbb
+mathbf
 mathcal
 maximises
 maxiter
@@ -160,6 +167,7 @@ pre
 precisions
 preprint
 preprocessors
+prewhitening
 propv
 pseudoinverse
 qquad
@@ -178,11 +186,13 @@ spd
 sqrtm
 subproblem
 subproblems
+tL
 tfrac
 th
 tol
 unwhiten
 urbanisation
+varepsilon
 vec
 vx
 vy
