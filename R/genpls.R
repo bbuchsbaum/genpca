@@ -18,10 +18,10 @@
 #'
 #' @param X Numeric or Matrix, n x p.
 #' @param Y Numeric or Matrix, n x q. Must have same n as `X`.
-#' @param Ax Column metric for X (W_X): vector/diagonal/matrix; `NULL` ⇒ identity.
-#' @param Ay Column metric for Y (W_Y): vector/diagonal/matrix; `NULL` ⇒ identity.
-#' @param Mx Row metric for X (M_X): vector/diagonal/matrix; `NULL` ⇒ identity.
-#' @param My Row metric for Y (M_Y): vector/diagonal/matrix; `NULL` ⇒ identity.
+#' @param Ax Column metric for X (W_X): vector/diagonal/matrix; `NULL` means identity.
+#' @param Ay Column metric for Y (W_Y): vector/diagonal/matrix; `NULL` means identity.
+#' @param Mx Row metric for X (M_X): vector/diagonal/matrix; `NULL` means identity.
+#' @param My Row metric for Y (M_Y): vector/diagonal/matrix; `NULL` means identity.
 #' @param ncomp Number of components to extract (rank-k). Default 2.
 #' @param preproc_x,preproc_y Optional `multivarious` preprocessors (e.g., `center()`).
 #'   Defaults to `multivarious::pass()` (no-op).

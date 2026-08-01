@@ -32,7 +32,7 @@ rpls(
 \item{penalty}{Either \code{"l1"} (lasso) or \code{"ridge"}.}
 
 \item{Q}{Optional positive-(semi)definite \eqn{p \times p} matrix
-inducing \emph{generalised} PLS. \code{NULL} ⇒ identity.}
+inducing \emph{generalised} PLS. \code{NULL} means identity.}
 
 \item{nonneg}{Logical, force non-negative loadings when
 \code{penalty = "l1"}. Note: This option is currently ignored when

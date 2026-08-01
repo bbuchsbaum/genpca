@@ -124,7 +124,9 @@ test_that("transfer.cross_projector round trip recovers a noiseless rank-K syste
 
   xy <- multivarious::transfer(fit, X, from = "X", to = "Y")
   back <- multivarious::transfer(fit, xy, from = "Y", to = "X")
-  expect_lt(norm(as.matrix(back) - X, "F") / norm(X, "F"), 1e-8)
+  # Round trip goes through two least-squares solves; accumulated error is
+  # BLAS-dependent (observed 2e-6 on win-builder R-devel vs 1e-9 locally).
+  expect_lt(norm(as.matrix(back) - X, "F") / norm(X, "F"), 1e-5)
 
   # X transferred to Y-space correlates strongly with the true Y
   expect_gt(cor(as.vector(as.matrix(xy)), as.vector(Y)), 0.85)

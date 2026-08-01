@@ -36,6 +36,7 @@ LinkingTo:
 Suggests:
     testthat (>= 3.0.0),
     irlba,
+    matrixStats,
     clue,
     knitr,
     rmarkdown,

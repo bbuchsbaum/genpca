@@ -24,13 +24,13 @@ genplsc(
 
 \item{Y}{Numeric or Matrix, n x q. Must have same n as \code{X}.}
 
-\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
+\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; \code{NULL} means identity.}
 
-\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
+\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; \code{NULL} means identity.}
 
-\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
+\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; \code{NULL} means identity.}
 
-\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
+\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; \code{NULL} means identity.}
 
 \item{ncomp}{Number of components to extract (rank-k). Default 2.}
 

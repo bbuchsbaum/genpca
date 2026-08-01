@@ -285,7 +285,7 @@ fit_rpls <- function(X, Y,
 #' @param lambda Scalar or length-\code{K} numeric vector of penalties.
 #' @param penalty Either `"l1"` (lasso) or `"ridge"`.
 #' @param Q Optional positive-(semi)definite \eqn{p \times p} matrix
-#'   inducing *generalised* PLS. `NULL` ⇒ identity.
+#'   inducing *generalised* PLS. `NULL` means identity.
 #' @param nonneg Logical, force non-negative loadings when
 #'   \code{penalty = "l1"}. Note: This option is currently ignored when
 #'   \code{penalty = "ridge"}.
