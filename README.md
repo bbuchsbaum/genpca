@@ -29,6 +29,12 @@ GPCA extends standard PCA by incorporating row and column metrics (M and A) that
 - **Operator-level computations** (`gplssvd_op`): Efficient PLS without materializing whitened matrices
 - **Constraint handling**: Automatic validation and repair of metric matrices (PSD enforcement)
 
+### Related Decompositions
+- **Sparse functional PCA** (`sfpca`): Rank-1 components with sparsity and spatial smoothness penalties, e.g. `sfpca(X, K = 2, spat_cds = coords)`. See `?sfpca`.
+- **Regularized PLS** (`rpls`): Single-metric penalized PLS (Allen et al. 2013) with `"l1"` or `"ridge"` penalties, e.g. `rpls(X, Y, K = 3, lambda = 0.1, penalty = "l1")`. See `?rpls`.
+- **Matrix-normal PCA** (`mnpca_mrl`): Low-rank factorization with sparse row/column precision matrices under matrix-normal noise, e.g. `mnpca_mrl(Y, ncomp = 3, lambda_row = 0.05, lambda_col = 0.05)`. See `?mnpca_mrl`.
+- **Metric learning** (`gpca_mle`): Experimental alternation of GPCA with maximum-likelihood estimation of the row/column metrics themselves, e.g. `gpca_mle(X, ncomp = 2)`. See `?gpca_mle`.
+
 ### Integration
 - Full compatibility with the `multivarious` package ecosystem
 - Unified interface for preprocessing, projection, reconstruction, and transfer learning
@@ -36,7 +42,9 @@ GPCA extends standard PCA by incorporating row and column metrics (M and A) that
 
 ## Backend Selection Guide
 
-Use `method = "auto"` unless you have a strong reason to pin a backend.
+The default backend is `method = "eigen"`. `"auto"` is opt-in: pass it
+explicitly to let a heuristic pick among `"eigen"`, `"spectra"`, and
+`"randomized"` based on problem shape and constraint structure.
 
 | Method | Best for | Pros | Cons |
 |---|---|---|---|
@@ -72,7 +80,9 @@ X <- matrix(rnorm(200 * 50), 200, 50)
 
 # Standard PCA (identity metrics by default)
 fit <- genpca(X, ncomp = 5, preproc = multivarious::center())
-fit$sdev                             # singular values
+fit$sdev                             # generalized singular values;
+                                      # with identity metrics this is
+                                      # prcomp(X)$sdev * sqrt(nrow(X) - 1)
 head(multivarious::scores(fit))      # scores (n × k)
 head(multivarious::components(fit))  # loadings (p × k)
 ```
@@ -96,10 +106,14 @@ fit_weighted <- genpca(X, M = M, A = A, ncomp = 5,
 ### Covariance-based GPCA
 
 ```r
-# When you have pre-computed covariance C = X'MX
-C <- crossprod(X, M %*% X)
+# When you have pre-computed covariance C = X'MX. fit_weighted above used
+# preproc = multivarious::center(), so C must be built from centered X for
+# the two fits to agree exactly.
+Xc <- scale(X, center = TRUE, scale = FALSE)
+C  <- crossprod(Xc, M %*% Xc)
 fit_cov <- genpca_cov(C, R = A, ncomp = 5, method = "gmd")
 # Mathematically equivalent to fit_weighted above
+all.equal(fit_weighted$sdev, fit_cov$d, tolerance = 1e-8)
 ```
 
 ### Generalized PLS
@@ -110,8 +124,13 @@ Y <- matrix(rnorm(200 * 20), 200, 20)
 pls <- genpls(X, Y, ncomp = 3, 
               preproc_x = multivarious::center(), 
               preproc_y = multivarious::center())
-pls$d                    # canonical correlations
+pls$d                    # singular values of the whitened cross-product
+                          # Xe'Ye (covariance scale, NOT canonical correlations)
 dim(pls$vx); dim(pls$vy) # X/Y weight matrices
+
+# To get canonical-correlation-like quantities, correlate the latent
+# variable pairs directly:
+diag(cor(pls$lx, pls$ly))
 ```
 
 ## Understanding Metrics in GPCA
@@ -143,8 +162,10 @@ When `M = I` and `A = I`, GPCA reduces to standard PCA.
 ## Documentation
 
 - Vignettes
-  - genpca: Generalized PCA and Related Decompositions (overview)
-  - Generalized PLS‑SVD: Explicit Whitening Reference (operator vs explicit whitening)
+  - Getting Started with genpca
+  - GPCA Metrics: Building M and A
+  - GPCA at Scale and Special Cases
+  - Generalized PLS-SVD: Explicit Whitening Reference
 
 Build locally:
 
@@ -191,9 +212,6 @@ MIT (see LICENSE).
 Issues and PRs welcome. Please open a ticket with a minimal example, your R session info, and (if relevant) a pointer to the metric matrices that reproduce the behavior.
 
 
-
-## Albers theme
-This package uses the albersdown theme. Vignettes are styled with `vignettes/albers.css` and a local `vignettes/albers.js`; the palette family is provided via `params$family` (default 'red'). The pkgdown site uses `template: { package: albersdown }`.
 
 <!-- albersdown:theme-note:start -->
 ## Albers theme

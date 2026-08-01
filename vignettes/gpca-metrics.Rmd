@@ -62,7 +62,7 @@ This vignette collects practical recipes for row and column metrics, plus notes 
 
 ## Why metrics
 
-Metrics encode weighting and correlation. The row metric `M` changes how observations are compared. The column metric `A` changes how variables are compared. Both must be symmetric positive definite (SPD) for GPCA. In return, you can bake known structure -- temporal smoothness, spatial proximity, group membership, heteroscedastic noise -- straight into the decomposition.
+Metrics encode weighting and correlation. The row metric `M` changes how observations are compared. The column metric `A` changes how variables are compared. Both must be symmetric positive **semi-definite** (PSD) for GPCA -- singular metrics are accepted (e.g. a rank-deficient graph Laplacian), and `constraints_remedy` can repair mildly invalid input. In return, you can bake known structure -- temporal smoothness, spatial proximity, group membership, heteroscedastic noise -- straight into the decomposition.
 
 ## Heteroscedastic diagonals
 

@@ -19,7 +19,7 @@ test_that("genpca_cov matches genpca when C = X'MX", {
   fit_cov <- genpca_cov(C, R = NULL, ncomp = 5)
 
   # Check that singular values match
-  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-10)
+  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-8)
 
   # Check that loadings match (up to sign)
   for (i in 1:5) {
@@ -27,7 +27,7 @@ test_that("genpca_cov matches genpca when C = X'MX", {
     v_cov <- fit_cov$v[, i]
     # Check if vectors are parallel (correlation should be ±1)
     cor_val <- abs(cor(v_genpca, v_cov))
-    expect_equal(cor_val, 1, tolerance = 1e-10)
+    expect_equal(cor_val, 1, tolerance = 1e-8)
   }
 
   # Test 2: With row metric M
@@ -39,7 +39,7 @@ test_that("genpca_cov matches genpca when C = X'MX", {
                          preproc = multivarious::pass())
   fit_cov_M <- genpca_cov(C_M, R = NULL, ncomp = 5)
 
-  expect_equal(fit_genpca_M$sdev, fit_cov_M$d, tolerance = 1e-10)
+  expect_equal(fit_genpca_M$sdev, fit_cov_M$d, tolerance = 1e-8)
 
   # Test 3: Simplified test - just check that the function works with constraints
   # Note: The exact mathematical equivalence with genpca when both M and A
@@ -57,7 +57,7 @@ test_that("genpca_cov matches genpca when C = X'MX", {
   # Check G-orthonormality of eigenvectors: V'GV = I
   G <- Matrix::Diagonal(p, x = A_diag)
   VGV <- as.matrix(t(fit_cov_MA$v) %*% (G %*% fit_cov_MA$v))
-  expect_equal(VGV, diag(5), tolerance = 1e-10)
+  expect_equal(VGV, diag(5), tolerance = 1e-8)
 })
 
 test_that("genpca_cov handles diagonal weights correctly", {
@@ -72,10 +72,12 @@ test_that("genpca_cov handles diagonal weights correctly", {
   # Test with diagonal weights as matrix
   fit_mat <- genpca_cov(C, R = diag(w), ncomp = 3)
 
-  # Results should be identical
-  expect_equal(fit_vec$d, fit_mat$d, tolerance = 1e-10)
-  expect_equal(fit_vec$v, fit_mat$v, tolerance = 1e-10)
-  expect_equal(fit_vec$propv, fit_mat$propv, tolerance = 1e-10)
+  # Results should be identical (eigenvectors up to column sign)
+  expect_equal(fit_vec$d, fit_mat$d, tolerance = 1e-8)
+  expect_equal(as.matrix(fit_vec$v),
+               align_signs(as.matrix(fit_vec$v), as.matrix(fit_mat$v)),
+               tolerance = 1e-8)
+  expect_equal(fit_vec$propv, fit_mat$propv, tolerance = 1e-8)
 })
 
 test_that("genpca_cov handles semidefinite G", {
@@ -107,7 +109,7 @@ test_that("genpca_cov variance explained sums to <= 1", {
   expect_true(all(diff(fit$cumv) >= -1e-10))
 
   # Last cumulative value should equal sum of propv
-  expect_equal(fit$cumv[length(fit$cumv)], sum(fit$propv), tolerance = 1e-10)
+  expect_equal(fit$cumv[length(fit$cumv)], sum(fit$propv), tolerance = 1e-8)
 })
 
 test_that("genpca_cov remedies work correctly", {

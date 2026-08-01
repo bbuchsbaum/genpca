@@ -9,12 +9,14 @@ is_spd(A, tol = 1e-06)
 \arguments{
 \item{A}{numeric matrix or Matrix::Matrix}
 
-\item{tol}{tolerance for numerical checks (unused but kept for compatibility)}
+\item{tol}{relative tolerance: eigenvalues above \code{-tol * max(abs(diag(A)))}
+are treated as non-negative, so PSD-but-singular metrics are accepted}
 }
 \value{
-logical TRUE if SPD, FALSE otherwise
+logical TRUE if symmetric PSD within tolerance, FALSE otherwise
 }
 \description{
-Check if a matrix is symmetric positive semi-definite using Cholesky decomposition
+Check if a matrix is symmetric positive semi-definite (within
+\code{tol}) by attempting a Cholesky factorization of \code{A + tol*scale*I}.
 }
 \keyword{internal}

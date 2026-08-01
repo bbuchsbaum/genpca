@@ -21,12 +21,15 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
   # which is row scaling for matrices and plain elementwise for vectors.
   if (Matrix::isDiagonal(W)) {
     d <- diag(W)
+    # Pseudo-inverse convention for PSD weights with zero entries: map the
+    # null-space coordinates to 0 rather than Inf (matches .metric_operators).
+    inv0 <- function(z) ifelse(z > 0, 1 / z, 0)
     d_op <- if (sqrt && inverse) {
-      1 / sqrt(d)          # W^{-1/2}
+      inv0(sqrt(d))        # W^{-1/2}
     } else if (sqrt && !inverse) {
       sqrt(d)              # W^{1/2}
     } else if (!sqrt && inverse) {
-      1 / d                # W^{-1}
+      inv0(d)              # W^{-1}
     } else {
       d                    # W
     }

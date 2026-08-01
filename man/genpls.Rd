@@ -22,39 +22,54 @@ genpls(
 \arguments{
 \item{X}{Numeric or Matrix, n x p.}
 
-\item{Y}{Numeric or Matrix, n x q. Must have same n as `X`.}
+\item{Y}{Numeric or Matrix, n x q. Must have same n as \code{X}.}
 
-\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
 \item{ncomp}{Number of components to extract (rank-k). Default 2.}
 
-\item{preproc_x, preproc_y}{Optional `multivarious` preprocessors (e.g., `center()`).
-Defaults to `multivarious::pass()` (no-op).}
+\item{preproc_x, preproc_y}{Optional \code{multivarious} preprocessors (e.g., \code{center()}).
+Defaults to \code{multivarious::pass()} (no-op).}
 
-\item{svd_backend}{Character, one of `"RSpectra"` (default) or `"irlba"` for
-iterative SVD. If neither backend is available, a dense fallback is used
-for small problems by materializing S.}
+\item{svd_backend}{Character, one of \code{"RSpectra"} (default) or \code{"irlba"} for
+the iterative SVD. This choice only matters for larger problems: whenever
+both \code{X} and \code{Y} have at most 64 columns after preprocessing, the
+operator materializes \code{S} densely and computes a direct \code{svd()},
+ignoring \code{svd_backend} entirely (see \code{gplssvd_op()}).}
 
-\item{svd_opts}{List of options passed to the SVD backend, e.g., `tol`, `maxitr`.}
+\item{svd_opts}{List of options passed to the SVD backend, e.g., \code{tol}, \code{maxitr}.}
 
 \item{verbose}{Logical; print brief progress messages.}
 }
 \value{
-An object of class `c("genpls", "cross_projector", "projector")` with:
-  \describe{
-    \item{vx, vy}{X- and Y- weights usable with predict/transfer (stored in cross_projector)}
-    \item{d}{singular values (attached field)}
-    \item{p, q}{generalized weights \eqn{W_X^{-1/2} u}, \eqn{W_Y^{-1/2} v} (attached)}
-    \item{fi, fj}{variable/component scores \eqn{W_X p D}, \eqn{W_Y q D} (attached)}
-    \item{lx, ly}{row latent variables \eqn{M_X^{1/2} X W_X p}, \eqn{M_Y^{1/2} Y W_Y q} (attached)}
-    \item{metrics}{the supplied metrics (attached)}
-  }
+An object of class \code{c("genpls", "cross_projector", "projector")} with:
+\describe{
+\item{vx, vy}{X- and Y- projection weights (stored in cross_projector)
+such that \verb{project(fit, X) = X \\\%*\\\% vx} and
+\verb{project(fit, Y, source = "Y") = Y \\\%*\\\% vy} recover the latent
+variables in the ambient (non-whitened) metric. Algebraically
+\verb{vx = W_X p = fi \\\%*\\\% diag(1/d)} and \verb{vy = W_Y q = fj \\\%*\\\% diag(1/d)}
+(see Details).}
+\item{d}{singular values of \eqn{S = Xe' Ye} (attached field)}
+\item{p, q}{generalized weights \eqn{W_X^{-1/2} u}, \eqn{W_Y^{-1/2} v} (attached)}
+\item{fi, fj}{variable/component scores \eqn{W_X p D}, \eqn{W_Y q D} (attached)}
+\item{lx, ly}{row latent variables \eqn{M_X^{1/2} X W_X p}, \eqn{M_Y^{1/2} Y W_Y q} (attached)}
+\item{metrics}{the supplied metrics (attached)}
+\item{ncomp}{Number of components actually extracted. The underlying
+operator may return fewer than the requested \code{ncomp} (e.g. when
+\code{ncomp} exceeds \code{min(ncol(X), ncol(Y))}); this field reflects the
+actual count, not the request.}
+\item{backend}{The \code{svd_backend} value passed in (for reference only;
+see the \code{svd_backend} argument for when it is actually used).}
+\item{preproc_x, preproc_y}{The fitted \code{multivarious} preprocessing
+objects for \code{X} and \code{Y}, stored on the \code{cross_projector}.}
+}
 }
 \description{
 Canonical (two-block) generalized PLS using sparse-friendly implicit
@@ -63,16 +78,35 @@ without materializing \eqn{Xe = Mx^{1/2} X Ax^{1/2}} or \eqn{Ye = My^{1/2} Y Ay^
 }
 \details{
 This follows the GPLSSVD/PLS-SVD formulation (Beaton, eqs. 10–14):
-the top `ncomp` singular triplets of S are computed by iterative SVD
+the top \code{ncomp} singular triplets of S are computed by iterative SVD
 on the linear maps v -> S v and u -> S^T u, implemented with metric
 Cholesky multiplies/solves when possible. Works with dense or sparse
-`Matrix` inputs and constraint metrics.
+\code{Matrix} inputs and constraint metrics.
 
-Returns a `multivarious::cross_projector` with X-/Y-weights (vx, vy)
-chosen to provide natural projection of new data (`X %*% vx`, `Y %*% vy`).
+Returns a \code{multivarious::cross_projector} with X-/Y-weights (vx, vy)
+chosen to provide natural projection of new data (\code{X \%*\% vx}, \code{Y \%*\% vy}).
 Additional GPLSSVD quantities are attached to the object for access:
-singular values `d`, generalized weights `p`, `q`, variable scores `fi`, `fj`,
-and row latent variables `lx`, `ly`.
+singular values \code{d}, generalized weights \code{p}, \code{q}, variable scores \code{fi}, \code{fj},
+and row latent variables \code{lx}, \code{ly}.
+
+\code{genpls()} maximizes the covariance between latent variables of \code{X} and
+\code{Y} under the (Mx, Ax, My, Ay) metrics by computing the SVD of
+\eqn{S = Xe' Ye}, where \eqn{Xe = Mx^{1/2} X Ax^{1/2}} and
+\eqn{Ye = My^{1/2} Y Ay^{1/2}}.
+
+\code{project()} on a fitted object returns latent variables in the ambient
+(original data) metric, i.e. \verb{X \\\%*\\\% vx = X W_X p}. This differs from the
+attached \verb{lx = Mx^\{1/2\} X W_X p}, which lives in the row-whitened metric,
+by the factor \eqn{Mx^{1/2}}: \code{lx} and \code{project(fit, X)} are equal only
+when \code{Mx = I}. New-row projection necessarily uses \code{project()}'s
+ambient-metric convention, because a training-row metric \code{Mx} has no
+natural extension to out-of-sample rows.
+
+\strong{Metric naming.} \code{genpls()}'s row/column metric arguments (\code{Mx},
+\code{My} for rows; \code{Ax}, \code{Ay} for columns) follow the same M/A convention as
+\code{genpca()}. Internally they are forwarded to \code{gplssvd_op()}, which uses
+the names \code{XLW}/\code{YLW} (left/row weights, i.e. \code{Mx}/\code{My}) and
+\code{XRW}/\code{YRW} (right/column weights, i.e. \code{Ax}/\code{Ay}).
 }
 \examples{
 if (requireNamespace("RSpectra", quietly = TRUE) &&
@@ -91,6 +125,6 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 
 }
 \references{
-Beaton, Dougal. Generalized eigen, singular value, and partial least squares
-decompositions: The GSVD package. (Eqs. 10–14). 2020.
+Beaton, D. (2020). Generalized eigen, singular value, and partial least
+squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.
 }

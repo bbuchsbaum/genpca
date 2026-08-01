@@ -390,7 +390,8 @@ test_that("GPCA and GPLSSVD operator fallbacks are covered", {
   )
   expect_equal(lazy$k, 1L)
 
-  expect_error(suppressWarnings(genpca:::ensure_spd(matrix(NaN, 2, 2))), NA)
+  # Non-finite input must be rejected loudly, not silently "remediated"
+  expect_error(genpca:::ensure_spd(matrix(NaN, 2, 2)), "non-finite")
 })
 
 test_that("GEP subspace and randomized GMD R fallbacks are covered", {

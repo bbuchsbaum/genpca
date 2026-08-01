@@ -7,7 +7,7 @@
 sfpca_cd_solve_cpp(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
 }
 \arguments{
-\item{S}{sparse SPD matrix (`dgCMatrix`)}
+\item{S}{sparse SPD matrix (\code{dgCMatrix})}
 
 \item{b}{numeric vector, linear term}
 
@@ -24,10 +24,10 @@ sfpca_cd_solve_cpp(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
 \item{tol}{convergence tolerance on the KKT residual (gradient units)}
 }
 \value{
-list with `x`, `sweeps`, and `kkt` (max KKT residual)
+list with \code{x}, \code{sweeps}, and \code{kkt} (max KKT residual)
 }
 \description{
-Internal solver for `min_x 0.5 x'Sx - b'x + P(x; lambda)` with sparse SPD
-`S` and an L1 or SCAD penalty.
+Internal solver for \verb{min_x 0.5 x'Sx - b'x + P(x; lambda)} with sparse SPD
+\code{S} and an L1 or SCAD penalty.
 }
 \keyword{internal}

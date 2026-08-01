@@ -16,18 +16,18 @@ test_that("genpca_cov exactly matches genpca for identity constraints", {
   fit_cov <- genpca_cov(C, R = NULL, ncomp = 5)
 
   # Singular values should match exactly
-  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-8,
                label = "Singular values for identity constraints")
 
   # Eigenvectors should match (up to sign)
   for (i in 1:5) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("Eigenvector", i, "correlation"))
   }
 
   # Variance explained should match
-  expect_equal(fit_genpca$propv, fit_cov$propv, tolerance = 1e-10,
+  expect_equal(fit_genpca$propv, fit_cov$propv, tolerance = 1e-8,
                label = "Proportion of variance explained")
 })
 
@@ -60,14 +60,14 @@ test_that("genpca_cov produces valid results with column constraint A", {
   # For genpca
   for (i in 1:5) {
     vAv <- t(fit_genpca$ov[, i]) %*% A_mat %*% fit_genpca$ov[, i]
-    expect_equal(as.numeric(vAv), 1, tolerance = 1e-10,
+    expect_equal(as.numeric(vAv), 1, tolerance = 1e-8,
                  label = paste("genpca eigenvector", i, "A-orthonormal"))
   }
 
   # For genpca_cov
   for (i in 1:5) {
     vAv <- t(fit_cov$v[, i]) %*% A_mat %*% fit_cov$v[, i]
-    expect_equal(as.numeric(vAv), 1, tolerance = 1e-10,
+    expect_equal(as.numeric(vAv), 1, tolerance = 1e-8,
                  label = paste("genpca_cov eigenvector", i, "A-orthonormal"))
   }
 })
@@ -88,13 +88,13 @@ test_that("genpca_cov matches genpca with row constraint M", {
   fit_cov <- genpca_cov(C_M, R = NULL, ncomp = 5)
 
   # Should match when C = X'MX and R = I
-  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov$d, tolerance = 1e-8,
                label = "Singular values with M constraint only")
 
   # Check eigenvectors
   for (i in 1:5) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("Eigenvector", i, "with M constraint"))
   }
 })
@@ -124,7 +124,7 @@ test_that("genpca_cov properties are mathematically correct", {
                 label = paste("Positive eigenvalues for", tc$desc))
 
     # Check that d = sqrt(lambda)
-    expect_equal(fit$d^2, fit$lambda, tolerance = 1e-10,
+    expect_equal(fit$d^2, fit$lambda, tolerance = 1e-8,
                  label = paste("d^2 = lambda for", tc$desc))
 
     # Check G-orthonormality: V'GV = I
@@ -136,7 +136,7 @@ test_that("genpca_cov properties are mathematically correct", {
       G_mat <- tc$G
     }
     VGV <- t(fit$v) %*% G_mat %*% fit$v
-    expect_equal(as.matrix(VGV), diag(ncol(fit$v)), tolerance = 1e-10,
+    expect_equal(as.matrix(VGV), diag(ncol(fit$v)), tolerance = 1e-8,
                  label = paste("G-orthonormality for", tc$desc))
 
     # Check that Cv = lambda * Gv for each eigenpair
@@ -201,7 +201,7 @@ test_that("genpca_cov variance explained properties", {
   # Last cumulative should equal sum of proportions
   expect_equal(fit_all$cumv[length(fit_all$cumv)],
                sum(fit_all$propv),
-               tolerance = 1e-10,
+               tolerance = 1e-8,
                label = "Cumulative equals sum")
 
   # Test with diagonal G

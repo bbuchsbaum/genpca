@@ -69,8 +69,11 @@ test_that("Implicit deflation reproduces explicit-residual extraction", {
                                   v_init = as.numeric(sv$v),
                                   d_init = sv$d[1])
     expect_equal(ref_k$d, impl_d[k], tolerance = 1e-6)
-    expect_lt(max(abs(ref_k$u - impl_u[, k])), 1e-5)
-    expect_lt(max(abs(ref_k$v - impl_v[, k])), 1e-5)
+    # u and v are determined only up to a joint sign flip; align before comparing
+    sgn <- sign(sum(ref_k$u * impl_u[, k]))
+    if (sgn == 0) sgn <- 1
+    expect_lt(max(abs(sgn * ref_k$u - impl_u[, k])), 1e-5)
+    expect_lt(max(abs(sgn * ref_k$v - impl_v[, k])), 1e-5)
     X_res <- X_res - ref_k$d * Matrix::tcrossprod(ref_k$u, ref_k$v)
   }
 })

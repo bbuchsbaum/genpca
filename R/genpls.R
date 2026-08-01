@@ -26,20 +26,55 @@
 #' @param preproc_x,preproc_y Optional `multivarious` preprocessors (e.g., `center()`).
 #'   Defaults to `multivarious::pass()` (no-op).
 #' @param svd_backend Character, one of `"RSpectra"` (default) or `"irlba"` for
-#'   iterative SVD. If neither backend is available, a dense fallback is used
-#'   for small problems by materializing S.
+#'   the iterative SVD. This choice only matters for larger problems: whenever
+#'   both `X` and `Y` have at most 64 columns after preprocessing, the
+#'   operator materializes `S` densely and computes a direct `svd()`,
+#'   ignoring `svd_backend` entirely (see `gplssvd_op()`).
 #' @param svd_opts List of options passed to the SVD backend, e.g., `tol`, `maxitr`.
 #' @param verbose Logical; print brief progress messages.
 #'
 #' @return An object of class `c("genpls", "cross_projector", "projector")` with:
 #'   \describe{
-#'     \item{vx, vy}{X- and Y- weights usable with predict/transfer (stored in cross_projector)}
-#'     \item{d}{singular values (attached field)}
+#'     \item{vx, vy}{X- and Y- projection weights (stored in cross_projector)
+#'       such that `project(fit, X) = X \%*\% vx` and
+#'       `project(fit, Y, source = "Y") = Y \%*\% vy` recover the latent
+#'       variables in the ambient (non-whitened) metric. Algebraically
+#'       `vx = W_X p = fi \%*\% diag(1/d)` and `vy = W_Y q = fj \%*\% diag(1/d)`
+#'       (see Details).}
+#'     \item{d}{singular values of \eqn{S = Xe' Ye} (attached field)}
 #'     \item{p, q}{generalized weights \eqn{W_X^{-1/2} u}, \eqn{W_Y^{-1/2} v} (attached)}
 #'     \item{fi, fj}{variable/component scores \eqn{W_X p D}, \eqn{W_Y q D} (attached)}
 #'     \item{lx, ly}{row latent variables \eqn{M_X^{1/2} X W_X p}, \eqn{M_Y^{1/2} Y W_Y q} (attached)}
 #'     \item{metrics}{the supplied metrics (attached)}
+#'     \item{ncomp}{Number of components actually extracted. The underlying
+#'       operator may return fewer than the requested `ncomp` (e.g. when
+#'       `ncomp` exceeds `min(ncol(X), ncol(Y))`); this field reflects the
+#'       actual count, not the request.}
+#'     \item{backend}{The `svd_backend` value passed in (for reference only;
+#'       see the `svd_backend` argument for when it is actually used).}
+#'     \item{preproc_x, preproc_y}{The fitted `multivarious` preprocessing
+#'       objects for `X` and `Y`, stored on the `cross_projector`.}
 #'   }
+#'
+#' @details
+#' `genpls()` maximizes the covariance between latent variables of `X` and
+#' `Y` under the (Mx, Ax, My, Ay) metrics by computing the SVD of
+#' \eqn{S = Xe' Ye}, where \eqn{Xe = Mx^{1/2} X Ax^{1/2}} and
+#' \eqn{Ye = My^{1/2} Y Ay^{1/2}}.
+#'
+#' `project()` on a fitted object returns latent variables in the ambient
+#' (original data) metric, i.e. `X \%*\% vx = X W_X p`. This differs from the
+#' attached `lx = Mx^{1/2} X W_X p`, which lives in the row-whitened metric,
+#' by the factor \eqn{Mx^{1/2}}: `lx` and `project(fit, X)` are equal only
+#' when `Mx = I`. New-row projection necessarily uses `project()`'s
+#' ambient-metric convention, because a training-row metric `Mx` has no
+#' natural extension to out-of-sample rows.
+#'
+#' \strong{Metric naming.} `genpls()`'s row/column metric arguments (`Mx`,
+#' `My` for rows; `Ax`, `Ay` for columns) follow the same M/A convention as
+#' `genpca()`. Internally they are forwarded to `gplssvd_op()`, which uses
+#' the names `XLW`/`YLW` (left/row weights, i.e. `Mx`/`My`) and
+#' `XRW`/`YRW` (right/column weights, i.e. `Ax`/`Ay`).
 #'
 #' @examples
 #' if (requireNamespace("RSpectra", quietly = TRUE) &&
@@ -57,8 +92,8 @@
 #' }
 #'
 #' @references
-#' Beaton, Dougal. Generalized eigen, singular value, and partial least squares
-#' decompositions: The GSVD package. (Eqs. 10–14). 2020.
+#' Beaton, D. (2020). Generalized eigen, singular value, and partial least
+#' squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.
 #'
 #' @importFrom Matrix Matrix Diagonal crossprod t forceSymmetric Cholesky solve
 #' @importFrom RSpectra svds
@@ -135,7 +170,9 @@ genpls <- function(X, Y,
   obj$lx <- op$lx
   obj$ly <- op$ly
   obj$metrics <- list(Ax = Ax, Ay = Ay, Mx = Mx, My = My)
-  obj$ncomp   <- ncomp
+  # Store the number of components actually extracted (the operator may
+  # return fewer than requested), not the requested ncomp.
+  obj$ncomp   <- length(op$d)
   obj$backend <- svd_backend
 
   if (verbose) message("genpls finished.")

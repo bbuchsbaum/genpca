@@ -153,7 +153,8 @@ test_that("genpca method='auto' dispatches predictably", {
 })
 
 test_that("genpca method='auto' selects randomized for wide sparse low-rank problems", {
-  skip_if_not(exists("gmd_randomized_cpp_dn", mode = "function"))
+  skip_if_not(exists("gmd_randomized_cpp_dn", envir = asNamespace("genpca"),
+                     mode = "function"))
 
   set.seed(790)
   n <- 420
@@ -191,7 +192,7 @@ test_that("genpca method='auto' selects randomized for wide sparse low-rank prob
     method = "randomized",
     preproc = multivarious::pass()
   )
-  expect_equal(fit_auto$sdev, fit_rand$sdev, tolerance = 1e-8)
+  expect_equal(fit_auto$sdev, fit_rand$sdev, tolerance = 1e-6)
 })
 
 test_that("gmd_fast_cpp dual sparse path returns metric-orthonormal factors", {

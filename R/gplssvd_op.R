@@ -7,17 +7,62 @@
 #' the data are dense, the whitened blocks are precomputed once so each
 #' matrix-vector product in the iterative SVD costs two multiplies.
 #'
+#' Naming map: this function names its metrics `XLW`/`YLW` (left/row
+#' weights) and `XRW`/`YRW` (right/column weights); these correspond to
+#' `Mx`/`My` (row metrics) and `Ax`/`Ay` (column metrics) in `genpca()`'s and
+#' `genpls()`'s M/A convention.
+#'
 #' @param X n x I matrix (numeric or Matrix)
 #' @param Y n x J matrix (numeric or Matrix)
 #' @param XLW Row metric for X (M_X): NULL/identity, numeric length-n, diagonalMatrix, or PSD Matrix
 #' @param YLW Row metric for Y (M_Y)
 #' @param XRW Column metric for X (W_X)
 #' @param YRW Column metric for Y (W_Y)
-#' @param k  Number of components
+#' @param k  Number of components. If `k` exceeds
+#'   `min(ncol(X), ncol(Y))`, a warning is issued and `k` is silently
+#'   truncated to that maximum.
 #' @param center,scale Logical; pre-center/scale columns of X, Y before metrics
-#' @param svd_backend One of "RSpectra" (default) or "irlba"
+#' @param svd_backend One of "RSpectra" (default) or "irlba". Ignored
+#'   whenever both `ncol(X) <= 64` and `ncol(Y) <= 64`, in which case `S` is
+#'   materialized densely and solved with `base::svd()`.
 #' @param svd_opts List of options for the backend (e.g., tol, maxitr)
-#' @return list with elements d, u, v, p, q, fi, fj, lx, ly, k, dims, center, scale
+#' @return A list with elements:
+#'   \describe{
+#'     \item{d}{Length-`k` numeric vector of singular values of
+#'       \eqn{S = Xe' Ye}.}
+#'     \item{u}{`I x k` matrix; left singular vectors of `S` (orthonormal in
+#'       the Euclidean metric).}
+#'     \item{v}{`J x k` matrix; right singular vectors of `S` (orthonormal in
+#'       the Euclidean metric).}
+#'     \item{p}{`I x k` matrix of generalized X-weights,
+#'       \eqn{p = W_X^{-1/2} u}.}
+#'     \item{q}{`J x k` matrix of generalized Y-weights,
+#'       \eqn{q = W_Y^{-1/2} v}.}
+#'     \item{fi}{`I x k` matrix of X-variable scores, \eqn{F_i = W_X p D}
+#'       (columns of `p` rescaled by the singular values).}
+#'     \item{fj}{`J x k` matrix of Y-variable scores, \eqn{F_j = W_Y q D}.}
+#'     \item{lx}{`N x k` matrix of X row latent variables,
+#'       \eqn{L_x = M_X^{1/2} X W_X p}.}
+#'     \item{ly}{`N x k` matrix of Y row latent variables,
+#'       \eqn{L_y = M_Y^{1/2} Y W_Y q}.}
+#'     \item{k}{Integer; number of components actually returned (may be
+#'       less than the requested `k` if it exceeded `min(I, J)`).}
+#'     \item{dims}{A list `list(N, I, J)` with the row count `N` and column
+#'       counts `I = ncol(X)`, `J = ncol(Y)`.}
+#'     \item{center}{A list `list(X, Y)` of the length-`I` / length-`J`
+#'       column means subtracted from `X`/`Y` (all zero when
+#'       `center = FALSE`).}
+#'     \item{scale}{A list `list(X, Y)` of the length-`I` / length-`J`
+#'       column scale factors divided out of `X`/`Y` (all one when
+#'       `scale = FALSE`).}
+#'   }
+#' @references
+#' Beaton, D. (2020). Generalized eigen, singular value, and partial least
+#' squares decompositions: The GSVD package. arXiv:2010.14734.
+#'
+#' Abdi, H. (2007). Partial least square regression PLS-Regression. In
+#' N. Salkind (Ed.), *Encyclopedia of Measurement and Statistics*.
+#' Thousand Oaks, CA: Sage.
 #' @examples
 #' set.seed(1)
 #' X <- matrix(rnorm(40 * 6), 40, 6)

@@ -22,35 +22,41 @@ genplsc(
 \arguments{
 \item{X}{Numeric or Matrix, n x p.}
 
-\item{Y}{Numeric or Matrix, n x q. Must have same n as `X`.}
+\item{Y}{Numeric or Matrix, n x q. Must have same n as \code{X}.}
 
-\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Ax}{Column metric for X (W_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Ay}{Column metric for Y (W_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{Mx}{Row metric for X (M_X): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
-\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; `NULL` ⇒ identity.}
+\item{My}{Row metric for Y (M_Y): vector/diagonal/matrix; \code{NULL} ⇒ identity.}
 
 \item{ncomp}{Number of components to extract (rank-k). Default 2.}
 
-\item{preproc_x, preproc_y}{Optional `multivarious` preprocessors (e.g., `center()`).
-Defaults to `multivarious::pass()` (no-op).}
+\item{preproc_x, preproc_y}{Optional \code{multivarious} preprocessors (e.g., \code{center()}).
+Defaults to \code{multivarious::pass()} (no-op).}
 
-\item{svd_backend}{Character, one of `"RSpectra"` (default) or `"irlba"` for
-iterative SVD. If neither backend is available, a dense fallback is used
-for small problems by materializing S.}
+\item{svd_backend}{Character, one of \code{"RSpectra"} (default) or \code{"irlba"} for
+the iterative SVD. This choice only matters for larger problems: whenever
+both \code{X} and \code{Y} have at most 64 columns after preprocessing, the
+operator materializes \code{S} densely and computes a direct \code{svd()},
+ignoring \code{svd_backend} entirely (see \code{gplssvd_op()}).}
 
-\item{svd_opts}{List of options passed to the SVD backend, e.g., `tol`, `maxitr`.}
+\item{svd_opts}{List of options passed to the SVD backend, e.g., \code{tol}, \code{maxitr}.}
 
 \item{verbose}{Logical; print brief progress messages.}
 }
 \value{
-See `genpls()`
+An object of class \code{c("genpls", "cross_projector", "projector")}
+with the same structure as \code{genpls()} returns (X-/Y-weights \code{vx}/\code{vy},
+singular values \code{d}, generalized weights \code{p}/\code{q}, scores \code{fi}/\code{fj},
+latent variables \code{lx}/\code{ly}, \code{ncomp}, and \code{backend}); see \code{?genpls} for
+the definition of each slot.
 }
 \description{
-Convenience alias for `genpls()`; computes canonical generalized PLS
-(PLS-SVD/GPLSSVD). See `?genpls` for full documentation.
+Convenience alias for \code{genpls()}; computes canonical generalized PLS
+(PLS-SVD/GPLSSVD). See \code{?genpls} for full documentation.
 }
 \examples{
 set.seed(1)
@@ -60,4 +66,11 @@ fit <- genplsc(X, Y, ncomp = 2,
                preproc_x = multivarious::center(),
                preproc_y = multivarious::center())
 fit$d
+}
+\references{
+Beaton, D. (2020). Generalized eigen, singular value, and partial least
+squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.
+}
+\seealso{
+\code{\link[=genpls]{genpls()}}
 }

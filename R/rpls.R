@@ -1,5 +1,4 @@
-#' @rdname rpls
-#' @keywords internal
+#' @noRd
 fit_rpls <- function(X, Y,
                      K          = 2,
                      lambda     = 0.1,
@@ -265,18 +264,18 @@ fit_rpls <- function(X, Y,
 #' (\eqn{\ell_2}) penalties **and** the generalised extension that operates
 #' in a user-supplied quadratic form \eqn{Q}.
 #'
-#' Unlike `genpls()` from \code{genplsr.R}, which handles separate row and
-#' column metrics (`Mx`, `Ax`, `My`, `Ay`) with a Gram–Schmidt orthogonalisation
-#' step, `rpls()` uses a single metric `Q` and the simpler penalised updates of
-#' Allen et al.
+#' Unlike `genpls()`, which handles separate row and column metrics (`Mx`,
+#' `Ax`, `My`, `Ay`) with a Gram–Schmidt orthogonalisation step, `rpls()`
+#' uses a single metric `Q` and the simpler penalised updates of Allen et al.
 #'
 #' @section Method:
 #' The routine follows Algorithm 1 of Allen *et al.* (2013, *Stat.
-#' Anal. Data Min.*, 6 : 302–314) — see the paper for details. Briefly,
-#' each component maximises
-#' \deqn{\max_{u,v}\; v^\top Q M u - \lambda \, P(v)}
+#' Anal. Data Min.*, 6 : 302–314) — see the paper for details. Briefly, with
+#' \eqn{C = X^\top Y} the cross-product of the (preprocessed) blocks, each
+#' component maximises
+#' \deqn{\max_{u,v}\; v^\top Q C u - \lambda \, P(v)}
 #' with \eqn{Q = I_p} for standard RPLS. The alternating updates are:
-#' \eqn{u \leftarrow M^\top Q v / \|M^\top Q v\|_2}, then a penalised
+#' \eqn{u \leftarrow C^\top Q v / \|C^\top Q v\|_2}, then a penalised
 #' (possibly non-negative) regression for \eqn{v}, normalised in the
 #' \eqn{Q}-norm.
 #'
@@ -309,10 +308,22 @@ fit_rpls <- function(X, Y,
 #'     \item{vy}{\eqn{q \times K} matrix of Y-loadings.}
 #'     \item{ncomp}{Number of components actually extracted (may be < K).}
 #'     \item{penalty}{Penalty type used (`"l1"` or `"ridge"`).}
+#'     \item{lambda}{The `lambda` value(s) used.}
+#'     \item{tol}{The convergence tolerance used.}
+#'     \item{maxiter}{The maximum number of inner iterations used per component.}
+#'     \item{nonneg}{Logical flag for the non-negativity constraint on `l1`.}
+#'     \item{Q_used}{Logical; `TRUE` if a custom `Q` metric was supplied to
+#'       induce generalised RPLS, `FALSE` for standard (identity-metric)
+#'       RPLS. Note the field is named `Q_used`, not `Q`: the metric matrix
+#'       itself is not retained on the returned object.}
+#'     \item{verbose}{The `verbose` flag used.}
 #'     \item{preproc_x, preproc_y}{Pre-processing transforms used.}
-#'     \item{...}{Other parameters like `lambda`, `tol`, `maxiter`, `nonneg`,
-#'                `Q` indicator, `verbose` are also stored.}
 #'   }
+#'
+#'   `rpls` objects store no row (X-)scores: the factors \eqn{z_k} are
+#'   computed internally during fitting to drive deflation and are then
+#'   discarded, so use \code{multivarious::project()} on `X` to obtain
+#'   scores for any rows of interest.
 #'
 #'   The object supports \code{predict()}, \code{project()},
 #'   \code{transfer()}, \code{coef()} and other \pkg{multivarious} generics.

@@ -55,12 +55,12 @@ diagonal, use a weighted-SVD fast path.}
 }
 \value{
 A list with components:
-  \describe{
-    \item{u}{n x k matrix of scores (left singular vectors scaled)}
-    \item{v}{p x k matrix of components (right singular vectors, R-scaled)}
-    \item{d}{length-k vector of singular values}
-    \item{k}{number of components returned (may be < requested if rank-deficient)}
-  }
+\describe{
+\item{u}{n x k matrix of scores (left singular vectors scaled)}
+\item{v}{p x k matrix of components (right singular vectors, R-scaled)}
+\item{d}{length-k vector of singular values}
+\item{k}{number of components returned (may be < requested if rank-deficient)}
+}
 }
 \description{
 Computes the generalized SVD of X with row metric Q and column metric R,
@@ -72,9 +72,9 @@ to minimize computation, with optional Cholesky caching for repeated calls.
 
 This implementation is faster than the "eigen" method when:
 \itemize{
-  \item \code{k << min(n, p)}: Only top-k eigenvalues needed (uses ARPACK)
-  \item Repeated calls with same Q or R: Cholesky factors are cached
-  \item Large matrices where full eigendecomposition is expensive
+\item \code{k << min(n, p)}: Only top-k eigenvalues needed (uses ARPACK)
+\item Repeated calls with same Q or R: Cholesky factors are cached
+\item Large matrices where full eigendecomposition is expensive
 }
 For small matrices or when \code{k} is close to \code{min(n, p)}, the
 overhead of iterative methods may make "eigen" faster.
@@ -82,6 +82,6 @@ overhead of iterative methods may make "eigen" faster.
 
 \seealso{
 \code{\link{genpca}} for the high-level interface,
-  \code{\link{gmd_clear_cache}} to clear Cholesky cache
+\code{\link{gmd_clear_cache}} to clear Cholesky cache
 }
 \keyword{internal}

@@ -4,7 +4,15 @@
 #' (PLS-SVD/GPLSSVD). See `?genpls` for full documentation.
 #'
 #' @inheritParams genpls
-#' @return See `genpls()`
+#' @return An object of class `c("genpls", "cross_projector", "projector")`
+#'   with the same structure as `genpls()` returns (X-/Y-weights `vx`/`vy`,
+#'   singular values `d`, generalized weights `p`/`q`, scores `fi`/`fj`,
+#'   latent variables `lx`/`ly`, `ncomp`, and `backend`); see `?genpls` for
+#'   the definition of each slot.
+#' @seealso [genpls()]
+#' @references
+#' Beaton, D. (2020). Generalized eigen, singular value, and partial least
+#' squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.
 #' @examples
 #' set.seed(1)
 #' X <- matrix(rnorm(60 * 5), 60, 5)

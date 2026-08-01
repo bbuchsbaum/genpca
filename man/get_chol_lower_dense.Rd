@@ -2,7 +2,7 @@
 % Please edit documentation in R/gmd_cache.R
 \name{get_chol_lower_dense}
 \alias{get_chol_lower_dense}
-\title{Get (and cache) a *lower* Cholesky factor for a dense SPD matrix}
+\title{Get (and cache) a \emph{lower} Cholesky factor for a dense SPD matrix}
 \usage{
 get_chol_lower_dense(A)
 }
@@ -10,9 +10,9 @@ get_chol_lower_dense(A)
 \item{A}{numeric or dense Matrix (SPD). If sparse, falls back to dense.}
 }
 \value{
-a base numeric matrix L (lower triangular) with A = L %*% t(L)
+a base numeric matrix L (lower triangular) with A = L \%*\% t(L)
 }
 \description{
-Get (and cache) a *lower* Cholesky factor for a dense SPD matrix
+Get (and cache) a \emph{lower} Cholesky factor for a dense SPD matrix
 }
 \keyword{internal}

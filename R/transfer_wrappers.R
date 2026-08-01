@@ -15,7 +15,6 @@
 #' @return Matrix with transferred data.
 #'
 #' @examples
-#' \donttest{
 #' # Generate sample data
 #' set.seed(123)
 #' n <- 50
@@ -28,7 +27,6 @@
 #' # Transfer new X data to Y space
 #' new_X <- matrix(rnorm(10 * 10), 10, 10)
 #' transferred <- transfer(fit, new_X, from = "X", to = "Y")
-#' }
 #'
 #' @importFrom multivarious transfer
 #' @importFrom utils getS3method

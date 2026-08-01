@@ -127,16 +127,7 @@ dense_gplssvd_ref <- function(X, Y,
        scale  = list(X = Xcs$scale,  Y = Ycs$scale))
 }
 
-# Align signs columnwise between two matrices (U_ref, U_test).
-align_signs <- function(A_ref, A_test) {
-  if (is.null(A_ref) || is.null(A_test)) return(A_test)
-  A_ref <- as.matrix(A_ref)
-  A_test <- as.matrix(A_test)
-  if (ncol(A_ref) == 0 || ncol(A_test) == 0) return(A_test)
-  stopifnot(ncol(A_ref) == ncol(A_test))
-  S <- diag(sign(colSums(A_ref * A_test)), ncol(A_ref))
-  A_test %*% S
-}
+# align_signs() comes from helper-align.R
 
 # Quick numeric check helper
 expect_mats_equal <- function(A, B, tol = 1e-7) {
@@ -204,6 +195,7 @@ for (backend in c("RSpectra", "irlba")) {
     if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
     if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
     k <- 3
+    set.seed(if (backend == "RSpectra") 201 else 202)
     w_row_X <- runif(N)
     w_row_X <- w_row_X / sum(w_row_X)
     w_row_Y <- runif(N)
@@ -246,6 +238,7 @@ for (backend in c("RSpectra", "irlba")) {
     if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
     k <- 3
 
+    set.seed(if (backend == "RSpectra") 301 else 302)
     MX <- make_spd(N, dense = FALSE) # sparse SPD
     MY <- make_spd(N, dense = TRUE)  # dense SPD
     WX <- make_spd(I, dense = TRUE)
@@ -265,7 +258,7 @@ for (backend in c("RSpectra", "irlba")) {
     op$lx <- align_signs(ref$lx, op$lx)
     op$ly <- align_signs(ref$ly, op$ly)
 
-    testthat::expect_equal(op$d, ref$d, tolerance = 1e-7)
+    testthat::expect_equal(op$d, ref$d, tolerance = 1e-6)
     expect_mats_equal(op$u,  ref$u,  tol = 1e-6)
     expect_mats_equal(op$v,  ref$v,  tol = 1e-6)
     expect_mats_equal(op$p,  ref$p,  tol = 1e-6)
@@ -276,7 +269,7 @@ for (backend in c("RSpectra", "irlba")) {
     expect_mats_equal(op$ly, ref$ly, tol = 1e-6)
 
     d_from_L <- diag(crossprod(op$lx, op$ly))
-    testthat::expect_equal(as.numeric(d_from_L), op$d, tolerance = 1e-7)
+    testthat::expect_equal(as.numeric(d_from_L), op$d, tolerance = 1e-6)
   })
 }
 

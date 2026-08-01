@@ -13,7 +13,7 @@ as_dgc(A)
 a dgCMatrix
 }
 \description{
-Replacement for the deprecated direct `as(., "dgCMatrix")`
+Replacement for the deprecated direct \code{as(., "dgCMatrix")}
 coercion from symmetric/triangular/diagonal Matrix classes.
 }
 \keyword{internal}

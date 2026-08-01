@@ -80,16 +80,25 @@ many entries are zero.}
 \value{
 An object of class \code{"mnpca_mrl"} with components:
 \describe{
-  \item{X, W}{Estimated low-rank factors (\code{n x r}, \code{p x r}).}
-  \item{Theta_row, Theta_col}{Estimated row/column precision matrices.}
-  \item{fitted}{Reconstructed matrix on input scale.}
-  \item{fitted_centered}{Reconstructed centered matrix used in optimization.}
-  \item{residual_centered}{Centered residual matrix.}
-  \item{objective_path}{Objective values across outer iterations.}
-  \item{iterations}{Number of outer iterations used.}
-  \item{converged}{Logical convergence flag for outer loop.}
-  \item{center}{Column centering vector (or \code{NULL}).}
-  \item{call}{Matched call.}
+\item{X, W}{Estimated low-rank factors (\code{n x r}, \code{p x r}).}
+\item{Theta_row, Theta_col}{Estimated row/column precision matrices.}
+\item{fitted}{Reconstructed matrix on input scale.}
+\item{fitted_centered}{Reconstructed centered matrix used in optimization.}
+\item{residual_centered}{Centered residual matrix.}
+\item{objective_path}{Objective value evaluated after each outer
+iteration's block updates, before any trace rescaling of the
+precisions. Because the factor updates (ALS) and precision updates
+(graphical lasso on a residual-free scatter surrogate) target
+different surrogates rather than a single shared objective, this
+path is a convergence heuristic and is \strong{not guaranteed to be
+monotone}.}
+\item{iterations}{Number of outer iterations used.}
+\item{converged}{Logical; \code{TRUE} if the relative change in
+\code{objective_path} fell below \code{tol} before \code{max_outer}
+was reached. This is a convergence heuristic based on relative
+objective change, not a guarantee of a local optimum.}
+\item{center}{Column centering vector (or \code{NULL}).}
+\item{call}{Matched call.}
 }
 }
 \description{
@@ -98,22 +107,35 @@ sparse row/column precision matrices:
 \deqn{
 Y = XW^\top + E,\quad E \sim \mathcal{MN}(0,\Omega,\Sigma)
 }
-using block coordinate descent:
+using alternating block updates:
 \enumerate{
-  \item Alternating least squares updates for \code{X, W} with fixed
-  precisions (\code{Theta_row = Omega^{-1}}, \code{Theta_col = Sigma^{-1}}).
-  \item Graphical-lasso style precision updates for \code{Theta_row} and
-  \code{Theta_col} using ADMM, warm starts, and optional block screening.
+\item Alternating least squares updates for \code{X, W} with fixed
+precisions (\code{Theta_row = Omega^{-1}}, \code{Theta_col = Sigma^{-1}}).
+\item Graphical-lasso style precision updates for \code{Theta_row} and
+\code{Theta_col} using ADMM, warm starts, and optional block screening.
 }
+The precision updates are solved on a residual-free scatter surrogate
+(rather than the exact residual \code{E = Y - XW^T}), so the two block
+updates do not jointly minimize a single shared objective at each step;
+as a result the reported \code{objective_path} is a convergence
+diagnostic, not a monotone objective trace (see Details and the
+\code{objective_path} return value).
 }
 \details{
 The covariance updates use low-rank correction identities and avoid explicit
 construction of \code{E = Y - XW^T}.
 
+This function returns a plain S3 list of class \code{"mnpca_mrl"}, not a
+\pkg{multivarious} \code{bi_projector}/\code{cross_projector}; the
+\code{scores()}/\code{components()}/\code{reconstruct()} generics used
+elsewhere in this package do not apply here. Use the returned
+\code{$X}, \code{$W}, and \code{$fitted} fields directly.
 
 This implementation follows the maximum regularized likelihood (MRL)
 formulation of MN-PCA, combining low-rank factor updates with sparse
-precision estimation in row and column spaces.
+precision estimation in row and column spaces, via alternating surrogate
+updates rather than joint minimization of a single objective at every
+step.
 
 The main optimization target is:
 \deqn{
@@ -124,6 +146,13 @@ The main optimization target is:
 with \eqn{\Theta_r \succ 0, \Theta_c \succ 0}. When
 \code{update_precisions = FALSE}, the method reduces to weighted low-rank
 approximation with fixed identity precisions.
+
+Because the ALS factor updates and the graphical-lasso precision updates
+are solved against different surrogates of this target (the precision
+step uses a residual-free scatter matrix rather than the exact residual),
+the outer alternation is best understood as alternating surrogate updates
+with a relative-objective-change convergence heuristic, not classical
+block coordinate descent on a single monotone objective.
 }
 \examples{
 set.seed(123)

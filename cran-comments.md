@@ -1,10 +1,12 @@
+# cran-comments
+
 ## Submission type
 
 This is the first CRAN submission of `genpca`.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 2 notes
+0 errors | 0 warnings | 1 note
 
 * checking CRAN incoming feasibility ... NOTE
   Maintainer: 'Brad Buchsbaum <brad.buchsbaum@gmail.com>'
@@ -12,20 +14,18 @@ This is the first CRAN submission of `genpca`.
 
   Expected for a first submission.
 
-* checking C++ specification ... NOTE
-  Specified C++14: please drop specification unless essential
-
-  The C++14 specification is essential. The package's C++ sources use
-  RcppArmadillo, which requires a C++14 compiler in current releases.
-  `SystemRequirements: C++14` is declared in DESCRIPTION and
-  `CXX_STD = CXX14` is set in `src/Makevars[.win]`.
+<!-- TODO(Phase 5): re-run rcmdcheck --as-cran on the release tarball and
+     update the counts/notes above verbatim before submitting. Local runs on
+     a Homebrew-clang toolchain show a spurious install-time warning
+     (-Wunknown-warning-option from R's own headers) that does not occur
+     under Apple clang or gcc; verify it is absent on win-builder/mac-builder
+     and do not mention it here if so. -->
 
 ## Test environments
 
-* local macOS 14.2, R 4.5.3 (release)
-* GitHub Actions ubuntu-latest, R 4.5 (release) -- pkgdown workflow
-* win-builder R-devel and R-release (pending)
-* macOS R-release builder (pending)
+* local macOS 14.3 (Apple Silicon), R 4.5.1
+* win-builder R-devel and R-release
+* macOS R-release builder (mac.r-project.org)
 
 ## Downstream dependencies
 
@@ -33,9 +33,9 @@ There are currently no reverse dependencies.
 
 ## Notes for the reviewer
 
-* The package wraps published methods (Allen, Grosenick & Taylor
-  2014; Abdi 2007). DOIs and references appear in the Description
-  field as required.
-* Linking dependencies (`RcppArmadillo`, `RcppEigen`, `RSpectra`)
-  are declared under `LinkingTo`. The package explicitly requests
-  C++14 for compatibility with current RcppArmadillo releases.
+* The package implements published methods (Allen, Grosenick & Taylor, 2014,
+  <doi:10.1080/01621459.2013.852978>; Abdi, 2007). References appear in the
+  Description field.
+* Compiled code links against RcppArmadillo, RcppEigen, and RSpectra headers
+  (declared under `LinkingTo`); the package builds with the default C++
+  standard and sets no `CXX_STD`.

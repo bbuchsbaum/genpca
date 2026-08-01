@@ -6,8 +6,7 @@
 NULL
 
 # Function to construct the second differences matrix
-#' @rdname sfpca
-#' @keywords internal
+#' @noRd
 second_diff_matrix <- function(n) {
   # n: Length of the time series
   if (n < 3) stop("n must be at least 3 to compute second differences.")
@@ -89,28 +88,49 @@ second_diff_matrix <- function(n) {
 #' @param alpha_v Smoothness penalty parameter for v. If NULL, defaults to
 #'   `1 / lambda_max(Omega_v)` (see Details).
 #' @param Omega_u A positive semi-definite matrix for smoothness penalty on u. If NULL, defaults to
-#'   second differences penalty (sparse matrix).
-#' @param penalty_u The penalty function for u. Either "l1" (lasso) or "scad".
-#' @param penalty_v The penalty function for v. Either "l1" (lasso) or "scad".
+#'   second differences penalty (sparse matrix). Unlike `Omega_u`, there is no
+#'   corresponding `Omega_v` argument: the column-side smoothness penalty is
+#'   always built internally from `spat_cds` (via `knn`); supplying a custom
+#'   `Omega_v` is not currently supported.
+#' @param penalty_u The penalty function for u. Either "l1" (lasso, the
+#'   default) or "scad".
+#' @param penalty_v The penalty function for v. Either "l1" (lasso, the
+#'   default) or "scad".
 #' @param nlambda Number of values on the regularization path used for BIC selection
-#'   of `lambda_u`/`lambda_v` when they are NULL.
+#'   of `lambda_u`/`lambda_v` when they are NULL. Default `10`.
 #' @param lambda_min_ratio Smallest path value as a fraction of the closed-form
-#'   `lambda_max`, on a log-spaced grid.
-#' @param knn Number of nearest neighbours for constructing `Omega_v`.
+#'   `lambda_max`, on a log-spaced grid. Default `1e-2`.
+#' @param knn Number of nearest neighbours for constructing `Omega_v`. Default
+#'   `min(6, ncol(X) - 1)`.
 #' @param max_iter Maximum number of iterations for the alternating optimization.
-#' @param tol Tolerance for convergence of the rank-1 objective.
+#'   Default `100`.
+#' @param tol Tolerance for convergence of the rank-1 objective. Default `1e-6`.
 #' @param verbose Logical; if TRUE, prints progress messages.
 #' @param uthresh Deprecated and ignored; `lambda_u` is now selected by BIC.
 #' @param vthresh Deprecated and ignored; `lambda_v` is now selected by BIC.
 #' @return An object of class `c("sfpca", "bi_projector")` from the
 #'   \pkg{multivarious} framework. Use `multivarious::scores()` for the sample
 #'   scores (\eqn{U D}), `multivarious::components()` for the sparse loadings
-#'   \eqn{V}, `multivarious::sdev()` for the singular values, and
-#'   `multivarious::reconstruct()` for the rank-`K` approximation. The
-#'   selected penalty parameters are stored as `lambda_u`, `lambda_v`,
-#'   `alpha_u`, and `alpha_v`. For backward compatibility the pre-0.1 list
-#'   fields `$d` (singular values) and `$u` (left factors) remain readable but
-#'   emit a deprecation warning; use `sdev()` and `scores()`/`$ou` instead.
+#'   \eqn{V}, `multivarious::sdev()` for \eqn{d_k}, and
+#'   `multivarious::reconstruct()` for the rank-`K` approximation. `ov` (like
+#'   `components()`) holds the sparse right factors \eqn{V}; `ou` holds the
+#'   left factors \eqn{U}. The selected penalty parameters are stored as
+#'   `lambda_u`, `lambda_v`, `alpha_u`, and `alpha_v`. For backward
+#'   compatibility the pre-0.1 list fields `$d` (singular values) and `$u`
+#'   (left factors) remain readable but emit a deprecation warning; use
+#'   `sdev()` and `scores()`/`$ou` instead.
+#'
+#'   \strong{Important:} unlike `genpca()`, the columns of `U` (`ou`) and `V`
+#'   (`ov`) are Euclidean unit-norm but are **not** mutually orthogonal
+#'   across components -- `sfpca()` extracts each rank-1 term from a
+#'   constraint-form subproblem rather than a joint SVD, so `U'U != I` and
+#'   `V'V != I` in general. Consequently `multivarious::sdev()` here is
+#'   *not* the singular values of `X`; it is the per-component captured
+#'   covariance \eqn{d_k = u_k' X v_k}. This non-orthogonality is also why
+#'   `reconstruct()` for `"sfpca"` objects uses the stored `U`, `d`, `V`
+#'   factors directly (`U D V'`) rather than SVD-based identities such as the
+#'   Moore-Penrose pseudoinverse of the loadings, which would not reproduce
+#'   the fitted model for non-orthogonal `V` (see `reconstruct.sfpca()`).
 #' @references Allen, G. I., & Weylandt, M. (2019). Sparse and functional
 #'   principal components analysis. In \emph{2019 IEEE Data Science Workshop
 #'   (DSW)} (pp. 11-16).
@@ -310,15 +330,32 @@ sfpca <- function(X, K, spat_cds,
   )
 }
 
-# Reconstruct the sfpca deflation model X ~= U D V'.
-#
-# sfpca components are Euclidean unit vectors but NOT mutually orthogonal, so
-# V'V != I. The inherited reconstruct.bi_projector reconstructs through the
-# Moore-Penrose pseudoinverse of the loadings (scores %*% pinv(V)), which for
-# non-orthogonal V does NOT return the rank-`comp` model U D V' that sfpca
-# actually fits and deflates with. This method restores the intended
-# semantics: reconstruct = scores[, comp] %*% t(V[, comp]) = U D V'. sfpca does
-# no preprocessing, so no inverse transform is required.
+#' Reconstruct data from an sfpca fit
+#'
+#' Reconstructs the rank-`K` \code{\link{sfpca}} model as \eqn{U D V'},
+#' using the stored (non-orthogonal) factors directly.
+#'
+#' @details
+#' sfpca components are Euclidean unit vectors but are **not** mutually
+#' orthogonal, so \eqn{V'V \ne I}. The inherited `reconstruct.bi_projector()`
+#' method reconstructs through the Moore-Penrose pseudoinverse of the
+#' loadings (`scores \%*\% pinv(V)`), which for non-orthogonal `V` does
+#' **not** return the rank-`comp` model \eqn{U D V'} that `sfpca()` actually
+#' fits and deflates with. This method instead computes
+#' `scores(x)[rowind, comp] \%*\% t(components(x)[colind, comp])`, i.e.
+#' \eqn{U D V'} restricted to the requested rows/columns/components.
+#' `sfpca()` does no preprocessing, so no inverse transform is applied.
+#'
+#' @param x An `sfpca` object.
+#' @param comp Integer vector of components to use (default: all).
+#' @param rowind Optional integer vector of rows to reconstruct (default: all).
+#' @param colind Optional integer vector of columns to reconstruct (default:
+#'   all).
+#' @param ... Ignored.
+#' @return A numeric matrix of dimension `length(rowind) x length(colind)`,
+#'   the rank-`length(comp)` reconstruction \eqn{U D V'} using sfpca's
+#'   stored non-orthogonal factors.
+#' @seealso [sfpca()]
 #' @exportS3Method
 reconstruct.sfpca <- function(x, comp = seq_len(multivarious::ncomp(x)),
                               rowind = NULL,
@@ -359,6 +396,14 @@ reconstruct.sfpca <- function(x, comp = seq_len(multivarious::ncomp(x)),
   .subset2(x, name)
 }
 
+#' Print an sfpca fit
+#'
+#' Prints a one-line summary of an \code{\link{sfpca}} object: number of
+#' components, dimensions, and singular values.
+#'
+#' @param x An `sfpca` object.
+#' @param ... Ignored.
+#' @return `x`, invisibly.
 #' @exportS3Method
 print.sfpca <- function(x, ...) {
   k <- length(.subset2(x, "sdev"))
@@ -373,8 +418,7 @@ print.sfpca <- function(x, ...) {
 }
 
 # Function to construct the spatial penalty matrix Omega_v based on spat_cds
-#' @rdname sfpca
-#' @keywords internal
+#' @noRd
 construct_spatial_penalty <- function(spat_cds, method = "distance", k = 6L) {
   p <- ncol(spat_cds)
   if (p <= k) {

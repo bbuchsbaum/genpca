@@ -1,0 +1,249 @@
+# genpca CRAN-readiness review — 2026-08-01
+
+Four independent fresh-context reviews: math correctness (with numerical reproductions),
+C++ layer (with adversarial crash testing), R CMD check + CRAN mechanics, and
+tests + documentation quality. All findings below were verified by the reviewing
+agent unless marked SUSPECTED. Repro scripts live in the session scratchpad
+(`t1.R`–`t17.R`, `adv1-7.R`, `ref.R`).
+
+Baseline: `rcmdcheck --as-cran` = 0 errors / 1 warning (local Homebrew-clang
+artifact, absent on CRAN toolchains) / 2 notes. Test suite: 0 failures.
+
+---
+
+## A. Correctness bugs (fix before CRAN)
+
+### A1. CRITICAL — `is_spd()` accepts indefinite dense matrices
+`R/constraints_utils.R:13-27`; fallout at `R/constraints_utils.R:70`, `R/gpca.R:29,34,40,64,69,75`, `R/internal_ops.R:84`.
+
+`Matrix::Cholesky()` on dense input dispatches to LAPACK `dpstrf` (pivoted), which
+*warns* and returns on non-PD input; the code suppresses warnings and catches only
+errors. Consequences (all reproduced):
+- `constraints_remedy="error"` silently accepts an indefinite metric (eigenvalue −1 retained in `fit$A`).
+- `ensure_spd()` is a no-op on dense non-PSD input (early return at `constraints_utils.R:70`).
+- Same matrix dense vs sparse gives different fits: `sdev = 6.046` (dense A) vs `7.069` (sparse A).
+- PSD-but-singular metrics (explicitly allowed by `?genpca`) are rejected when sparse, accepted when dense.
+
+Fix: test PSD via symmetry + smallest-eigenvalue check, or treat the Cholesky
+warning as failure. Cholesky "success" is not a semi-definiteness test.
+
+### A2. HIGH — `scores()` inconsistent with `project()`/`reconstruct()` when M ≠ I
+`R/gpca.R:608`; doc claim at `R/gpca.R:193`. Independently found by two reviewers.
+
+Stored `s = M·ou·D`, but the bi_projector contract (and `project()`) gives
+`X·(A·ov) = ou·D`. Reproduced: `max|s − X·v| = 7.2` while `max|ou·D − X·v| = 1e-14`;
+`reconstruct()` agrees with `ou·D·ov'` exactly, so `scores()` is the odd one out.
+Doc formula "s = X V or equivalently MU D" is false (equal only when M = I).
+The spectra C++ path uses the same convention, so fix in `genpca()` coherently:
+build `scores_mat` from `ou`/`d`, keep `u = M·ou` if desired, correct docs.
+User-visible behavior change — decide convention deliberately, before 0.1.0 ships.
+
+**Paper verdict (checked against Allen, Grosenick & Taylor, arXiv:1102.3074v3, p. 7,
+Section 2.4):** the paper defines the k-th GPC as `z_k = X R v_k` (package notation:
+`X·A·ov`), which equals `U D` exactly by the GMD identity — verified numerically
+(`max|X·A·ov − ou·D| = 0`). The stored `s = M·U·D` is one extra M-multiplication
+beyond the paper's definition; `project(fit, X)` already returns the paper's
+quantity (`max diff = 0`). So the paper-consistent fix is `s ← ou·D`. If `M·U·D`
+is retained deliberately (it resembles the Beaton/GSVD metric-weighted factor
+score F = M·U·D convention), the docs must state the deviation from Allen et al.
+explicitly and note that `project()` returns the paper's quantity.
+
+### A3. HIGH — `reconstruct.genpca(colind=)` un-centers with wrong column means
+`R/gpca.R:1307`. `colind` subsets `ov` but isn't forwarded to `reverse_transform`,
+so the first `length(colind)` column means get added back. `colind = 2:4` → error 0.34;
+only leading subsets `1:m` are correct.
+
+### A4. HIGH — Deflation uses an absolute singular-value cutoff
+`src/gpca.cpp:111` (`thr = 1e-7` absolute) and same defect in `gmd_deflationR`
+(`R/gpca.R:1078`). `genpca(X*1e-8, method="deflation")` returns **0 components**
+on full-rank, well-conditioned data. Also `src/gpca.cpp:44`: absolute floor on
+`tr(X'QXR)` makes `propv`/`cumv` meaningless at small scales. Fix: relative
+criterion `|d_i| < thr·d_1`.
+
+### A5. HIGH — `Rcpp::warning` longjmps under `options(warn=2)`, leaking Armadillo memory
+`src/gpca.cpp:45,99,107,112`. `Rf_warning` doesn't throw; with `warn=2` R longjmps
+past C++ destructors (condition class verified `simpleError`, not `Rcpp::exception`).
+CRAN's valgrind run will report "definitely lost". Fix: return status/messages to
+the R wrapper and warn there.
+
+### A6. MED-HIGH — sfpca CD solver reports NaN/Inf input as converged with KKT = 0
+`src/sfpca_cd.cpp:20-24,160,173`. `soft_threshold(NaN)` → 0; `std::max(0.0, NaN)` → 0.
+`b = c(1, NA, ...)` returns `converged = TRUE`, `kkt = 0`, NA coefficient silently
+zeroed. Add finiteness checks beside the existing validations at `sfpca_cd.cpp:111-115`.
+
+### A7. MED-HIGH — `constraints_remedy="clip"` is a silent alias for `"ridge"` in `genpca()`
+`R/gpca.R:38-41,73-76`: both branches call `ensure_spd()` (Gershgorin shift); no
+clipping happens. `genpca_cov(method="geigen")` implements a real clip
+(`R/gpca_cov.R:318-322`) and gives materially different answers (2.015 vs 2.326).
+Implement the clip or drop the option in `genpca()`.
+
+### A8. MEDIUM — Cholesky cache returns another matrix's factor
+`R/gmd_cache.R:30,37`: digest key rounds data to 8 decimals (absolute), so
+`diag(1e-9,3)` and `diag(2e-9,3)` collide — wrong factor returned (reproduced).
+Also collides a metric with its ridge-remediated version. Hash exact bytes.
+
+### A9. MEDIUM — Randomized backend RNG hygiene (CRAN policy)
+- R fallback `random_sign_matrix` calls `set.seed()` on the global stream with no
+  restore (`R/gmd_fast.R:272-275`); `genpca()` defaults `seed_randomized = 1234L`,
+  so a randomized fit silently resets the caller's RNG.
+- C++ path uses `std::mt19937`, ignoring `set.seed()` entirely (`src/gmd_fast.cpp:36-48`)
+  — different semantics from the R fallback.
+Fix: save/restore `.Random.seed` (or `withr::with_seed`); consider routing C++
+randomness through R's RNG like `arma::randn` already does in `gpca.cpp`.
+
+### A10. MEDIUM — assorted confirmed defects
+- `genpca(sparse_X, preproc=center())` errors; `genpls` handles this via `as.matrix()` (`R/gpca.R:328` vs `R/genpls.R:96`).
+- Deflation `threshold` compared against a *squared* step (`R/gpca.R:1161`), so vector accuracy ≈ `sqrt(threshold)` (~1e-3 at default). Same conflation in C++ (`src/gpca.cpp:77` vs `:111`). Separate the two tolerances; document.
+- Spectra back-compat fallback (`R/gpca.R:600-603`) returns `M·ou` / `A·ov` as `ou`/`ov` → silently wrong `reconstruct()`. Unreachable today, but a wrong-answer fallback; make it error instead.
+- `genpls`: `project()` returns latent variables in a different metric than stored `lx` (`Mx^{1/2}` factor). Design decision; document in `?genpls`.
+- `fit$ncomp` from `genpls` stores the *requested* ncomp even when fewer components exist (`R/genpls.R:138`).
+- `truncate.genpca` duplicates classes (`R/gpca.R:1246`).
+- `as_weight_operator` diagonal path: `1/sqrt(0)` → Inf, vs 0 in `.metric_operators` (`R/weight_operators.R:24-26`). Latent.
+- `gmdLA` dual branch: inconsistent guard (`tol` vs `tol^2`) and no warning for dropped columns (`R/gpca.R:1018` vs `:969`).
+- SUSPECTED: C++ deflation never re-randomizes `u`/`v` between components (`src/gpca.cpp:38-39`) — relies on roundoff as an accidental restart; 2/300 trials exceeded 1e-6 relative error (worst 2.7e-4). Move init inside the loop, adopt R version's degeneracy test.
+- SUSPECTED: `mnpca_mrl` objective is non-monotone (oscillates; one step +46.6) because two independent rescalings at `R/mnpca_mrl.R:253-262` change the objective; convergence test can fire at a crossing. Rescale jointly (c, 1/c) or evaluate the objective pre-rescale.
+
+### Performance (not gating, but decide)
+- **Sparse metrics densified**: all sparse entry points funnel through
+  `gmd_fast_auto`, which materializes dense p×p and dense-Cholesky
+  (`src/gmd_fast.cpp:490,495`). Measured +215 MB for p=3000 tridiagonal metric;
+  p=20000 needs ~3.2 GB/copy + O(p³). This defeats the entire sparse code path
+  at the scales it targets. Reachable from `genpca(method="spectra")` for any
+  sparse non-diagonal metric.
+- LRU cache bounded by count (16) not bytes — 16 dense p×p factors (`R/gmd_cache.R:11`).
+- Every C++ call copies X (Rcpp `const arma::mat&` semantics).
+- No `Rcpp::checkUserInterrupt()` anywhere in `src/` — long fits are uninterruptible.
+- Spectra 0.9 API pin (`src/gmd_fast.cpp:104-108`) with no RSpectra version floor
+  in DESCRIPTION; an RSpectra header upgrade breaks compilation. Add `RSpectra (>= 0.16.0)`.
+
+---
+
+## B. CRAN mechanics
+
+Blockers:
+1. **`Rprof.out` ships in the tarball** (confirmed inside built tarball). Delete;
+   add `^Rprof\.out$` to `.Rbuildignore`, `Rprof.out` to `.gitignore`.
+2. **`cran-comments.md` is factually wrong**: claims `SystemRequirements: C++14`
+   and `CXX_STD = CXX14` (neither exists) and reports the wrong check result. Rewrite.
+
+Should-fix:
+3. **`\keyword{internal}` on `genpca`, `rpls`, `sfpca`** (`man/genpca.Rd:229`,
+   `man/rpls.Rd:135`, `man/sfpca.Rd:154`) — flagship functions absent from
+   `help(package="genpca")` and the pkgdown reference index (confirmed live).
+   Cause: internal helpers sharing `@rdname` with `@keywords internal`
+   (`R/gpca.R:824,1073`, `R/rpls.R:360`, `R/sfpca.R:377`, + `second_diff_matrix`).
+   **Trap**: the keyword also suppresses `checkDocFiles`, hiding 13 undocumented
+   arguments in genpca.Rd and 3 in sfpca.Rd — removing the keyword will surface a
+   new WARNING that must be fixed in the same pass. Fix by giving helpers `@noRd`.
+4. `tests/testthat/fmrilss-omp-arma.patch` — foreign package's patch file, tracked, ships. Delete.
+5. Four stale prebuilt vignette HTMLs ship (~127 KB), incl. orphan `gpca-basics.html`
+   whose .Rmd no longer exists. Delete / targeted `.Rbuildignore` pattern —
+   do NOT blanket-ignore `vignettes/*.html` (`albers-header.html` is a build input).
+6. OpenMP flags in both Makevars with zero OpenMP usage in src/. Drop.
+7. `\donttest{}` around a millisecond example (`R/transfer_wrappers.R:18-31`). Unwrap.
+8. LICENSE: `YEAR: 2025` (submit in 2026), holder "Bradley" vs DESCRIPTION "Brad".
+9. `import(assertthat)` blanket import alongside `importFrom` — narrow it.
+10. No `_PACKAGE` doc block (`R/genpca-package.R`). Conventional, add.
+11. `Language: en-US` vs en-GB spellings throughout Rd (whitelisted; harmless; pick one).
+12. DESCRIPTION: Abdi (2007) reference lacks a `<doi:>`/`<https:>` marker.
+13. `R/transfer_methods.R` is a 0-byte file. Delete.
+
+Clean: all deps on CRAN (incl. albersdown 2.0.0); no unused Imports; URLs valid;
+vignette metadata all correct; Makevars otherwise portable; native registration OK;
+NEWS.md exists.
+
+---
+
+## C. Tests
+
+Run result: 0 failures. Main risks for CRAN's multi-BLAS farm and for regressions:
+
+1. **Tolerances too tight for iterative solvers**: `tolerance = 1e-9`/`1e-8`
+   comparisons on RSpectra/randomized output (`test_gpca.R:457,460-461,487`,
+   `test-gplssvd-op-large.R:136-157`, `test-internal-coverage.R:263`, others).
+   Eigenvector-parallelism at `1e-10` throughout the `test_genpca_cov*` files —
+   fails under near-degenerate eigenvalues, BLAS-dependent. Loosen to ~1e-6 and
+   use subspace/angle comparisons.
+2. **Unseeded top-level RNG**: `test_gpca.R:3` (`mat_10_10`) feeds ~9 blocks with
+   numeric tolerances; first `set.seed` in the file is line 166. Several more
+   (list in review). Also RNG-stream coupling through `skip_on_cran` blocks
+   (`test_gpca.R:495-531`): CRAN and local runs see different data.
+3. **Coverage that can't fail**:
+   - `gpca_mle`: monotone non-decreasing `loglik_path` never asserted — a
+     decreasing-likelihood implementation passes the suite.
+   - `rpls`: dims/classes only; no lambda=0 ≡ PLS-SVD test, no orthogonality/quality property.
+   - `truncate.genpca`: never compared to a direct `ncomp=k` fit; sliced fields unchecked.
+   - `transfer.cross_projector`: no round trip, no correlation check, and the
+     `source=`/`target=` alias mapping (the wrapper's entire purpose) untested.
+   - No same-seed ⇒ same-result or different-seed ⇒ different-result test for
+     `method="randomized"` (and the C++ seed is documented "ignored" on one entry point).
+4. **Dead/skipped tests**: `skip_if_not(exists("gmd_randomized_cpp_dn"))` always
+   skips (unexported symbol not visible in test env) — the auto→randomized
+   dispatch test never runs. The *primary* eigen-vs-spectra equivalence test is
+   `skip_on_cran`. Four blocks including the (M,A)-orthonormality test require
+   non-CRAN `neighborweights`. irlba backend untested on CRAN.
+5. **Latent sign-dependence**: raw signed comparisons of factor matrices across
+   code paths at `test_gpca.R:322-323,343-344,365-366,386-387,408-409,460-461`,
+   `test_sfpca_deflation.R:72-73`, `test_genpca_cov.R:77`. Pass only while both
+   paths share a kernel; any LAPACK/ARPACK change → mass spurious failures.
+6. Loose-to-vacuous: `test_gep_subspace.R` tolerance 0.3 incl. orthonormality check;
+   top-level solver calls outside `test_that`; possible complex eigenvalues in reference.
+
+---
+
+## D. Documentation
+
+Factually wrong (fix with A2):
+1. `genpca` `@return`: "s = X V or equivalently MU D" — false unless M = I.
+2. `sdev` never defined; differs from `prcomp$sdev` by `sqrt(n-1)`; the flagship
+   example prints both side by side unexplained; `genpca.Rmd:135-139` labels
+   `sdev^2` "Variance". sfpca's `sdev` is `u'Xv` — three different names in code/docs.
+   **Decision (user, 2026-08-01): the scaling is a `multivarious`-level convention
+   and will not change here. Fix is documentation-only: define `sdev` as the
+   generalized singular value of the (whitened) data matrix, note the sqrt(n−1)
+   relation to `prcomp$sdev`, reframe the flagship example so the comparison
+   isn't misleading, and relabel the vignette scree axis.**
+3. README:113 `pls$d # canonical correlations` — off by orders of magnitude
+   (39.5 vs 0.40); they're covariance-scale singular values.
+4. README:96-103 "Mathematically equivalent to fit_weighted above" — false as
+   written (centered vs uncentered C).
+5. `\pkg{RcppSpectra}` — package doesn't exist (`R/gpca.R:133,387`). "Three methods"
+   → five (`R/gpca.R:129`). `@references Beaton, Dougal` → **Derek** Beaton
+   (`R/genpls.R:60`). `rpls` cites nonexistent `genplsr.R`; `Q` field is `Q_used`.
+6. `genpls` `@param svd_backend` claims dense fallback is availability-gated;
+   actually a hard `≤64` column switch (`R/gplssvd_op.R:99`) — both shipped
+   examples silently never exercise the documented backend.
+7. `genpca_cov` returns a plain list, not a bi_projector — never stated; README
+   and vignette present it as interchangeable with `genpca()`.
+8. sfpca: U/V are unit-norm but **not orthogonal** — stated only in a source
+   comment (`R/sfpca.R:286-291`), never in the man page; `reconstruct.sfpca` and
+   `print.sfpca` are exported with zero roxygen.
+9. `genpca.Rmd:180` verb table shows `reconstruct(fit, ncomp = k)` — no such
+   argument; silently ignored via `...`.
+10. `method="spectra"` has no live example anywhere (commented out in Rd,
+    `eval=FALSE` in vignette); `deflation`/`auto` have none at all.
+11. README omits `sfpca`, `rpls`, `mnpca_mrl`, `gpca_mle` entirely; stale/duplicate
+    vignette + theme sections.
+12. Metric naming inconsistent across the package (A/M vs Ax/Mx vs XRW/XLW vs WX/MX)
+    with no mapping for the reader.
+13. No vignette covers sfpca/rpls/mnpca_mrl or the sdev/metric-geometry semantics —
+    the one thing a generalized-PCA vignette most needs.
+
+---
+
+## Recommended sequence to CRAN
+
+**Phase 1 — correctness** (A1–A9; A2 requires a deliberate semantics decision;
+fix docs A/D items that describe the changed behavior in the same commits).
+**Phase 2 — CRAN mechanics** (B1–B9; the `\keyword{internal}` fix will surface
+undocumented-argument warnings — fix those in the same pass).
+**Phase 3 — test hardening** (seeds, tolerances, sign alignment, the four
+can't-fail suites, randomized determinism, un-skip or CRAN-safe the equivalence test).
+**Phase 4 — docs** (false claims first; README rewrite; split internal helpers;
+sdev/geometry explanation in genpca.Rmd; sfpca/rpls vignette can follow 0.1.1).
+**Phase 5 — verification**: full `rcmdcheck --as-cran` on stock toolchain,
+win-builder + mac-builder + rhub (incl. valgrind/UBSAN images given A5),
+`R CMD check` with `options(warn=2)` in tests off, then submit.
+
+Sparse-metric densification and the X-copy-per-call are real performance defects
+but not CRAN-gating; schedule for 0.1.1 unless large-p users are imminent.

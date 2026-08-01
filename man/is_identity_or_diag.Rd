@@ -7,7 +7,7 @@
 is_identity_or_diag(M, eps = 1e-15)
 }
 \arguments{
-\item{M}{A matrix (often `dsCMatrix`) or `NULL`.}
+\item{M}{A matrix (often \code{dsCMatrix}) or \code{NULL}.}
 
 \item{eps}{Numeric tolerance}
 }

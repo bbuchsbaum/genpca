@@ -53,6 +53,7 @@ test_that("prep_constraints identity remedy returns identity matrices", {
 # Test 3: construct_spatial_penalty edge cases
 
 test_that("construct_spatial_penalty handles knn edge cases", {
+  set.seed(56)
   spat_cds <- matrix(runif(2 * 5), nrow = 2)
   expect_warning(Omega <- construct_spatial_penalty(spat_cds, k = 5),
                  "Reducing k")

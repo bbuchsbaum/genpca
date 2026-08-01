@@ -67,3 +67,4 @@ gmd_deflation_cpp_sp <- function(X, Q, R, k, thr = 1e-7, maxit = 500L, verbose =
 sfpca_cd_solve_cpp <- function(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol) {
     .Call(`_genpca_sfpca_cd_solve_cpp`, S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
 }
+

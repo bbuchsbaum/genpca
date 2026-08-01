@@ -2,7 +2,7 @@
 % Please edit documentation in R/gpca.R
 \name{gpca_mle}
 \alias{gpca_mle}
-\title{Experimental ML estimation of GPCA metrics}
+\title{Experimental penalized-ML estimation of GPCA metrics}
 \usage{
 gpca_mle(
   X,
@@ -25,15 +25,22 @@ gpca_mle(
 
 \item{max_iter}{Maximum outer alternations (default 20).}
 
-\item{lambda}{Ridge term added to \eqn{\Sigma_r} and \eqn{\Sigma_c} before
-inversion to keep them SPD (default 1e-3).}
+\item{lambda}{Ridge penalty weight (default 1e-3). Part of the objective
+(MAP interpretation), not just a numerical safeguard: it shrinks
+both covariances toward a multiple of the identity and pins the
+row/column scale split during iteration. Must be non-negative;
+with \code{lambda = 0} the objective loses strict convexity in the
+scale direction and covariances may become singular.}
 
-\item{scale_fix}{How to resolve the \code{c * Sigma_r, Sigma_c / c}
-indeterminacy. One of \code{"trace"} (default, mean diagonal = 1),
-\code{"det"} (determinant = 1), or \code{"none"}.}
+\item{scale_fix}{How to canonicalize the \code{c * Sigma_r, Sigma_c / c}
+indeterminacy at exit. One of \code{"trace"} (default: row
+covariance scaled to mean diagonal 1), \code{"det"} (row covariance
+scaled to determinant 1), or \code{"none"}. Applied as a joint
+reciprocal rescale, so the fitted covariance \eqn{\Sigma_r \otimes
+       \Sigma_c} and the likelihood are unchanged.}
 
-\item{tol}{Relative tolerance on successive log-likelihood change (default
-1e-4) for early stopping.}
+\item{tol}{Relative tolerance on successive penalized log-likelihood change
+(default 1e-4) for early stopping.}
 
 \item{method}{GPCA method passed to \code{genpca} (defaults to "eigen").}
 
@@ -46,34 +53,47 @@ indeterminacy. One of \code{"trace"} (default, mean diagonal = 1),
 \item{...}{Additional arguments forwarded to \code{genpca}.}
 }
 \value{
-A list with elements \code{fit} (the final \code{genpca} result),
-        \code{A}, \code{M} (learned SPD metrics), \code{loglik} (final
-        log-likelihood), and \code{loglik_path}.
+A list with elements \code{fit} (a \code{genpca} fit computed with
+the returned canonicalized metrics), \code{A}, \code{M} (learned
+SPD metrics), \code{loglik} (final penalized log-likelihood), and
+\code{loglik_path} (the penalized log-likelihood after each outer
+iteration; monotone non-decreasing up to numerical noise, since
+every block update exactly minimizes the shared penalized
+objective). Values omit additive constants and include the
+\code{lambda} penalty, so they are comparable across iterations
+and across runs with the same \code{lambda}, but not across
+different \code{lambda} values.
 }
 \description{
-Alternates between GPCA factor estimation and maximum-likelihood updates of
-the row/column metric matrices (M, A) under a Gaussian matrix-normal error
-model. Each iteration:
+Alternates between GPCA factor estimation and penalized maximum-likelihood
+updates of the row/column metric matrices (M, A) under a Gaussian
+matrix-normal error model with a low-rank mean. Each iteration performs
+three exact block minimizations of a single penalized objective:
 \enumerate{
-  \item Fit GPCA with current \code{A}, \code{M}.
-  \item Reconstruct \eqn{\hat X}; compute residuals \eqn{E = X - \hat X}.
-  \item Update covariance estimates \eqn{\Sigma_r = E A E^T / p} and
-        \eqn{\Sigma_c = E^T M E / n}, apply ridge \code{lambda}, fix scale,
-        set \code{M <- solve(Sigma_r)}, \code{A <- solve(Sigma_c)}, then
-        project back to SPD via \code{ensure_spd}.
+\item Fit GPCA with current \code{A}, \code{M}: the GMD theorem makes
+this the best rank-\code{ncomp} fit in the (M, A) norm, so it
+exactly minimizes the residual term.
+\item Update \eqn{\Sigma_r = E A E^T / p + \lambda I} (the exact block
+minimizer under the ridge penalty), set \code{M = solve(Sigma_r)}.
+\item Update \eqn{\Sigma_c = E^T M E / n + \lambda I} using the
+\emph{updated} \code{M} (sequential flip-flop, Dutilleul 1999),
+set \code{A = solve(Sigma_c)}.
 }
 }
 \details{
-This is an experimental convenience wrapper; for stability it enforces SPD at
-every step, applies ridge shrinkage, and fixes the scale indeterminacy via
-the mean diagonal (\code{scale_fix = "trace"}).
-
-
-The matrix-normal likelihood is flat along \eqn{c\,\Sigma_r, \Sigma_c/c}; a
-scale constraint (trace or determinant) is therefore imposed before
-inversion. The algorithm stops when the relative change in log-likelihood is
-below \code{tol} or \code{max_iter} is reached. Increase \code{lambda} or
-reduce \code{ncomp} if iterations become unstable.
+The objective is the matrix-normal log-likelihood with a low-rank mean and
+an inverse-Wishart-style ridge penalty
+\eqn{\lambda\,(p\,\mathrm{tr}\,\Sigma_r^{-1} + n\,\mathrm{tr}\,\Sigma_c^{-1})}
+(a MAP estimate). Because every block update is an exact minimizer of this
+one objective, \code{loglik_path} is monotone non-decreasing up to
+numerical noise. The penalty also resolves the \eqn{c\,\Sigma_r,
+\Sigma_c/c} scale indeterminacy during iteration; \code{scale_fix} is
+applied once at exit as a \emph{joint} reciprocal rescale (row covariance
+normalized, factor absorbed into the column covariance), which leaves the
+likelihood unchanged. The algorithm stops when the relative change in the
+penalized log-likelihood falls below \code{tol} or \code{max_iter} is
+reached. Increase \code{lambda} or reduce \code{ncomp} if iterations
+become unstable.
 }
 \examples{
 if (requireNamespace("multivarious", quietly = TRUE)) {
@@ -88,6 +108,6 @@ if (requireNamespace("multivarious", quietly = TRUE)) {
 
 }
 \references{
-Dutilleul, P. (1999). *The MLE algorithm for the matrix normal distribution*.
+Dutilleul, P. (1999). \emph{The MLE algorithm for the matrix normal distribution}.
 Journal of Statistical Computation and Simulation, 64(2), 105-123.
 }

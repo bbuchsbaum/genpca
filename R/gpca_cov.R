@@ -21,7 +21,14 @@
 #'     \item{"gmd" (default): Allen et al.'s GMD approach via eigen decomposition of \eqn{R^{1/2} C R^{1/2}}}
 #'     \item{"geigen": Generalized eigenvalue approach solving C v = lambda R v}
 #'   }
-#' @param constraints_remedy How to handle slightly non-PSD inputs (for geigen method). One of:
+#' @param constraints_remedy How to handle slightly non-PSD inputs (used only
+#'   by the \code{"geigen"} method; \code{"gmd"} always clips negative
+#'   eigenvalues of \code{R} internally, see Details). Default
+#'   \code{"error"} -- note this differs from \code{\link{genpca}}, whose
+#'   default is \code{"ridge"}; \code{genpca_cov()} expects an
+#'   already-validated covariance matrix \code{C} and metric \code{R}, so it
+#'   errs on the side of rejecting bad input rather than silently repairing
+#'   it. One of:
 #'   \itemize{
 #'     \item{"error": Stop with an error if constraints are not PSD}
 #'     \item{"ridge": Add a small ridge to the diagonal to make PSD}
@@ -31,7 +38,8 @@
 #' @param tol Numerical tolerance for PSD checks and filtering small eigenvalues. Default 1e-8.
 #' @param verbose Logical. If TRUE, print progress messages. Default FALSE.
 #'
-#' @return A list with components:
+#' @return A plain list (\strong{not} a \pkg{multivarious}
+#'   \code{bi_projector}) with components:
 #'   \describe{
 #'     \item{v}{p x k matrix of loadings (R-orthonormal eigenvectors)}
 #'     \item{d}{Singular values (square root of eigenvalues lambda)}
@@ -42,6 +50,12 @@
 #'     \item{R_rank}{Rank of the constraint matrix R}
 #'     \item{method}{The method used ("gmd" or "geigen")}
 #'   }
+#'   Because this is a plain list rather than a \code{bi_projector}, the
+#'   \code{multivarious} generics \code{scores()}, \code{components()}, and
+#'   \code{reconstruct()} do not apply to it; index \code{$v}/\code{$d}
+#'   directly, or use \code{\link{genpca}} when you need the full projector
+#'   interface (out-of-sample \code{project()}, \code{reconstruct()}, etc.)
+#'   on a data matrix rather than a pre-computed covariance matrix.
 #'
 #' @details
 #' \strong{Method Selection Guide:}

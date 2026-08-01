@@ -13,7 +13,7 @@ as_dge(A)
 a dgeMatrix
 }
 \description{
-Replacement for the deprecated direct `as(., "dgeMatrix")`
+Replacement for the deprecated direct \code{as(., "dgeMatrix")}
 coercion from dsyMatrix/dpoMatrix.
 }
 \keyword{internal}

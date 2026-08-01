@@ -64,7 +64,8 @@ This vignette walks through the choices that matter once your data outgrows the 
 | `deflation` | Few components, tight memory | Low memory footprint | Can converge slowly; monitor iteration warnings |
 | `auto` | Default production usage | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime |
 
-In practice, leave it on `"auto"` unless you have a reason to pin a backend.
+The default is `"eigen"`; pass `method = "auto"` to let the heuristics pick a
+backend for you on larger problems.
 
 ## Backends on the same problem
 
@@ -101,12 +102,20 @@ legend("topright", legend = c("eigen", "randomized"),
 
 ## Sparse workflow (`spectra`)
 
-The `spectra` backend uses an iterative C++ solver and is the right choice for large sparse problems. The chunk below is shown but not evaluated to keep the vignette fast; it is the pattern to copy:
+The `spectra` backend uses an iterative C++ solver and is the right choice for large sparse problems, including problems with sparse row/column metrics:
 
-```{r spectra, eval = FALSE}
+```{r spectra}
 set.seed(42)
-X_sparse <- rsparsematrix(800, 300, density = 0.005)
-fit_sp <- genpca(X_sparse, ncomp = 5, method = "spectra",
+n <- 300; p <- 200
+X_sparse <- rsparsematrix(n, p, density = 0.01)
+
+# Sparse tridiagonal row/column metrics (mild AR(1)-style coupling)
+M_sp <- bandSparse(n, k = c(-1, 0, 1),
+                   diagonals = list(rep(0.1, n - 1), rep(1, n), rep(0.1, n - 1)))
+A_sp <- bandSparse(p, k = c(-1, 0, 1),
+                   diagonals = list(rep(0.1, p - 1), rep(1, p), rep(0.1, p - 1)))
+
+fit_sp <- genpca(X_sparse, M = M_sp, A = A_sp, ncomp = 5, method = "spectra",
                  preproc = multivarious::pass(),
                  constraints_remedy = "ridge")
 fit_sp$sdev

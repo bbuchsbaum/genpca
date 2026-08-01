@@ -26,15 +26,18 @@
 
 #' @keywords internal
 .digest_dense_matrix <- function(M) {
-  # Round to stabilize digest against tiny numeric jitter
-  digest::digest(list(dim = dim(M), data = round(as.numeric(M), 8)))
+  # Hash the exact bytes: rounding would collide distinct matrices whose
+  # entries agree to the rounded precision (e.g. any two small-magnitude
+  # metrics, or a metric and its ridge-remediated version), returning the
+  # wrong Cholesky factor from the cache.
+  digest::digest(list(dim = dim(M), data = as.numeric(M)))
 }
 
 #' @keywords internal
 .digest_sparse_matrix <- function(M) {
-  # Use slots to avoid densifying
+  # Use slots to avoid densifying; exact bytes (see .digest_dense_matrix)
   stopifnot(inherits(M, "sparseMatrix"))
-  digest::digest(list(dim = M@Dim, i = M@i, p = M@p, x = round(M@x, 8)))
+  digest::digest(list(dim = M@Dim, i = M@i, p = M@p, x = M@x))
 }
 
 #' @title Get (and cache) a *lower* Cholesky factor for a dense SPD matrix

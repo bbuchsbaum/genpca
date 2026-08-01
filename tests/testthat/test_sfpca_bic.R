@@ -131,6 +131,7 @@ test_that("uthresh/vthresh are deprecated with a warning and ignored", {
 })
 
 test_that("nlambda and lambda_min_ratio are validated", {
+  set.seed(134)
   X <- matrix(rnorm(200), 20, 10)
   spat <- matrix(runif(20), nrow = 2)
   expect_error(sfpca(X, K = 1, spat_cds = spat, nlambda = 1), "nlambda")
@@ -139,6 +140,7 @@ test_that("nlambda and lambda_min_ratio are validated", {
 })
 
 test_that("negative or non-finite alpha is rejected (keeps S = I + alpha Omega SPD)", {
+  set.seed(142)
   X <- matrix(rnorm(200), 20, 10)
   spat <- matrix(runif(20), nrow = 2)
   expect_error(sfpca(X, K = 1, spat_cds = spat, alpha_v = -1), "alpha_v")

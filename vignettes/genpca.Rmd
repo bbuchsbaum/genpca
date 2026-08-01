@@ -132,12 +132,15 @@ par(op)
 
 ## Choosing the number of components
 
-A scree plot is the quickest first look:
+`fit$sdev` holds the generalized singular values `d_k` of the
+metric-whitened data, not standard deviations: with identity metrics and
+centering, `fit$sdev` equals `prcomp(X)$sdev * sqrt(nrow(X) - 1)`. A scree
+plot of the squared values is the quickest first look:
 
-```{r scree, fig.cap = "Variance explained by each component.", fig.height = 3}
+```{r scree, fig.cap = "Squared generalized singular value by component.", fig.height = 3}
 barplot(fit$sdev^2,
         names.arg = paste0("PC", seq_along(fit$sdev)),
-        xlab = "Component", ylab = "Variance",
+        xlab = "Component", ylab = "Squared generalized singular value",
         col = "grey60", border = NA)
 ```
 
@@ -178,9 +181,32 @@ PC1 separates states by overall violent-crime rate, with high-urbanisation state
 | `multivarious::scores(fit)` | `n x k` | Observation coordinates in component space |
 | `multivarious::components(fit)` | `p x k` | Loadings (variable directions) |
 | `multivarious::project(fit, X_new)` | `n_new x k` | Out-of-sample scores |
-| `reconstruct(fit, ncomp = k)` | `n x p` | Rank-`k` reconstruction of `X` |
+| `reconstruct(fit, comp = 1:k)` | `n x p` | Rank-`k` reconstruction of `X` |
 
 These verbs are shared across `genpca()`, `genpls()`, `sfpca()`, and `rpls()`, so once you learn them on `genpca` they carry over.
+
+## What are `ou`, `ov`, `u`, and `v`?
+
+Under the hood, `genpca()` stores the raw factors of the decomposition
+alongside the verbs above. `ou` and `ov` are the metric-orthonormal factors
+of the paper (Allen, Grosenick & Taylor 2014): `ou` is orthonormal in the
+row metric (`t(ou) %*% M %*% ou` is the identity) and `ov` is orthonormal in
+the column metric (`t(ov) %*% A %*% ov` is the identity). `u` and `v` are
+the same factors after applying the metric (`u = M %*% ou`, `v = A %*% ov`),
+which is the form used for `components()`. The table below ties these to
+the verbs:
+
+| Quantity | Definition | Relation to verbs |
+|:--|:--|:--|
+| `ou` | Row-metric-orthonormal left factor | `t(ou) %*% M %*% ou = I` |
+| `ov` | Column-metric-orthonormal right factor | `t(ov) %*% A %*% ov = I` |
+| `v` (`components(fit)`) | `A %*% ov` | Loadings in the original variable space |
+| `s` (`scores(fit)`) | `X %*% A %*% ov = ou %*% diag(sdev)` | Equal to `project(fit, X)` on the training data |
+
+In other words, `scores(fit)` and `project(fit, X)` compute the same
+quantity two ways -- one directly from `X` and the column loadings, the
+other from the stored orthonormal factors and the singular values -- and
+they agree exactly on the training data.
 
 ## Where next
 

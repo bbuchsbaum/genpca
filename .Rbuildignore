@@ -21,3 +21,7 @@ experimental/
 ^cran-comments\.md$
 ^genpca\.Rcheck$
 ^genpca_.*\.tar\.gz$
+^\.mote$
+^Rprof\.out$
+^vignettes/(genpca|gpca-metrics|gpca-scale|gplssvd-reference|gpca-basics)\.html$
+^tests/testthat/.*\.patch$

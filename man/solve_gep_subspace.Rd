@@ -19,36 +19,36 @@ solve_gep_subspace(
 )
 }
 \arguments{
-\item{S1, S2}{Symmetric positive-(semi)definite `dgCMatrix`
+\item{S1, S2}{Symmetric positive-(semi)definite \code{dgCMatrix}
 (or dense) matrices of the same dimension \eqn{d\times d}.}
 
-\item{q}{Number of eigen-pairs required (`q << d`).}
+\item{q}{Number of eigen-pairs required (\verb{q << d}).}
 
-\item{which}{`"largest"` or `"smallest"`.}
+\item{which}{\code{"largest"} or \code{"smallest"}.}
 
 \item{max_iter, tol}{Stopping rule - iteration stops when
-`max(abs(lambda_new - lambda_old)/abs(lambda_old)) < tol`.}
+\code{max(abs(lambda_new - lambda_old)/abs(lambda_old)) < tol}.}
 
-\item{V0}{Optional `d x q` initial block (will be orthonormalised).}
+\item{V0}{Optional \verb{d x q} initial block (will be orthonormalised).}
 
 \item{seed}{Optional integer seed for reproducible random initialisation.}
 
-\item{reg_S, reg_T}{Ridge terms added to `S1`/`S2` and the small
-`q x q` Gram matrix to guarantee invertibility.}
+\item{reg_S, reg_T}{Ridge terms added to \code{S1}/\code{S2} and the small
+\verb{q x q} Gram matrix to guarantee invertibility.}
 
 \item{verbose}{Logical - print convergence info.}
 }
 \value{
 A list with components
-  \describe{
-    \item{values}{length-`q` numeric vector of Ritz eigen-values.}
-    \item{vectors}{`d x q` matrix, columns are orthonormal eigen-vectors
-                   in the *original* S-inner-product.}
-  }
+\describe{
+\item{values}{length-\code{q} numeric vector of Ritz eigen-values.}
+\item{vectors}{\verb{d x q} matrix, columns are orthonormal eigen-vectors
+in the \emph{original} S-inner-product.}
+}
 }
 \description{
 Uses pre-conditioned sub-space iteration on the operator
-\eqn{S_2^{-1} S_1} (or its inverse) to obtain the `q`
+\eqn{S_2^{-1} S_1} (or its inverse) to obtain the \code{q}
 largest or smallest generalized eigen-values/vectors of
 \eqn{S_1 v = \lambda S_2 v}.
 }

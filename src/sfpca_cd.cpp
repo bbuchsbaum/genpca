@@ -110,15 +110,25 @@ Rcpp::List sfpca_cd_solve_cpp(const Eigen::Map<Eigen::SparseMatrix<double>> S,
   const int n = S.rows();
   if (S.cols() != n) Rcpp::stop("S must be square.");
   if (b.size() != n || x0.size() != n) Rcpp::stop("b and x0 must have length nrow(S).");
-  if (lambda < 0.0) Rcpp::stop("lambda must be non-negative.");
+  if (!std::isfinite(lambda) || lambda < 0.0) Rcpp::stop("lambda must be non-negative and finite.");
   if (penalty != 0 && penalty != 1) Rcpp::stop("penalty must be 0 (l1) or 1 (scad).");
   if (penalty == 1 && scad_a <= 2.0) Rcpp::stop("scad_a must be > 2.");
+  // NaN/Inf must be rejected up front: soft_threshold(NaN) returns 0 and
+  // std::max(0.0, NaN) returns 0, so non-finite input would otherwise come
+  // back as a "converged" solution with KKT residual 0.
+  if (!b.allFinite()) Rcpp::stop("b must contain only finite values.");
+  if (!x0.allFinite()) Rcpp::stop("x0 must contain only finite values.");
+  for (int j = 0; j < S.outerSize(); ++j) {
+    for (Eigen::Map<Eigen::SparseMatrix<double>>::InnerIterator it(S, j); it; ++it) {
+      if (!std::isfinite(it.value())) Rcpp::stop("S must contain only finite values.");
+    }
+  }
 
   Eigen::VectorXd x = x0;
   Eigen::VectorXd diag(n);
   for (int j = 0; j < n; ++j) {
     double d = S.coeff(j, j);
-    if (d <= 0.0) Rcpp::stop("S must have strictly positive diagonal.");
+    if (!std::isfinite(d) || d <= 0.0) Rcpp::stop("S must have strictly positive diagonal.");
     diag[j] = d;
   }
 
@@ -186,6 +196,7 @@ Rcpp::List sfpca_cd_solve_cpp(const Eigen::Map<Eigen::SparseMatrix<double>> S,
   bool converged = false;
   double kkt = 0.0;
   while (sweeps < max_sweeps) {
+    Rcpp::checkUserInterrupt();
     // Full sweep
     for (int j = 0; j < n; ++j) update_coord(j);
     ++sweeps;

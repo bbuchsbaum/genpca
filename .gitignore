@@ -14,3 +14,4 @@ genpca-overview.md
 .rcmdcheck_result.rds
 pkgdown/
 vignettes/*.html
+Rprof.out

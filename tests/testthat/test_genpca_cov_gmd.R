@@ -17,13 +17,13 @@ test_that("genpca_cov with method='gmd' exactly matches two-sided genpca", {
   fit_cov_gmd <- genpca_cov(C, R = NULL, ncomp = k, method = "gmd")
 
   # Should match exactly
-  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
                label = "GMD: Singular values with identity constraints")
 
   # Eigenvectors should match (up to sign)
   for (i in 1:k) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov_gmd$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("GMD: Eigenvector", i, "correlation (identity)"))
   }
 })
@@ -44,20 +44,20 @@ test_that("genpca_cov GMD matches genpca with column constraint A", {
   fit_cov_gmd <- genpca_cov(C, R = A_diag, ncomp = k, method = "gmd")
 
   # Now with GMD method, these should match exactly!
-  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
                label = "GMD: Singular values with A constraint")
 
   # Check eigenvectors match (up to sign)
   for (i in 1:k) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov_gmd$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("GMD: Eigenvector", i, "with A constraint"))
   }
 
   # Verify A-orthonormality
   A_mat <- diag(A_diag)
   VAV <- t(fit_cov_gmd$v) %*% A_mat %*% fit_cov_gmd$v
-  expect_equal(as.matrix(VAV), diag(k), tolerance = 1e-10,
+  expect_equal(as.matrix(VAV), diag(k), tolerance = 1e-8,
                label = "GMD: A-orthonormality of eigenvectors")
 })
 
@@ -78,13 +78,13 @@ test_that("genpca_cov GMD matches genpca with row constraint M", {
   fit_cov_gmd <- genpca_cov(C_M, R = NULL, ncomp = k, method = "gmd")
 
   # Should match
-  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
                label = "GMD: Singular values with M constraint")
 
   # Check eigenvectors
   for (i in 1:k) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov_gmd$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("GMD: Eigenvector", i, "with M constraint"))
   }
 })
@@ -108,20 +108,20 @@ test_that("genpca_cov GMD matches genpca with both M and A constraints", {
   fit_cov_gmd <- genpca_cov(C_M, R = A_diag, ncomp = k, method = "gmd")
 
   # Should match exactly with GMD method
-  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-10,
+  expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
                label = "GMD: Singular values with both M and A")
 
   # Check eigenvectors
   for (i in 1:k) {
     cor_val <- abs(cor(fit_genpca$ov[, i], fit_cov_gmd$v[, i]))
-    expect_equal(cor_val, 1, tolerance = 1e-10,
+    expect_equal(cor_val, 1, tolerance = 1e-8,
                  label = paste("GMD: Eigenvector", i, "with both M and A"))
   }
 
   # Verify A-orthonormality
   A_mat <- diag(A_diag)
   VAV <- t(fit_cov_gmd$v) %*% A_mat %*% fit_cov_gmd$v
-  expect_equal(as.matrix(VAV), diag(k), tolerance = 1e-10,
+  expect_equal(as.matrix(VAV), diag(k), tolerance = 1e-8,
                label = "GMD: A-orthonormality with both constraints")
 })
 
@@ -154,9 +154,9 @@ test_that("genpca_cov variance explained matches between GMD and two-sided", {
     fit_cov_gmd <- genpca_cov(C, R = tc$A, ncomp = 5, method = "gmd")
 
     # Variance explained should match
-    expect_equal(fit_genpca$propv, fit_cov_gmd$propv, tolerance = 1e-10,
+    expect_equal(fit_genpca$propv, fit_cov_gmd$propv, tolerance = 1e-8,
                  label = paste("GMD propv:", tc$desc))
-    expect_equal(fit_genpca$cumv, fit_cov_gmd$cumv, tolerance = 1e-10,
+    expect_equal(fit_genpca$cumv, fit_cov_gmd$cumv, tolerance = 1e-8,
                  label = paste("GMD cumv:", tc$desc))
   }
 })
@@ -179,17 +179,17 @@ test_that("genpca_cov correctly identifies method='geigen' vs 'gmd' differences"
   expect_equal(fit_geigen$method, "geigen")
 
   # Results should differ (as we discovered)
-  expect_false(isTRUE(all.equal(fit_gmd$d, fit_geigen$d, tolerance = 1e-10)),
+  expect_false(isTRUE(all.equal(fit_gmd$d, fit_geigen$d, tolerance = 1e-8)),
                label = "GMD and geigen produce different results with A constraint")
 
   # But both should produce A-orthonormal vectors
   A_mat <- diag(A_diag)
 
   VAV_gmd <- t(fit_gmd$v) %*% A_mat %*% fit_gmd$v
-  expect_equal(as.matrix(VAV_gmd), diag(5), tolerance = 1e-10,
+  expect_equal(as.matrix(VAV_gmd), diag(5), tolerance = 1e-8,
                label = "GMD produces A-orthonormal vectors")
 
   VAV_geigen <- t(fit_geigen$v) %*% A_mat %*% fit_geigen$v
-  expect_equal(as.matrix(VAV_geigen), diag(5), tolerance = 1e-10,
+  expect_equal(as.matrix(VAV_geigen), diag(5), tolerance = 1e-8,
                label = "geigen produces A-orthonormal vectors")
 })

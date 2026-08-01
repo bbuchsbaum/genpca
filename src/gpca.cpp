@@ -1,6 +1,8 @@
 #define ARMA_64BIT_WORD 1
 #include <RcppArmadillo.h>
 #include <cmath>
+#include <string>
+#include <vector>
 // [[Rcpp::depends(RcppArmadillo)]]
 
 using namespace Rcpp;
@@ -13,6 +15,13 @@ using namespace arma;
 // Degenerate directions (zero norm in the metric) or near-zero singular
 // values stop extraction early and results are trimmed, matching the R
 // implementation gmd_deflationR().
+//
+// Stopping criteria are RELATIVE to the scale of X in the (Q, R) metric
+// (scale_ref = ||X||_{Q,R}), so results are invariant to rescaling X.
+//
+// Warnings are collected into the returned list ("warnings") and emitted by
+// the R wrapper: calling Rf_warning() from C++ longjmps past Armadillo
+// destructors under options(warn = 2), leaking every live allocation.
 //
 // The residual is applied implicitly.  After j components have been extracted:
 //   X_j  w = X w  - U_j (d_j * (V_j' w))
@@ -34,16 +43,17 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
   arma::vec dgmd(k, fill::zeros);
   arma::vec propv(k, fill::zeros);
   arma::vec cumv(k, fill::zeros);
-
-  arma::vec u = randn(n);
-  arma::vec v = randn(p);
+  std::vector<std::string> warns;
 
   // qrnorm = tr(X' Q X R) = accu((Q X) % (X R)); avoids any n x n / p x p
   // dense intermediate (trace is cyclic, so one expression covers both shapes).
   double qrnorm = arma::accu((Q * X) % (X * R));
-  if (!std::isfinite(qrnorm) || qrnorm < 1e-12) {
-    warning("Total generalized variance is near zero; explained variance may be unstable.");
+  double scale_ref = 1.0;
+  if (!std::isfinite(qrnorm) || qrnorm <= 0.0) {
+    warns.push_back("Total generalized variance is not positive; explained variance may be unstable.");
     qrnorm = 1.0;
+  } else {
+    scale_ref = std::sqrt(qrnorm);
   }
 
   int k_found = 0;
@@ -70,7 +80,18 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
     return y;
   };
 
+  const double norm_floor = thr * scale_ref;
+
   for (int i=0; i<k; i++) {
+    Rcpp::checkUserInterrupt();
+
+    // Fresh random start for every component: the previous component's
+    // converged vectors are (by construction) annihilated by the deflated
+    // operator, so reusing them would amplify roundoff noise into the
+    // starting direction.
+    arma::vec u = randn(n);
+    arma::vec v = randn(p);
+
     double err = 1;
     int iter = 0;
     bool degenerate = false;
@@ -81,12 +102,12 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
 
       arma::vec uhat = residual_mv(R * v, k_found);
       double u_norm = std::sqrt(arma::as_scalar(uhat.t() * (Q * uhat)));
-      if (!std::isfinite(u_norm) || u_norm <= 0.0) { degenerate = true; break; }
+      if (!std::isfinite(u_norm) || u_norm <= norm_floor) { degenerate = true; break; }
       u = uhat / u_norm;
 
       arma::vec vhat = residual_t_mv(Q * u, k_found);
       double v_norm = std::sqrt(arma::as_scalar(vhat.t() * (R * vhat)));
-      if (!std::isfinite(v_norm) || v_norm <= 0.0) { degenerate = true; break; }
+      if (!std::isfinite(v_norm) || v_norm <= norm_floor) { degenerate = true; break; }
       v = vhat / v_norm;
 
       err = arma::accu(arma::square(oldu - u)) + arma::accu(arma::square(oldv - v));
@@ -96,7 +117,8 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
       if (verbose) {
         Rcout << "Degenerate direction at component " << (i + 1) << "; stopping deflation." << std::endl;
       }
-      warning("Deflation stopped early at component %d (degenerate direction).", i + 1);
+      warns.push_back("Deflation stopped early at component " + std::to_string(i + 1) +
+                      " (degenerate direction).");
       break;
     }
 
@@ -104,12 +126,17 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
       if (verbose) {
         Rcout << "Power iteration reached maxit for component " << (i + 1) << "." << std::endl;
       }
-      warning("Power iteration reached maxit at component %d (maxit=%d).", i + 1, maxit);
+      warns.push_back("Power iteration reached maxit at component " + std::to_string(i + 1) +
+                      " (maxit=" + std::to_string(maxit) + ").");
     }
 
     double d_i = arma::as_scalar((Q * u).t() * residual_mv(R * v, k_found));
-    if (!std::isfinite(d_i) || std::fabs(d_i) < thr) {
-      warning("Deflation stopped early at component %d (singular value near zero).", i + 1);
+    // Relative cutoff: stop once the residual singular value is negligible
+    // compared to the largest one extracted (or to ||X||_{Q,R} for the first).
+    double d_ref = (k_found > 0) ? std::fabs(dgmd(0)) : scale_ref;
+    if (!std::isfinite(d_i) || std::fabs(d_i) < thr * d_ref) {
+      warns.push_back("Deflation stopped early at component " + std::to_string(i + 1) +
+                      " (singular value near zero).");
       break;
     }
 
@@ -127,7 +154,8 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
     Named("u") = ugmd.head_cols(k_found),
     Named("k") = k_found,
     Named("cumv") = cumv.head(k_found),
-    Named("propv") = propv.head(k_found)
+    Named("propv") = propv.head(k_found),
+    Named("warnings") = wrap(warns)
   );
 }
 

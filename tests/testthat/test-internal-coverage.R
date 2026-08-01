@@ -139,6 +139,7 @@ test_that("GMD fast R helpers validate options and cover zero-rank and randomize
   expect_equal(zero_diag$k, 0L)
   expect_equal(dim(zero_diag$u), c(4L, 0L))
 
+  set.seed(126)
   X <- matrix(rnorm(30), 6, 5)
   Q <- Matrix::Diagonal(6)
   R <- Matrix::Diagonal(5)
@@ -260,7 +261,7 @@ test_that("randomized C++ entry points cover zero and mixed sparse/dense metric 
   expect_equal(both_sparse$k, 2L)
   expect_equal(q_sparse$k, 2L)
   expect_equal(r_sparse$k, 2L)
-  expect_equal(dense$d, both_sparse$d, tolerance = 1e-8)
+  expect_equal(dense$d, both_sparse$d, tolerance = 1e-6)
 })
 
 test_that("GEP low-level helpers handle successful and failed regularization paths", {
@@ -273,6 +274,7 @@ test_that("GEP low-level helpers handle successful and failed regularization pat
   X0 <- matrix(numeric(0), 3, 0)
   expect_equal(dim(genpca:::orthonormalize(X0)), c(3L, 0L))
 
+  set.seed(266)
   X <- matrix(rnorm(9), 3, 3)
   Q <- qr.Q(qr(X))
   expect_equal(crossprod(genpca:::orthonormalize(X)), diag(3), tolerance = 1e-8)

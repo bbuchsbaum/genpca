@@ -270,7 +270,25 @@ metric_orthonormalize <- function(A, applyM, jitter = 1e-10, tol = 1e-12) {
 }
 
 random_sign_matrix <- function(nrow, ncol, seed = NULL) {
-  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(seed)) {
+    # Never clobber the caller's RNG stream (CRAN policy): save and restore
+    # .Random.seed around the seeded draw.
+    old_seed <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    } else {
+      NULL
+    }
+    on.exit({
+      if (is.null(old_seed)) {
+        if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+          rm(".Random.seed", envir = globalenv())
+        }
+      } else {
+        assign(".Random.seed", old_seed, envir = globalenv())
+      }
+    }, add = TRUE)
+    set.seed(seed)
+  }
   matrix(sample(c(-1, 1), size = nrow * ncol, replace = TRUE), nrow = nrow, ncol = ncol)
 }
 

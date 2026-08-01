@@ -17,20 +17,19 @@
 
 \item{opts}{Options list passed to multivarious::transfer.}
 
-\item{...}{Additional arguments. Legacy parameters `source` and `target`
+\item{...}{Additional arguments. Legacy parameters \code{source} and \code{target}
 are accepted here for backwards compatibility but are deprecated;
-use `from` and `to` instead.}
+use \code{from} and \code{to} instead.}
 }
 \value{
 Matrix with transferred data.
 }
 \description{
-Provides a transfer method that accepts `source`/`target` arguments
-used in the tests. The method forwards to `multivarious`'s
-transfer method which expects `from`/`to`.
+Provides a transfer method that accepts \code{source}/\code{target} arguments
+used in the tests. The method forwards to \code{multivarious}'s
+transfer method which expects \code{from}/\code{to}.
 }
 \examples{
-\donttest{
 # Generate sample data
 set.seed(123)
 n <- 50
@@ -43,6 +42,5 @@ fit <- rpls(X, Y, K = 2)
 # Transfer new X data to Y space
 new_X <- matrix(rnorm(10 * 10), 10, 10)
 transferred <- transfer(fit, new_X, from = "X", to = "Y")
-}
 
 }

@@ -2,11 +2,6 @@
 % Please edit documentation in R/gpca.R
 \name{genpca}
 \alias{genpca}
-\alias{gmdLA}
-\alias{gmd_deflationR}
-\alias{truncate.genpca}
-\alias{reconstruct.genpca}
-\alias{ncomp.genpca}
 \title{Generalised Principal Components Analysis (GPCA)}
 \usage{
 genpca(
@@ -32,60 +27,50 @@ genpca(
   tol_polish_randomized = 1e-04,
   verbose = FALSE
 )
-
-gmdLA(
-  X,
-  Q,
-  R,
-  k = min(n_orig, p_orig),
-  n_orig,
-  p_orig,
-  maxeig = 800,
-  tol = 1e-08,
-  use_dual = FALSE,
-  warn_approx = TRUE,
-  verbose = FALSE
-)
-
-gmd_deflationR(X, Q, R, k, thr = 1e-06, maxit = 500L, verbose = FALSE)
-
-\method{truncate}{genpca}(x, ncomp)
-
-\method{reconstruct}{genpca}(
-  x,
-  comp = 1:multivarious::ncomp(x),
-  rowind = NULL,
-  colind = NULL,
-  ...
-)
-
-\method{ncomp}{genpca}(x)
 }
 \arguments{
 \item{X}{Numeric matrix n x p.}
 
 \item{A}{Column constraint: vector (implies diagonal), dense matrix, or sparse
-symmetric p x p PSD matrix. If `NULL`, defaults to identity.}
+symmetric p x p PSD matrix. If \code{NULL}, defaults to identity.}
 
 \item{M}{Row constraint: vector (implies diagonal), dense matrix, or sparse
-symmetric n x n PSD matrix. If `NULL`, defaults to identity.}
+symmetric n x n PSD matrix. If \code{NULL}, defaults to identity.}
 
-\item{ncomp}{Number of components to extract. Defaults to `min(dim(X))`. Must be positive.}
+\item{ncomp}{Number of components to extract. Defaults to \code{min(dim(X))}. Must be positive.}
 
 \item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
 
-\item{constraints_remedy}{Character string specifying the remedy for constraints. One of \code{"error"}, \code{"ridge"}, \code{"clip"}, or \code{"identity"}.}
+\item{constraints_remedy}{Character string specifying how a supplied \code{A}
+or \code{M} that is not symmetric positive (semi)definite is repaired.
+Default \code{"ridge"}. One of: \code{"error"} (reject the input with an
+error), \code{"ridge"} (Gershgorin diagonal shift: add the smallest
+diagonal loading that restores positive definiteness, falling back
+to \code{Matrix::nearPD()} for small dense matrices), \code{"clip"}
+(spectral clip to the PSD cone by zeroing negative eigenvalues;
+this densifies the matrix and refuses sparse input larger than
+2000 rows/cols, where \code{"ridge"} should be used instead), or
+\code{"identity"} (replace the matrix with the identity). Note
+that \code{\link{genpca_cov}} defaults to \code{"error"} instead of
+\code{"ridge"}, since it expects an already-validated covariance
+matrix; see its documentation for details.}
 
-\item{preproc}{Pre-processing transformer object from the **multivarious** package
-(default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
-See `?multivarious::prep` for options.}
+\item{preproc}{Pre-processing transformer object from the \strong{multivarious} package
+(default \code{multivarious::pass()}). Use \code{multivarious::center()} for centered GPCA.
+See \code{?multivarious::prep} for options.}
 
-\item{threshold}{Convergence tolerance for the \code{"deflation"} method's inner loop. Default `1e-6`.}
+\item{threshold}{Convergence tolerance for the \code{"deflation"} method's
+inner loop. Default \code{1e-6}. Cutoffs are relative to the scale of
+the problem (the norm/singular-value floors scale with
+\eqn{\sqrt{\mathrm{tr}(X'MXA)}}), so results are invariant to
+rescaling \code{X}. The convergence check is on a squared step
+difference, so the resulting singular-vector accuracy scales like
+\eqn{\sqrt{\code{threshold}}}, not \code{threshold} itself.}
 
 \item{maxit_deflation}{Maximum iterations per component for the
-\code{"deflation"} method. Default `500`.}
+\code{"deflation"} method. Default \code{500}.}
 
-\item{use_cpp}{Logical. If `TRUE` (default) and package was compiled with C++ support,
+\item{use_cpp}{Logical. If \code{TRUE} (default) and package was compiled with C++ support,
 use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
 (Ignored for \code{method = "eigen"} and \code{method = "spectra"}).}
 
@@ -93,59 +78,63 @@ use faster C++ implementation for \code{method = "deflation"}. Fallback to R oth
 \code{method = "eigen"}. If a constraint matrix dimension is \code{<= maxeig}
 a full eigen decomposition is used. Otherwise only the leading \code{maxeig}
 eigencomponents are computed via \code{RSpectra::eigs_sym}, so results may be
-approximate. Default `800`.}
+approximate. Default \code{800}.}
 
 \item{warn_approx}{Logical. If \code{TRUE} (default) a warning is emitted when an
 approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.}
 
-\item{maxit_spectra}{Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default `1000`.}
+\item{maxit_spectra}{Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default \code{1000}.}
 
-\item{tol_spectra}{Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.}
+\item{tol_spectra}{Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default \code{1e-9}.}
 
-\item{oversample}{Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default `20`.}
+\item{oversample}{Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default \code{20}.}
 
-\item{n_power}{Number of power iterations for \code{method = "randomized"}. Default `1`.}
+\item{n_power}{Number of power iterations for \code{method = "randomized"}. Default \code{1}.}
 
-\item{n_polish}{Number of optional block-polish iterations for \code{method = "randomized"}. Default `0`.}
+\item{n_polish}{Number of optional block-polish iterations for \code{method = "randomized"}. Default \code{0}.}
 
-\item{jitter_metric}{Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default `1e-10`.}
+\item{jitter_metric}{Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default \code{1e-10}.}
 
-\item{seed_randomized}{Optional seed for \code{method = "randomized"}. Default `1234`.}
+\item{seed_randomized}{Optional seed for \code{method = "randomized"}.
+Default \code{1234}. This fully determines the randomized backend's
+random stream: the C++ kernel seeds its own generator from this
+value rather than from R's \code{set.seed()}/\code{.Random.seed}, and calling
+\code{genpca()} with \code{method = "randomized"} does not alter the
+caller's \code{.Random.seed}. To reproduce a randomized fit, fix
+\code{seed_randomized}, not the R seed.}
 
-\item{tol_polish_randomized}{Relative tolerance used for early stopping of polish iterations in \code{method = "randomized"}. Set `0` to disable early stop. Default `1e-4`.}
+\item{tol_polish_randomized}{Relative tolerance used for early stopping of polish iterations in \code{method = "randomized"}. Set \code{0} to disable early stop. Default \code{1e-4}.}
 
-\item{verbose}{Logical. If `TRUE`, print progress messages. Default `FALSE`.}
-
-\item{maxit}{Maximum number of iterations for deflation convergence. Default `500`.}
+\item{verbose}{Logical. If \code{TRUE}, print progress messages. Default \code{FALSE}.}
 }
 \value{
-An object of class `c("genpca", "bi_projector")` inheriting from `multivarious::bi_projector`,
-  with slots including:
-  \describe{
-    \item{u,v}{Left/right singular vectors scaled by the constraint metrics
-               (MU, AV). These correspond to components in the original space's geometry.
-               Use `components(fit)`.}
-    \item{ou,ov}{Orthonormal singular vectors in the constraint metric
-                 (U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
-    \item{sdev}{Generalised singular values d_k.}
-    \item{s}{Scores ( X V or equivalently MU D). Represent projection of rows onto components. Use `scores(fit)`.}
-    \item{preproc}{The `multivarious` pre-processing object used.}
-    \item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
-    \item{propv}{Proportion of generalized variance explained by each component.}
-    \item{cumv}{Cumulative proportion of generalized variance explained.}
-  }
+An object of class \code{c("genpca", "bi_projector")} inheriting from \code{multivarious::bi_projector},
+with slots including:
+\describe{
+\item{u,v}{Left/right singular vectors scaled by the constraint metrics
+(MU, AV). These correspond to components in the original space's geometry.
+Use \code{components(fit)}.}
+\item{ou,ov}{Orthonormal singular vectors in the constraint metric
+(U, V such that UT M U = I, VT AV = I). These are the core mathematical factors.}
+\item{sdev}{Generalised singular values d_k. Note these are singular
+values of the metric-whitened data matrix, not standard
+deviations: with identity metrics and centering,
+\code{sdev = prcomp(X)$sdev * sqrt(nrow(X) - 1)}.}
+\item{s}{Scores: the generalised principal components
+\verb{z_k = X A ov_k = ou_k d_k} (Allen et al. 2014, Section 2.4).
+Identical to \code{project(fit, X)} on the training data.
+Use \code{scores(fit)}.}
+\item{preproc}{The \code{multivarious} pre-processing object used.}
+\item{A, M}{The constraint matrices used (potentially after coercion to sparse format).}
+\item{propv}{Proportion of generalized variance explained by each component.}
+\item{cumv}{Cumulative proportion of generalized variance explained.}
+}
 }
 \description{
 Implements the Generalised Least-Squares Matrix Decomposition of
-Allen, Grosenick & Taylor (2014) for data observed in a **row**
-inner-product space M and a **column** inner-product space A.
+Allen, Grosenick & Taylor (2014) for data observed in a \strong{row}
+inner-product space M and a \strong{column} inner-product space A.
 Setting M = I_n, A = I_p recovers ordinary PCA.
-}
-\details{
-`gmdLA` caches the eigen decomposition of the constraint matrices by
-storing it as an attribute on the matrix. `compute_sqrtm()` returns this
-modified matrix so callers can reassign it (e.g. `R <- sqrtm_res$matrix`)
-to reuse the cached decomposition in subsequent calls.
 }
 \section{Method}{
 
@@ -153,24 +142,26 @@ We compute the rank-ncomp factors UDVT that minimise
 \deqn{ \|X - UDV^\top\|_{M,A}^2
       = \mathrm{tr}\!\bigl(M\, (X-UDV^\top)\,A\,(X-UDV^\top)^\top\bigr) }
 subject to UT M U = I, VT AV = I. (Allen et al., 2014).
-Three methods are available via the `method` argument:
+Five methods are available via the \code{method} argument:
 \itemize{
- \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
- \item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
- \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RcppSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RcppSpectra}.}
- \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
- \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
+\item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
+\item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
+\item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RSpectra}.}
+\item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
+\item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 }
 }
 
 \section{Backend Guidance}{
 
+The default is \code{method = "eigen"}; \code{"auto"} is opt-in, not the
+default.
 \itemize{
-  \item Use \code{method = "auto"} as the default in production pipelines.
-  \item Use \code{"eigen"} when you need a stable reference solution on small/medium problems.
-  \item Use \code{"spectra"} for larger matrix-free iterative solves where memory pressure is a concern.
-  \item Use \code{"randomized"} for wide low-rank settings (\code{p >> n}) with sparse metrics when throughput matters most.
-  \item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
+\item Use \code{"eigen"} (the default) when you need a stable reference solution on small/medium problems.
+\item Use \code{"auto"} to let a heuristic pick among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} based on problem shape and constraint structure.
+\item Use \code{"spectra"} for larger matrix-free iterative solves where memory pressure is a concern.
+\item Use \code{"randomized"} for wide low-rank settings (\code{p >> n}) with sparse metrics when throughput matters most.
+\item Use \code{"deflation"} when you only need a few components and can tolerate iterative convergence behavior.
 }
 
 For pre-computed covariance matrices C = X'MX, see \code{\link{genpca_cov}} which
@@ -216,14 +207,13 @@ if (requireNamespace("RSpectra", quietly = TRUE) &&
 }
 \references{
 Allen, G. I., Grosenick, L., & Taylor, J. (2014).
-*A Generalized Least-Squares Matrix Decomposition.*
+\emph{A Generalized Least-Squares Matrix Decomposition.}
 Journal of the American Statistical Association, 109(505), 145-159.
 arXiv:1102.3074.
 }
 \seealso{
 \code{\link{genpca_cov}} for GPCA on pre-computed covariance matrices,
-  \code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
-  `multivarious::bi_projector`, `multivarious::project`, `multivarious::scores`,
-  `multivarious::components`, `multivarious::reconstruct`.
+\code{\link{truncate.genpca}}, \code{\link{reconstruct.genpca}},
+\code{multivarious::bi_projector}, \code{multivarious::project}, \code{multivarious::scores},
+\code{multivarious::components}, \code{multivarious::reconstruct}.
 }
-\keyword{internal}

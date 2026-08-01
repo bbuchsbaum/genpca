@@ -5,10 +5,12 @@
 NULL
 
 #' @title Check if matrix is SPD
-#' @description Check if a matrix is symmetric positive semi-definite using Cholesky decomposition
+#' @description Check if a matrix is symmetric positive semi-definite (within
+#' `tol`) by attempting a Cholesky factorization of `A + tol*scale*I`.
 #' @param A numeric matrix or Matrix::Matrix
-#' @param tol tolerance for numerical checks (unused but kept for compatibility)
-#' @return logical TRUE if SPD, FALSE otherwise
+#' @param tol relative tolerance: eigenvalues above `-tol * max(abs(diag(A)))`
+#'   are treated as non-negative, so PSD-but-singular metrics are accepted
+#' @return logical TRUE if symmetric PSD within tolerance, FALSE otherwise
 #' @keywords internal
 is_spd <- function(A, tol = 1e-6) {
   if (!inherits(A, "Matrix")) {
@@ -17,13 +19,27 @@ is_spd <- function(A, tol = 1e-6) {
   if (!Matrix::isSymmetric(A)) {
     return(FALSE)
   }
-  ok <- TRUE
-  # suppressWarnings: LAPACK/CHOLMOD emit rank-deficiency warnings for the
-  # matrices this probe is designed to reject; only success/failure matters.
-  suppressWarnings(tryCatch({
-    Matrix::Cholesky(A, LDL = FALSE, Imult = 0, super = TRUE)
-  }, error = function(e) ok <<- FALSE))
-  ok
+  # Probe A + shift*I: positive definite iff min eigenvalue of A > -shift.
+  # The factorization must be one that FAILS on indefinite input. For dense
+  # matrices Matrix::Cholesky() dispatches to LAPACK's pivoted dpstrf, which
+  # succeeds (with only a warning) on indefinite matrices, so dense input must
+  # go through base::chol (dpotrf) instead.
+  scale <- max(abs(Matrix::diag(A)), 0)
+  if (!is.finite(scale)) return(FALSE)
+  if (scale == 0) scale <- 1
+  probe <- A + Matrix::Diagonal(nrow(A), x = tol * scale)
+  if (methods::is(probe, "sparseMatrix")) {
+    # CHOLMOD errors on non-PD input; warnings are near-singular noise.
+    suppressWarnings(tryCatch({
+      Matrix::Cholesky(probe, LDL = FALSE, Imult = 0, super = TRUE)
+      TRUE
+    }, error = function(e) FALSE))
+  } else {
+    tryCatch({
+      chol(as.matrix(probe))
+      TRUE
+    }, error = function(e) FALSE)
+  }
 }
 
 #' @title Coerce to general CSC sparse matrix (dgCMatrix)
@@ -49,6 +65,34 @@ as_dge <- function(A) {
   methods::as(methods::as(A, "generalMatrix"), "unpackedMatrix")
 }
 
+#' @title Clip a symmetric matrix to the PSD cone
+#' @description Spectral clip: eigen-decompose and set negative eigenvalues to
+#' zero. Unlike [ensure_spd()] (a diagonal ridge shift), this preserves the
+#' non-negative part of the spectrum exactly. Requires a dense
+#' eigendecomposition, so large sparse matrices are refused.
+#' @param M numeric matrix or Matrix::Matrix
+#' @param tol tolerance passed to [is_spd()] for the fast-path check
+#' @param dense_maxn refuse sparse input larger than this (clip densifies)
+#' @return a dense Matrix, symmetric PSD
+#' @keywords internal
+clip_psd <- function(M, tol = 1e-6, dense_maxn = 2000L) {
+  if (!inherits(M, "Matrix")) {
+    M <- Matrix::Matrix(M, sparse = FALSE)
+  }
+  M <- Matrix::forceSymmetric(M, uplo = "U")
+  if (is_spd(M, tol = tol)) return(M)
+  n <- nrow(M)
+  if (methods::is(M, "sparseMatrix") && n > dense_maxn) {
+    stop("constraints_remedy = 'clip' needs a dense eigendecomposition, but ",
+         "the matrix is sparse with ", n, " rows (> ", dense_maxn,
+         "). Use constraints_remedy = 'ridge' instead.")
+  }
+  ee <- eigen(as.matrix(M), symmetric = TRUE)
+  vals <- pmax(ee$values, 0)
+  Mc <- ee$vectors %*% (vals * t(ee$vectors))
+  Matrix::Matrix((Mc + t(Mc)) / 2, sparse = FALSE)
+}
+
 #' @title Ensure SPD (sparse-friendly)
 #' @description Force a symmetric matrix to be symmetric positive definite (SPD).
 #' Uses a Gershgorin-based diagonal shift; falls back to nearPD for small dense matrices.
@@ -62,6 +106,10 @@ as_dge <- function(A) {
 ensure_spd <- function(M, tol = 1e-6, nearpd_maxn = 2000L) {
   if (!inherits(M, "Matrix")) {
     M <- Matrix::Matrix(M, sparse = FALSE)
+  }
+  xvals <- if (methods::is(M, "sparseMatrix")) M@x else as.numeric(M)
+  if (length(xvals) && !all(is.finite(xvals))) {
+    stop("ensure_spd: matrix contains non-finite values.")
   }
   M <- Matrix::forceSymmetric(M, uplo = "U")
 
