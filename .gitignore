@@ -15,3 +15,5 @@ genpca-overview.md
 pkgdown/
 vignettes/*.html
 Rprof.out
+CLAUDE.md
+BUG_REPORTS.md
