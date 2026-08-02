@@ -96,7 +96,9 @@ across components -- \code{sfpca()} extracts each rank-1 term from a
 constraint-form subproblem rather than a joint SVD, so \verb{U'U != I} and
 \verb{V'V != I} in general. Consequently \code{multivarious::sdev()} here is
 \emph{not} the singular values of \code{X}; it is the per-component captured
-covariance \eqn{d_k = u_k' X v_k}. This non-orthogonality is also why
+covariance \eqn{d_k = u_k' X_k v_k}, where \eqn{X_k} is the matrix after
+the preceding components have been deflated out (so the identity holds
+against \code{X} itself only for \eqn{k = 1}). This non-orthogonality is also why
 \code{reconstruct()} for \code{"sfpca"} objects uses the stored \code{U}, \code{d}, \code{V}
 factors directly (\verb{U D V'}) rather than SVD-based identities such as the
 Moore-Penrose pseudoinverse of the loadings, which would not reproduce
@@ -160,7 +162,10 @@ sum(multivarious::components(result) != 0)  # sparse spatial loading
 \references{
 Allen, G. I., & Weylandt, M. (2019). Sparse and functional
 principal components analysis. In \emph{2019 IEEE Data Science Workshop
-(DSW)} (pp. 11-16).
+(DSW)} (pp. 11-16). \doi{10.1109/DSW.2019.8755778}. Also available as
+\href{https://arxiv.org/abs/1309.2895}{arXiv:1309.2895}, first posted in
+2013 and revised through 2019; the preprint and the DSW paper are the
+same work, which is why both years appear in the literature.
 }
 \seealso{
 \code{\link[=genpca]{genpca()}} for the shared \pkg{multivarious} verbs;
