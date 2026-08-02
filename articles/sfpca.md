@@ -339,22 +339,19 @@ works through the metric-side version of this in detail.
 ## Practical notes
 
 **`spat_cds` is dimensions × variables.** Rows are spatial axes, columns
-are variables — the transpose of the usual data-frame layout. Getting it
-backwards does not give a clean message; on this example it fails with a
-warning about having only 2 locations, then a non-conformable-dimensions
-error:
+are variables, so `ncol(spat_cds)` must equal `ncol(X)`. This is the
+transpose of the layout a coordinate data frame usually has, and it is
+the easiest thing to get wrong here — so the shape is checked up front:
 
 ``` r
 
 sfpca(X, K = 1, spat_cds = t(spat_cds))
-#> Warning in construct_spatial_penalty(spat_cds, k = knn): Number of spatial
-#> locations (p=2) is less than or equal to knn (k=6). Reducing k to p-1 = 1.
-#> Error:
-#> ! non-conformable matrix dimensions in .diag2T.smart(e1, e2, kind = "d") + e2
+#> Error in `sfpca()`:
+#> ! `spat_cds` must have one column per variable: ncol(X) is 256 but ncol(spat_cds) is 2. It looks transposed -- `spat_cds` is dimensions x variables, so pass t(spat_cds).
 ```
 
-Neither message points at the real problem, so check `dim(spat_cds)`
-first if you hit it.
+For a one-dimensional axis — a spectrum, a transect, a genome position —
+pass `matrix(coords, nrow = 1)` rather than a bare vector.
 
 **The column penalty is built for you.** `Omega_v` is constructed
 internally from `spat_cds` via a `knn` nearest-neighbour graph (default

@@ -409,18 +409,18 @@ version of this in detail.</p>
 <h2 id="practical-notes">Practical notes<a class="anchor" aria-label="anchor" href="#practical-notes"></a>
 </h2>
 <p><strong><code>spat_cds</code> is dimensions × variables.</strong>
-Rows are spatial axes, columns are variables — the transpose of the
-usual data-frame layout. Getting it backwards does not give a clean
-message; on this example it fails with a warning about having only 2
-locations, then a non-conformable-dimensions error:</p>
+Rows are spatial axes, columns are variables, so
+<code>ncol(spat_cds)</code> must equal <code>ncol(X)</code>. This is the
+transpose of the layout a coordinate data frame usually has, and it is
+the easiest thing to get wrong here — so the shape is checked up
+front:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/sfpca.html">sfpca</a></span><span class="op">(</span><span class="va">X</span>, K <span class="op">=</span> <span class="fl">1</span>, spat_cds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">spat_cds</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning in construct_spatial_penalty(spat_cds, k = knn): Number of spatial</span></span>
-<span><span class="co">#&gt; locations (p=2) is less than or equal to knn (k=6). Reducing k to p-1 = 1.</span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> non-conformable matrix dimensions in .diag2T.smart(e1, e2, kind = "d") + e2</span></span></code></pre></div>
-<p>Neither message points at the real problem, so check
-<code>dim(spat_cds)</code> first if you hit it.</p>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;"> in `sfpca()`:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> `spat_cds` must have one column per variable: ncol(X) is 256 but ncol(spat_cds) is 2. It looks transposed -- `spat_cds` is dimensions x variables, so pass t(spat_cds).</span></span></code></pre></div>
+<p>For a one-dimensional axis — a spectrum, a transect, a genome
+position — pass <code>matrix(coords, nrow = 1)</code> rather than a bare
+vector.</p>
 <p><strong>The column penalty is built for you.</strong>
 <code>Omega_v</code> is constructed internally from
 <code>spat_cds</code> via a <code>knn</code> nearest-neighbour graph

@@ -150,7 +150,7 @@ f1 <- genpca(Xv, M = M0,     A = A0,     ncomp = 4, preproc = multivarious::cent
 f2 <- genpca(Xv, M = 7 * M0, A = A0 / 7, ncomp = 4, preproc = multivarious::center())
 
 max(abs(f1$sdev - f2$sdev))
-#> [1] 3.552714e-15
+#> [1] 4.440892e-15
 ```
 
 The singular values and the component subspace are identical; only the

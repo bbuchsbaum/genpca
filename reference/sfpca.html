@@ -93,7 +93,11 @@ provided spatial coordinates.</p>
 
 <dt id="arg-spat-cds">spat_cds<a class="anchor" aria-label="anchor" href="#arg-spat-cds"></a></dt>
 <dd><p>A matrix of spatial coordinates for each column of X (variables). Each row
-corresponds to a spatial dimension (e.g., x, y, z), and each column corresponds to a variable.</p></dd>
+corresponds to a spatial dimension (e.g., x, y, z), and each column corresponds to a variable.
+Note the orientation: this is <code>dimensions x variables</code>, so
+<code>ncol(spat_cds)</code> must equal <code>ncol(X)</code> – the transpose of the layout a
+coordinate data frame usually has. For a one-dimensional axis (a spectrum,
+a transect) pass <code>matrix(coords, nrow = 1)</code>.</p></dd>
 
 
 <dt id="arg-lambda-u">lambda_u<a class="anchor" aria-label="anchor" href="#arg-lambda-u"></a></dt>

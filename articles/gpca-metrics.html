@@ -210,7 +210,7 @@ untouched, so the fit cannot distinguish them:</p>
 <span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xv</span>, M <span class="op">=</span> <span class="fl">7</span> <span class="op">*</span> <span class="va">M0</span>, A <span class="op">=</span> <span class="va">A0</span> <span class="op">/</span> <span class="fl">7</span>, ncomp <span class="op">=</span> <span class="fl">4</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">f1</span><span class="op">$</span><span class="va">sdev</span> <span class="op">-</span> <span class="va">f2</span><span class="op">$</span><span class="va">sdev</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 3.552714e-15</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 4.440892e-15</span></span></code></pre></div>
 <p>The singular values and the component subspace are identical; only
 the scores pick up a constant factor, since their normalisation is tied
 to the scale of <code>M</code>. The practical upshot is that there is no

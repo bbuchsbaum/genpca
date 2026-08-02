@@ -148,7 +148,7 @@ smoother side; <code>spatial_laplacian()</code> and
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">Aadj</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] -0.1882372  1.0065493</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">Alap</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] -5.662857e-16  1.490016e+00</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 4.676095e-16 1.490016e+00</span></span></code></pre></div>
 <p>Both traps from the previous section show up in real output. The
 adjacency comes back <strong>indefinite</strong> — its smallest
 eigenvalue is negative, so it is not a metric until you shift it
@@ -222,9 +222,9 @@ it.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">out</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                              identity smoother precision</span></span>
 <span><span class="co">#&gt; smooth signal / smooth noise    0.437    0.495     0.336</span></span>
-<span><span class="co">#&gt; fine signal / smooth noise      0.040    0.036     0.639</span></span>
+<span><span class="co">#&gt; fine signal / smooth noise      0.031    0.023     0.573</span></span>
 <span><span class="co">#&gt; smooth signal / fine noise      0.058    0.733     0.035</span></span>
-<span><span class="co">#&gt; fine signal / fine noise        0.111    0.172     0.078</span></span></code></pre></div>
+<span><span class="co">#&gt; fine signal / fine noise        0.144    0.200     0.063</span></span></code></pre></div>
 <p>Read the rows. When signal and noise sit in
 <strong>different</strong> bands, the matching metric is transformative
 — better than tenfold in both mismatched rows: the smoother rescues a
@@ -315,7 +315,7 @@ not.</p>
 <span><span class="op">}</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">acc</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"identity"</span>, <span class="st">"bounded precision"</span>, <span class="st">"unbounded I + 6L"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          identity bounded precision  unbounded I + 6L </span></span>
-<span><span class="co">#&gt;             0.070             0.383             0.305</span></span></code></pre></div>
+<span><span class="co">#&gt;             0.042             0.552             0.456</span></span></code></pre></div>
 <p>Both precisions beat plain PCA by a wide margin, and the bounded one
 comes out ahead: once broadband thermal noise is in the mixture,
 spending unlimited weight at the top of the spectrum buys noise rather

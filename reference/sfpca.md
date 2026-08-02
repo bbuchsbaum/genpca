@@ -46,7 +46,11 @@ sfpca(
 
   A matrix of spatial coordinates for each column of X (variables). Each
   row corresponds to a spatial dimension (e.g., x, y, z), and each
-  column corresponds to a variable.
+  column corresponds to a variable. Note the orientation: this is
+  `dimensions x variables`, so `ncol(spat_cds)` must equal `ncol(X)` –
+  the transpose of the layout a coordinate data frame usually has. For a
+  one-dimensional axis (a spectrum, a transect) pass
+  `matrix(coords, nrow = 1)`.
 
 - lambda_u:
 
