@@ -32,6 +32,7 @@ C v = lambda R v."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -99,7 +100,14 @@ Typically C = X'MX where X is the data matrix and M is a row metric.</p></dd>
 
 
 <dt id="arg-constraints-remedy">constraints_remedy<a class="anchor" aria-label="anchor" href="#arg-constraints-remedy"></a></dt>
-<dd><p>How to handle slightly non-PSD inputs (for geigen method). One of:</p><ul><li><p>"error": Stop with an error if constraints are not PSD</p></li>
+<dd><p>How to handle slightly non-PSD inputs (used only
+by the <code>"geigen"</code> method; <code>"gmd"</code> always clips negative
+eigenvalues of <code>R</code> internally, see Details). Default
+<code>"error"</code> – note this differs from <code><a href="genpca.html">genpca</a></code>, whose
+default is <code>"ridge"</code>; <code>genpca_cov()</code> expects an
+already-validated covariance matrix <code>C</code> and metric <code>R</code>, so it
+errs on the side of rejecting bad input rather than silently repairing
+it. One of:</p><ul><li><p>"error": Stop with an error if constraints are not PSD</p></li>
 <li><p>"ridge": Add a small ridge to the diagonal to make PSD</p></li>
 <li><p>"clip": Clip negative eigenvalues to zero</p></li>
 <li><p>"identity": Replace with identity matrix</p></li>
@@ -116,32 +124,39 @@ Typically C = X'MX where X is the data matrix and M is a row metric.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with components:</p><dl><dt>v</dt>
+    <p>A plain list (<strong>not</strong> a <span class="pkg">multivarious</span>
+<code>bi_projector</code>) with components:</p><dl><dt>v</dt>
 <dd><p>p x k matrix of loadings (R-orthonormal eigenvectors)</p></dd>
 
-    <dt>d</dt>
+<dt>d</dt>
 <dd><p>Singular values (square root of eigenvalues lambda)</p></dd>
 
-    <dt>lambda</dt>
+<dt>lambda</dt>
 <dd><p>Eigenvalues (variances under the R-metric)</p></dd>
 
-    <dt>k</dt>
+<dt>k</dt>
 <dd><p>Number of components returned</p></dd>
 
-    <dt>propv</dt>
+<dt>propv</dt>
 <dd><p>Proportion of variance explained by each component</p></dd>
 
-    <dt>cumv</dt>
+<dt>cumv</dt>
 <dd><p>Cumulative proportion of variance explained</p></dd>
 
-    <dt>R_rank</dt>
+<dt>R_rank</dt>
 <dd><p>Rank of the constraint matrix R</p></dd>
 
-    <dt>method</dt>
+<dt>method</dt>
 <dd><p>The method used ("gmd" or "geigen")</p></dd>
 
 
-</dl></div>
+</dl><p>Because this is a plain list rather than a <code>bi_projector</code>, the
+<code>multivarious</code> generics <code>scores()</code>, <code><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components()</a></code>, and
+<code><a href="https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html" class="external-link">reconstruct()</a></code> do not apply to it; index <code>$v</code>/<code>$d</code>
+directly, or use <code><a href="genpca.html">genpca</a></code> when you need the full projector
+interface (out-of-sample <code>project()</code>, <code><a href="https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html" class="external-link">reconstruct()</a></code>, etc.)
+on a data matrix rather than a pre-computed covariance matrix.</p>
+    </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>Method Selection Guide:</strong></p>
@@ -172,7 +187,7 @@ Journal of the American Statistical Association, 109(505), 145-159.</p>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="genpca.html">genpca</a></code> for the standard two-sided GPCA on data matrices,
-  <code><a href="genpls.html">genpls</a></code> for generalized partial least squares</p></div>
+<code><a href="genpls.html">genpls</a></code> for generalized partial least squares</p></div>
     </div>
 
     <div class="section level2">
@@ -230,7 +245,7 @@ Journal of the American Statistical Association, 109(505), 145-159.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

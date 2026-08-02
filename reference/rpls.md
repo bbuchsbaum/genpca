@@ -1,26 +1,13 @@
 # Regularised / Generalised Partial Least Squares (RPLS / GPLS)
 
-Implements the algorithm of Allen \*et al.\* (2013) for supervised
+Implements the algorithm of Allen *et al.* (2013) for supervised
 dimension-reduction with optional sparsity (\\\ell_1\\) or ridge
-(\\\ell_2\\) penalties \*\*and\*\* the generalised extension that
-operates in a user-supplied quadratic form \\Q\\.
+(\\\ell_2\\) penalties **and** the generalised extension that operates
+in a user-supplied quadratic form \\Q\\.
 
 ## Usage
 
 ``` r
-fit_rpls(
-  X,
-  Y,
-  K = 2,
-  lambda = 0.1,
-  penalty = c("l1", "ridge"),
-  Q = NULL,
-  nonneg = FALSE,
-  tol = 1e-06,
-  maxiter = 200,
-  verbose = FALSE
-)
-
 rpls(
   X,
   Y,
@@ -50,7 +37,7 @@ rpls(
 
 - K:
 
-  Integer, number of latent factors to extract. Default \`2\`.
+  Integer, number of latent factors to extract. Default `2`.
 
 - lambda:
 
@@ -58,31 +45,17 @@ rpls(
 
 - penalty:
 
-  Either \`"l1"\` (lasso) or \`"ridge"\`.
+  Either `"l1"` (lasso) or `"ridge"`.
 
 - Q:
 
   Optional positive-(semi)definite \\p \times p\\ matrix inducing
-  \*generalised\* PLS. \`NULL\` ⇒ identity.
+  *generalised* PLS. `NULL` means identity.
 
 - nonneg:
 
   Logical, force non-negative loadings when `penalty = "l1"`. Note: This
   option is currently ignored when `penalty = "ridge"`.
-
-- tol:
-
-  Relative tolerance for the inner iterations convergence check. Default
-  \`1e-6\`.
-
-- maxiter:
-
-  Maximum number of inner iterations per component. Default \`200\`.
-
-- verbose:
-
-  Logical; print progress messages during component extraction. Default
-  \`FALSE\`.
 
 - preproc_x, preproc_y:
 
@@ -90,6 +63,20 @@ rpls(
   [`fit_transform`](https://bbuchsbaum.github.io/multivarious/reference/fit_transform.html)).
   By default they pass the data through unchanged using
   [`pass()`](https://testthat.r-lib.org/reference/fail.html).
+
+- tol:
+
+  Relative tolerance for the inner iterations convergence check. Default
+  `1e-6`.
+
+- maxiter:
+
+  Maximum number of inner iterations per component. Default `200`.
+
+- verbose:
+
+  Logical; print progress messages during component extraction. Default
+  `FALSE`.
 
 - ...:
 
@@ -115,16 +102,44 @@ least the elements
 
 - penalty:
 
-  Penalty type used (\`"l1"\` or \`"ridge"\`).
+  Penalty type used (`"l1"` or `"ridge"`).
+
+- lambda:
+
+  The `lambda` value(s) used.
+
+- tol:
+
+  The convergence tolerance used.
+
+- maxiter:
+
+  The maximum number of inner iterations used per component.
+
+- nonneg:
+
+  Logical flag for the non-negativity constraint on `l1`.
+
+- Q_used:
+
+  Logical; `TRUE` if a custom `Q` metric was supplied to induce
+  generalised RPLS, `FALSE` for standard (identity-metric) RPLS. Note
+  the field is named `Q_used`, not `Q`: the metric matrix itself is not
+  retained on the returned object.
+
+- verbose:
+
+  The `verbose` flag used.
 
 - preproc_x, preproc_y:
 
   Pre-processing transforms used.
 
-- ...:
-
-  Other parameters like \`lambda\`, \`tol\`, \`maxiter\`, \`nonneg\`,
-  \`Q\` indicator, \`verbose\` are also stored.
+`rpls` objects store no row (X-)scores: the factors \\z_k\\ are computed
+internally during fitting to drive deflation and are then discarded, so
+use
+[`multivarious::project()`](https://bbuchsbaum.github.io/multivarious/reference/project.html)
+on `X` to obtain scores for any rows of interest.
 
 The object supports [`predict()`](https://rdrr.io/r/stats/predict.html),
 `project()`,
@@ -134,26 +149,28 @@ generics.
 
 ## Details
 
-Unlike \`genpls()\` from `genplsr.R`, which handles separate row and
-column metrics (\`Mx\`, \`Ax\`, \`My\`, \`Ay\`) with a Gram–Schmidt
-orthogonalisation step, \`rpls()\` uses a single metric \`Q\` and the
-simpler penalised updates of Allen et al.
+Unlike
+[`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md),
+which handles separate row and column metrics (`Mx`, `Ax`, `My`, `Ay`)
+with a Gram–Schmidt orthogonalisation step, `rpls()` uses a single
+metric `Q` and the simpler penalised updates of Allen et al.
 
 ## Method
 
-The routine follows Algorithm 1 of Allen \*et al.\* (2013, \*Stat. Anal.
-Data Min.\*, 6 : 302–314) — see the paper for details. Briefly, each
-component maximises \$\$\max\_{u,v}\\ v^\top Q M u - \lambda \\ P(v)\$\$
+The routine follows Algorithm 1 of Allen *et al.* (2013, *Stat. Anal.
+Data Min.*, 6 : 302–314) — see the paper for details. Briefly, with \\C
+= X^\top Y\\ the cross-product of the (preprocessed) blocks, each
+component maximises \$\$\max\_{u,v}\\ v^\top Q C u - \lambda \\ P(v)\$\$
 with \\Q = I_p\\ for standard RPLS. The alternating updates are: \\u
-\leftarrow M^\top Q v / \\M^\top Q v\\\_2\\, then a penalised (possibly
+\leftarrow C^\top Q v / \\C^\top Q v\\\_2\\, then a penalised (possibly
 non-negative) regression for \\v\\, normalised in the \\Q\\-norm.
 
 ## References
 
 Allen, G. I., Peterson, C., Vannucci, M., & Maletić-Savatić, M. (2013).
-\*Regularized Partial Least Squares with an Application to NMR
-Spectroscopy.\* \*\*Statistical Analysis and Data Mining, 6(4)\*\*,
-302-314. DOI:10.1002/sam.11169.
+*Regularized Partial Least Squares with an Application to NMR
+Spectroscopy.* **Statistical Analysis and Data Mining, 6(4)**, 302-314.
+DOI:10.1002/sam.11169.
 
 ## Examples
 

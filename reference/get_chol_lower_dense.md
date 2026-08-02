@@ -1,6 +1,6 @@
-# Get (and cache) a \*lower\* Cholesky factor for a dense SPD matrix
+# Get (and cache) a *lower* Cholesky factor for a dense SPD matrix
 
-Get (and cache) a \*lower\* Cholesky factor for a dense SPD matrix
+Get (and cache) a *lower* Cholesky factor for a dense SPD matrix
 
 ## Usage
 
@@ -16,4 +16,4 @@ get_chol_lower_dense(A)
 
 ## Value
 
-a base numeric matrix L (lower triangular) with A = L
+a base numeric matrix L (lower triangular) with A = L %\*% t(L)

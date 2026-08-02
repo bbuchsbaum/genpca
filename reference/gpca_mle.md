@@ -1,17 +1,21 @@
-# Experimental ML estimation of GPCA metrics
+# Experimental penalized-ML estimation of GPCA metrics
 
-Alternates between GPCA factor estimation and maximum-likelihood updates
-of the row/column metric matrices (M, A) under a Gaussian matrix-normal
-error model. Each iteration:
+Alternates between GPCA factor estimation and penalized
+maximum-likelihood updates of the row/column metric matrices (M, A)
+under a Gaussian matrix-normal error model with a low-rank mean. Each
+iteration performs three exact block minimizations of a single penalized
+objective:
 
-1.  Fit GPCA with current `A`, `M`.
+1.  Fit GPCA with current `A`, `M`: the GMD theorem makes this the best
+    rank-`ncomp` fit in the (M, A) norm, so it exactly minimizes the
+    residual term.
 
-2.  Reconstruct \\\hat X\\; compute residuals \\E = X - \hat X\\.
+2.  Update \\\Sigma_r = E A E^T / p + \lambda I\\ (the exact block
+    minimizer under the ridge penalty), set `M = solve(Sigma_r)`.
 
-3.  Update covariance estimates \\\Sigma_r = E A E^T / p\\ and
-    \\\Sigma_c = E^T M E / n\\, apply ridge `lambda`, fix scale, set
-    `M <- solve(Sigma_r)`, `A <- solve(Sigma_c)`, then project back to
-    SPD via `ensure_spd`.
+3.  Update \\\Sigma_c = E^T M E / n + \lambda I\\ using the *updated*
+    `M` (sequential flip-flop, Dutilleul 1999), set
+    `A = solve(Sigma_c)`.
 
 ## Usage
 
@@ -47,19 +51,26 @@ gpca_mle(
 
 - lambda:
 
-  Ridge term added to \\\Sigma_r\\ and \\\Sigma_c\\ before inversion to
-  keep them SPD (default 1e-3).
+  Ridge penalty weight (default 1e-3). Part of the objective (MAP
+  interpretation), not just a numerical safeguard: it shrinks both
+  covariances toward a multiple of the identity and pins the row/column
+  scale split during iteration. Must be non-negative; with `lambda = 0`
+  the objective loses strict convexity in the scale direction and
+  covariances may become singular.
 
 - scale_fix:
 
-  How to resolve the `c * Sigma_r, Sigma_c / c` indeterminacy. One of
-  `"trace"` (default, mean diagonal = 1), `"det"` (determinant = 1), or
-  `"none"`.
+  How to canonicalize the `c * Sigma_r, Sigma_c / c` indeterminacy at
+  exit. One of `"trace"` (default: row covariance scaled to mean
+  diagonal 1), `"det"` (row covariance scaled to determinant 1), or
+  `"none"`. Applied as a joint reciprocal rescale, so the fitted
+  covariance \\\Sigma_r \otimes \Sigma_c\\ and the likelihood are
+  unchanged.
 
 - tol:
 
-  Relative tolerance on successive log-likelihood change (default 1e-4)
-  for early stopping.
+  Relative tolerance on successive penalized log-likelihood change
+  (default 1e-4) for early stopping.
 
 - method:
 
@@ -84,27 +95,36 @@ gpca_mle(
 
 ## Value
 
-A list with elements `fit` (the final `genpca` result), `A`, `M`
-(learned SPD metrics), `loglik` (final log-likelihood), and
-`loglik_path`.
+A list with elements `fit` (a `genpca` fit computed with the returned
+canonicalized metrics), `A`, `M` (learned SPD metrics), `loglik` (final
+penalized log-likelihood), and `loglik_path` (the penalized
+log-likelihood after each outer iteration; monotone non-decreasing up to
+numerical noise, since every block update exactly minimizes the shared
+penalized objective). Values omit additive constants and include the
+`lambda` penalty, so they are comparable across iterations and across
+runs with the same `lambda`, but not across different `lambda` values.
 
 ## Details
 
-This is an experimental convenience wrapper; for stability it enforces
-SPD at every step, applies ridge shrinkage, and fixes the scale
-indeterminacy via the mean diagonal (`scale_fix = "trace"`).
-
-The matrix-normal likelihood is flat along \\c\\\Sigma_r, \Sigma_c/c\\;
-a scale constraint (trace or determinant) is therefore imposed before
-inversion. The algorithm stops when the relative change in
-log-likelihood is below `tol` or `max_iter` is reached. Increase
-`lambda` or reduce `ncomp` if iterations become unstable.
+The objective is the matrix-normal log-likelihood with a low-rank mean
+and an inverse-Wishart-style ridge penalty
+\\\lambda\\(p\\\mathrm{tr}\\\Sigma_r^{-1} +
+n\\\mathrm{tr}\\\Sigma_c^{-1})\\ (a MAP estimate). Because every block
+update is an exact minimizer of this one objective, `loglik_path` is
+monotone non-decreasing up to numerical noise. The penalty also resolves
+the \\c\\\Sigma_r, \Sigma_c/c\\ scale indeterminacy during iteration;
+`scale_fix` is applied once at exit as a *joint* reciprocal rescale (row
+covariance normalized, factor absorbed into the column covariance),
+which leaves the likelihood unchanged. The algorithm stops when the
+relative change in the penalized log-likelihood falls below `tol` or
+`max_iter` is reached. Increase `lambda` or reduce `ncomp` if iterations
+become unstable.
 
 ## References
 
-Dutilleul, P. (1999). \*The MLE algorithm for the matrix normal
-distribution\*. Journal of Statistical Computation and Simulation,
-64(2), 105-123.
+Dutilleul, P. (1999). *The MLE algorithm for the matrix normal
+distribution*. Journal of Statistical Computation and Simulation, 64(2),
+105-123.
 
 ## Examples
 
@@ -118,11 +138,5 @@ if (requireNamespace("multivarious", quietly = TRUE)) {
   dim(res$A); dim(res$M)
   res$loglik_path
 }
-#> Warning: `reverse_transform()` was deprecated in multivarious 0.3.0.
-#> ℹ Please use `inverse_transform()` instead.
-#> ℹ reverse_transform() is deprecated. Use inverse_transform() for a more
-#>   standard interface.
-#> ℹ The deprecated feature was likely used in the genpca package.
-#>   Please report the issue at <https://github.com/bbuchsbaum/genpca/issues>.
-#> [1] 105.03314  84.68565  90.89784  84.59021  90.72233
+#> [1] 120.8615 122.9804 125.0796 127.1557 129.2007
 ```

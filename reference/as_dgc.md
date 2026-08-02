@@ -1,7 +1,7 @@
 # Coerce to general CSC sparse matrix (dgCMatrix)
 
-Replacement for the deprecated direct \`as(., "dgCMatrix")\` coercion
-from symmetric/triangular/diagonal Matrix classes.
+Replacement for the deprecated direct `as(., "dgCMatrix")` coercion from
+symmetric/triangular/diagonal Matrix classes.
 
 ## Usage
 

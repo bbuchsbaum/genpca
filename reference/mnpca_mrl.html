@@ -4,24 +4,32 @@ sparse row/column precision matrices:
 $$
 Y = XW^\top + E,\quad E \sim \mathcal{MN}(0,\Omega,\Sigma)
 $$
-using block coordinate descent:
+using alternating block updates:
 Alternating least squares updates for X, W with fixed
-  precisions (Theta_row = Omega^{-1}, Theta_col = Sigma^{-1}).
+precisions (Theta_row = Omega^{-1}, Theta_col = Sigma^{-1}).
 Graphical-lasso style precision updates for Theta_row and
-  Theta_col using ADMM, warm starts, and optional block screening.
-
-"><meta property="og:description" content="Fits a rank-ncomp matrix factorization under matrix-normal noise with
+Theta_col using ADMM, warm starts, and optional block screening.
+The precision updates are solved on a residual-free scatter surrogate
+(rather than the exact residual E = Y - XW^T), so the two block
+updates do not jointly minimize a single shared objective at each step;
+as a result the reported objective_path is a convergence
+diagnostic, not a monotone objective trace (see Details and the
+objective_path return value)."><meta property="og:description" content="Fits a rank-ncomp matrix factorization under matrix-normal noise with
 sparse row/column precision matrices:
 $$
 Y = XW^\top + E,\quad E \sim \mathcal{MN}(0,\Omega,\Sigma)
 $$
-using block coordinate descent:
+using alternating block updates:
 Alternating least squares updates for X, W with fixed
-  precisions (Theta_row = Omega^{-1}, Theta_col = Sigma^{-1}).
+precisions (Theta_row = Omega^{-1}, Theta_col = Sigma^{-1}).
 Graphical-lasso style precision updates for Theta_row and
-  Theta_col using ADMM, warm starts, and optional block screening.
-
-"></head><body>
+Theta_col using ADMM, warm starts, and optional block screening.
+The precision updates are solved on a residual-free scatter surrogate
+(rather than the exact residual E = Y - XW^T), so the two block
+updates do not jointly minimize a single shared objective at each step;
+as a result the reported objective_path is a convergence
+diagnostic, not a monotone objective trace (see Details and the
+objective_path return value)."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -44,6 +52,7 @@ Graphical-lasso style precision updates for Theta_row and
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -68,11 +77,17 @@ sparse row/column precision matrices:
 $$
 Y = XW^\top + E,\quad E \sim \mathcal{MN}(0,\Omega,\Sigma)
 $$
-using block coordinate descent:</p><ol><li><p>Alternating least squares updates for <code>X, W</code> with fixed
-  precisions (<code>Theta_row = Omega^{-1}</code>, <code>Theta_col = Sigma^{-1}</code>).</p></li>
+using alternating block updates:</p><ol><li><p>Alternating least squares updates for <code>X, W</code> with fixed
+precisions (<code>Theta_row = Omega^{-1}</code>, <code>Theta_col = Sigma^{-1}</code>).</p></li>
 <li><p>Graphical-lasso style precision updates for <code>Theta_row</code> and
-  <code>Theta_col</code> using ADMM, warm starts, and optional block screening.</p></li>
-</ol></div>
+<code>Theta_col</code> using ADMM, warm starts, and optional block screening.</p></li>
+</ol><p>The precision updates are solved on a residual-free scatter surrogate
+(rather than the exact residual <code>E = Y - XW^T</code>), so the two block
+updates do not jointly minimize a single shared objective at each step;
+as a result the reported <code>objective_path</code> is a convergence
+diagnostic, not a monotone objective trace (see Details and the
+<code>objective_path</code> return value).</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
@@ -200,31 +215,40 @@ many entries are zero.</p></dd>
     <p>An object of class <code>"mnpca_mrl"</code> with components:</p><dl><dt>X, W</dt>
 <dd><p>Estimated low-rank factors (<code>n x r</code>, <code>p x r</code>).</p></dd>
 
-  <dt>Theta_row, Theta_col</dt>
+<dt>Theta_row, Theta_col</dt>
 <dd><p>Estimated row/column precision matrices.</p></dd>
 
-  <dt>fitted</dt>
+<dt>fitted</dt>
 <dd><p>Reconstructed matrix on input scale.</p></dd>
 
-  <dt>fitted_centered</dt>
+<dt>fitted_centered</dt>
 <dd><p>Reconstructed centered matrix used in optimization.</p></dd>
 
-  <dt>residual_centered</dt>
+<dt>residual_centered</dt>
 <dd><p>Centered residual matrix.</p></dd>
 
-  <dt>objective_path</dt>
-<dd><p>Objective values across outer iterations.</p></dd>
+<dt>objective_path</dt>
+<dd><p>Objective value evaluated after each outer
+iteration's block updates, before any trace rescaling of the
+precisions. Because the factor updates (ALS) and precision updates
+(graphical lasso on a residual-free scatter surrogate) target
+different surrogates rather than a single shared objective, this
+path is a convergence heuristic and is <strong>not guaranteed to be
+monotone</strong>.</p></dd>
 
-  <dt>iterations</dt>
+<dt>iterations</dt>
 <dd><p>Number of outer iterations used.</p></dd>
 
-  <dt>converged</dt>
-<dd><p>Logical convergence flag for outer loop.</p></dd>
+<dt>converged</dt>
+<dd><p>Logical; <code>TRUE</code> if the relative change in
+<code>objective_path</code> fell below <code>tol</code> before <code>max_outer</code>
+was reached. This is a convergence heuristic based on relative
+objective change, not a guarantee of a local optimum.</p></dd>
 
-  <dt>center</dt>
+<dt>center</dt>
 <dd><p>Column centering vector (or <code>NULL</code>).</p></dd>
 
-  <dt>call</dt>
+<dt>call</dt>
 <dd><p>Matched call.</p></dd>
 
 
@@ -233,10 +257,16 @@ many entries are zero.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The covariance updates use low-rank correction identities and avoid explicit
 construction of <code>E = Y - XW^T</code>.</p>
-
+<p>This function returns a plain S3 list of class <code>"mnpca_mrl"</code>, not a
+<span class="pkg">multivarious</span> <code>bi_projector</code>/<code>cross_projector</code>; the
+<code>scores()</code>/<code><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components()</a></code>/<code><a href="https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html" class="external-link">reconstruct()</a></code> generics used
+elsewhere in this package do not apply here. Use the returned
+<code>$X</code>, <code>$W</code>, and <code>$fitted</code> fields directly.</p>
 <p>This implementation follows the maximum regularized likelihood (MRL)
 formulation of MN-PCA, combining low-rank factor updates with sparse
-precision estimation in row and column spaces.</p>
+precision estimation in row and column spaces, via alternating surrogate
+updates rather than joint minimization of a single objective at every
+step.</p>
 <p>The main optimization target is:
 $$
 \frac12\mathrm{tr}\left(\Theta_c (Y-XW^\top)^\top \Theta_r (Y-XW^\top)\right)
@@ -246,6 +276,12 @@ $$
 with \(\Theta_r \succ 0, \Theta_c \succ 0\). When
 <code>update_precisions = FALSE</code>, the method reduces to weighted low-rank
 approximation with fixed identity precisions.</p>
+<p>Because the ALS factor updates and the graphical-lasso precision updates
+are solved against different surrogates of this target (the precision
+step uses a residual-free scatter matrix rather than the exact residual),
+the outer alternation is best understood as alternating surrogate updates
+with a relative-objective-change convergence heuristic, not classical
+block coordinate descent on a single monotone objective.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -290,7 +326,7 @@ Biostatistics, 9(3), 432-441.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

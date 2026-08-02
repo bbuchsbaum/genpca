@@ -2,13 +2,20 @@
 
 Fits a rank-`ncomp` matrix factorization under matrix-normal noise with
 sparse row/column precision matrices: \$\$ Y = XW^\top + E,\quad E \sim
-\mathcal{MN}(0,\Omega,\Sigma) \$\$ using block coordinate descent:
+\mathcal{MN}(0,\Omega,\Sigma) \$\$ using alternating block updates:
 
 1.  Alternating least squares updates for `X, W` with fixed precisions
     (`Theta_row = Omega^{-1}`, `Theta_col = Sigma^{-1}`).
 
 2.  Graphical-lasso style precision updates for `Theta_row` and
     `Theta_col` using ADMM, warm starts, and optional block screening.
+
+The precision updates are solved on a residual-free scatter surrogate
+(rather than the exact residual `E = Y - XW^T`), so the two block
+updates do not jointly minimize a single shared objective at each step;
+as a result the reported `objective_path` is a convergence diagnostic,
+not a monotone objective trace (see Details and the `objective_path`
+return value).
 
 ## Usage
 
@@ -156,7 +163,12 @@ An object of class `"mnpca_mrl"` with components:
 
 - objective_path:
 
-  Objective values across outer iterations.
+  Objective value evaluated after each outer iteration's block updates,
+  before any trace rescaling of the precisions. Because the factor
+  updates (ALS) and precision updates (graphical lasso on a
+  residual-free scatter surrogate) target different surrogates rather
+  than a single shared objective, this path is a convergence heuristic
+  and is **not guaranteed to be monotone**.
 
 - iterations:
 
@@ -164,7 +176,10 @@ An object of class `"mnpca_mrl"` with components:
 
 - converged:
 
-  Logical convergence flag for outer loop.
+  Logical; `TRUE` if the relative change in `objective_path` fell below
+  `tol` before `max_outer` was reached. This is a convergence heuristic
+  based on relative objective change, not a guarantee of a local
+  optimum.
 
 - center:
 
@@ -179,9 +194,17 @@ An object of class `"mnpca_mrl"` with components:
 The covariance updates use low-rank correction identities and avoid
 explicit construction of `E = Y - XW^T`.
 
+This function returns a plain S3 list of class `"mnpca_mrl"`, not a
+multivarious `bi_projector`/`cross_projector`; the
+`scores()`/[`components()`](https://bbuchsbaum.github.io/multivarious/reference/components.html)/[`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html)
+generics used elsewhere in this package do not apply here. Use the
+returned `$X`, `$W`, and `$fitted` fields directly.
+
 This implementation follows the maximum regularized likelihood (MRL)
 formulation of MN-PCA, combining low-rank factor updates with sparse
-precision estimation in row and column spaces.
+precision estimation in row and column spaces, via alternating surrogate
+updates rather than joint minimization of a single objective at every
+step.
 
 The main optimization target is: \$\$ \frac12\mathrm{tr}\left(\Theta_c
 (Y-XW^\top)^\top \Theta_r (Y-XW^\top)\right)
@@ -190,6 +213,14 @@ n\lambda_r\\\Theta_r\\\_1 + p\lambda_c\\\Theta_c\\\_1 \$\$ with
 \\\Theta_r \succ 0, \Theta_c \succ 0\\. When
 `update_precisions = FALSE`, the method reduces to weighted low-rank
 approximation with fixed identity precisions.
+
+Because the ALS factor updates and the graphical-lasso precision updates
+are solved against different surrogates of this target (the precision
+step uses a residual-free scatter matrix rather than the exact
+residual), the outer alternation is best understood as alternating
+surrogate updates with a relative-objective-change convergence
+heuristic, not classical block coordinate descent on a single monotone
+objective.
 
 ## References
 

@@ -10,3 +10,5 @@
   Cases](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md):
 - [Generalized PLS-SVD: Explicit Whitening
   Reference](https://bbuchsbaum.github.io/genpca/articles/gplssvd-reference.md):
+- [Modelling Structured
+  Noise](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md):

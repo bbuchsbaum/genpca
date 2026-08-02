@@ -37,6 +37,7 @@
 <li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -77,9 +78,16 @@ learner.</p>
 <p>Metrics encode weighting and correlation. The row metric
 <code>M</code> changes how observations are compared. The column metric
 <code>A</code> changes how variables are compared. Both must be
-symmetric positive definite (SPD) for GPCA. In return, you can bake
-known structure – temporal smoothness, spatial proximity, group
-membership, heteroscedastic noise – straight into the decomposition.</p>
+symmetric positive <strong>semi-definite</strong> (PSD) for GPCA –
+singular metrics are accepted (e.g. a rank-deficient graph Laplacian),
+and <code>constraints_remedy</code> can repair mildly invalid input. In
+return, you can bake known structure – temporal correlation, spatial
+proximity, group membership, heteroscedastic noise – straight into the
+decomposition.</p>
+<p>Structure alone is not enough, though: you also have to get the
+<em>direction</em> right, and supplying a matrix versus its inverse
+produces opposite results. The next section is about that, and it is
+worth reading before the recipes.</p>
 </div>
 <div class="section level2">
 <h2 id="heteroscedastic-diagonals">Heteroscedastic diagonals<a class="anchor" aria-label="anchor" href="#heteroscedastic-diagonals"></a>
@@ -108,13 +116,129 @@ dimensions get smaller weights.
 </div>
 </div>
 <div class="section level2">
+<h2 id="which-way-does-a-metric-point">Which way does a metric point?<a class="anchor" aria-label="anchor" href="#which-way-does-a-metric-point"></a>
+</h2>
+<p>Before the recipes, the single most important thing to get right —
+and the easiest to get backwards. <strong>A metric amplifies its own
+dominant eigendirections.</strong> Loadings are
+<code>components(fit)</code>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>,
+so whichever patterns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+assigns large eigenvalues to are the patterns that come out of the
+decomposition.</p>
+<p>For a spatial or temporal structure there are two natural matrices,
+and they point in <em>opposite</em> directions:</p>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">You supply</th>
+<th align="left">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mi>A</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">v^{\top}Av</annotation></semantics></math>
+measures</th>
+<th align="left">Large eigenvalues on</th>
+<th align="left">Components come out</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">A <strong>smoother</strong>: kernel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>,
+adjacency
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>+</mo><mi>α</mi><mi>W</mi></mrow><annotation encoding="application/x-tex">I + \alpha W</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi>L</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">(I+\alpha L)^{-1}</annotation></semantics></math>,
+heat kernel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>e</mi><mrow><mi>−</mi><mi>t</mi><mi>L</mi></mrow></msup><annotation encoding="application/x-tex">e^{-tL}</annotation></semantics></math>
+</td>
+<td align="left">agreement between neighbours</td>
+<td align="left">smooth patterns</td>
+<td align="left"><strong>smoother</strong></td>
+</tr>
+<tr class="even">
+<td align="left">A <strong>precision</strong>: Laplacian
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>+</mo><mi>α</mi><mi>L</mi></mrow><annotation encoding="application/x-tex">I + \alpha L</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>K</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><annotation encoding="application/x-tex">K^{-1}</annotation></semantics></math>,
+inverse AR(1)</td>
+<td align="left">disagreement across edges (Dirichlet energy
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mrow><mi>i</mi><mo>∼</mo><mi>j</mi></mrow></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>v</mi><mi>i</mi></msub><mo>−</mo><msub><mi>v</mi><mi>j</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\sum_{i\sim j}(v_i - v_j)^2</annotation></semantics></math>)</td>
+<td align="left">rough patterns</td>
+<td align="left"><strong>rougher</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Both are legitimate, because they encode different beliefs about
+<em>where the noise lives</em>. Recall that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msubsup><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext><mrow><mi>−</mi><mn>1</mn></mrow></msubsup></mrow><annotation encoding="application/x-tex">A = \Sigma_{\text{col}}^{-1}</annotation></semantics></math>:</p>
+<ul>
+<li>
+<strong>Smoother as metric</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>⇒</mo><annotation encoding="application/x-tex">\Rightarrow</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext></msub><annotation encoding="application/x-tex">\Sigma_{\text{col}}</annotation></semantics></math>
+has its variance in the rough directions
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>⇒</mo><annotation encoding="application/x-tex">\Rightarrow</annotation></semantics></math>
+“the noise is high-frequency speckle; the signal is smooth.” This is
+denoising, and it is what you want when you are after spatially coherent
+maps.</li>
+<li>
+<strong>Precision as metric</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>⇒</mo><annotation encoding="application/x-tex">\Rightarrow</annotation></semantics></math><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext></msub><annotation encoding="application/x-tex">\Sigma_{\text{col}}</annotation></semantics></math>
+has its variance in the smooth directions
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>⇒</mo><annotation encoding="application/x-tex">\Rightarrow</annotation></semantics></math>
+“a smooth field — drift, a scanner gradient, a global trend — is the
+nuisance.” Whitening it away lets fine-scale structure surface. This is
+ordinary generalized least squares against correlated noise.</li>
+</ul>
+<p>So the question is never “adjacency or Laplacian?” in the abstract.
+It is: <strong>is the smooth thing my signal, or my
+nuisance?</strong></p>
+<div class="figure">
+<img src="gpca-metrics_files/figure-html/orientation-demo-1.png" class="r-plt" alt="The same graph, two metrics. Left: a smoother concentrates PC1 on the smooth blob. Right: the Laplacian whitens the smooth field away, so PC1 locks onto the fine-scale checkerboard that was buried underneath it." width="85%"><p class="caption">
+The same graph, two metrics. Left: a smoother concentrates PC1 on the
+smooth blob. Right: the Laplacian whitens the smooth field away, so PC1
+locks onto the fine-scale checkerboard that was buried underneath it.
+</p>
+</div>
+<p>Two practical notes on the graph matrices themselves. A raw adjacency
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>W</mi><annotation encoding="application/x-tex">W</annotation></semantics></math>
+is <strong>indefinite</strong> (its eigenvalues sum to zero), so it is
+not a valid metric on its own — shift it, as in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>+</mo><mi>α</mi><mi>W</mi></mrow><annotation encoding="application/x-tex">I + \alpha W</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>α</mi><annotation encoding="application/x-tex">\alpha</annotation></semantics></math>
+small enough to keep it PSD. A raw Laplacian
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>
+is PSD but <strong>singular</strong>:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mn>𝟏</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">L\mathbf{1} = 0</annotation></semantics></math>,
+so the spatially constant pattern has zero length under it.
+<code><a href="../reference/genpca.html">genpca()</a></code> accepts that (the whitening uses a
+pseudo-inverse), but adding a small ridge,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>+</mo><mi>ε</mi><mi>I</mi></mrow><annotation encoding="application/x-tex">L + \varepsilon I</annotation></semantics></math>,
+is usually what you want.</p>
+<p>Finally, the strength matters and is not cosmetic. In the example
+above the first component only switched from the smooth blob to the
+checkerboard once
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>α</mi><annotation encoding="application/x-tex">\alpha</annotation></semantics></math>
+passed roughly 50; at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\alpha = 2</annotation></semantics></math>
+the blob still dominated. Sweep it and look at your loadings.</p>
+</div>
+<div class="section level2">
 <h2 id="recipes">Recipes<a class="anchor" aria-label="anchor" href="#recipes"></a>
 </h2>
-<p>These three patterns – AR(1) smoothing, spatial RBF kernel, graph
-Laplacian – cover most structured-noise applications.</p>
+<p>Each recipe below is labelled with the direction it produces. All
+three are written here as <strong>precision</strong> matrices, i.e. the
+noise-whitening stance; drop the <code><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve()</a></code> to get the
+smoothing version instead.</p>
 <div class="section level3">
-<h3 id="ar1-row-metric-smoothness-in-time">AR(1) row metric (smoothness in time)<a class="anchor" aria-label="anchor" href="#ar1-row-metric-smoothness-in-time"></a>
+<h3 id="ar1-row-metric-whitens-temporal-autocorrelation">AR(1) row metric (whitens temporal autocorrelation)<a class="anchor" aria-label="anchor" href="#ar1-row-metric-whitens-temporal-autocorrelation"></a>
 </h3>
+<p>Standard GLS treatment of serially correlated observations, as in
+fMRI prewhitening: it removes temporal autocorrelation rather than
+imposing temporal smoothness.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rho</span>     <span class="op">&lt;-</span> <span class="fl">0.7</span></span>
 <span><span class="va">n_t</span>     <span class="op">&lt;-</span> <span class="fl">60</span></span>
@@ -123,17 +247,18 @@ Laplacian – cover most structured-noise applications.</p>
 <span><span class="va">M_ar1</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve</a></span><span class="op">(</span><span class="va">Sigma_r</span> <span class="op">+</span> <span class="fl">1e-3</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">n_t</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="spatial-rbf-kernel">Spatial RBF kernel<a class="anchor" aria-label="anchor" href="#spatial-rbf-kernel"></a>
+<h3 id="spatial-rbf-kernel-whitens-smooth-spatial-noise">Spatial RBF kernel (whitens smooth spatial noise)<a class="anchor" aria-label="anchor" href="#spatial-rbf-kernel-whitens-smooth-spatial-noise"></a>
 </h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, y <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">d2</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></span><span class="op">(</span><span class="va">coords</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span></span>
 <span><span class="va">ell</span>    <span class="op">&lt;-</span> <span class="fl">2</span></span>
 <span><span class="va">K</span>      <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="va">d2</span> <span class="op">/</span> <span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">ell</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">A_rbf</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve</a></span><span class="op">(</span><span class="va">K</span> <span class="op">+</span> <span class="fl">1e-3</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">K</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">A_rbf</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve</a></span><span class="op">(</span><span class="va">K</span> <span class="op">+</span> <span class="fl">1e-3</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">K</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>   <span class="co"># precision: emphasises fine scale</span></span>
+<span><span class="co"># A_smooth &lt;- K + 1e-3 * diag(nrow(K))      # kernel itself: smooth loadings</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="graph-laplacian">Graph Laplacian<a class="anchor" aria-label="anchor" href="#graph-laplacian"></a>
+<h3 id="graph-laplacian-emphasises-contrast-across-edges">Graph Laplacian (emphasises contrast across edges)<a class="anchor" aria-label="anchor" href="#graph-laplacian-emphasises-contrast-across-edges"></a>
 </h3>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/bandSparse.html" class="external-link">bandSparse</a></span><span class="op">(</span><span class="fl">30</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
@@ -141,14 +266,30 @@ Laplacian – cover most structured-noise applications.</p>
 <span>                                 <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">30</span><span class="op">)</span>,</span>
 <span>                                 <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">29</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">D</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/colSums-methods.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">A_lap</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">D</span> <span class="op">-</span> <span class="va">W</span><span class="op">)</span> <span class="op">+</span> <span class="fl">1e-2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">A_lap</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">D</span> <span class="op">-</span> <span class="va">W</span><span class="op">)</span> <span class="op">+</span> <span class="fl">1e-2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># A_smooth &lt;- solve(A_lap)                  # smoother: spatially coherent loadings</span></span></code></pre></div>
 <div class="figure">
-<img src="gpca-metrics_files/figure-html/recipe-plots-1.png" class="r-plt" alt="Three structured metrics. Off-diagonal banding is what couples nearby rows or variables -- it tells GPCA 'treat these dimensions as related, not independent'." width="85%"><p class="caption">
-Three structured metrics. Off-diagonal banding is what couples nearby
-rows or variables – it tells GPCA ‘treat these dimensions as related,
-not independent’.
+<img src="gpca-metrics_files/figure-html/recipe-plots-1.png" class="r-plt" alt="Three structured metrics, all shown in the precision (noise-whitening) orientation. Off-diagonal banding is what couples nearby rows or variables -- it tells GPCA 'treat these dimensions as related, not independent'." width="85%"><p class="caption">
+Three structured metrics, all shown in the precision (noise-whitening)
+orientation. Off-diagonal banding is what couples nearby rows or
+variables – it tells GPCA ‘treat these dimensions as related, not
+independent’.
 </p>
 </div>
+</div>
+<div class="section level3">
+<h3 id="a-note-on-sfpca">A note on <code>sfpca()</code><a class="anchor" aria-label="anchor" href="#a-note-on-sfpca"></a>
+</h3>
+<p><code><a href="../reference/sfpca.html">sfpca()</a></code> takes the <em>opposite</em> input for the same
+intent. There the structure enters as a constraint,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><mo stretchy="false" form="postfix">)</mo><mi>v</mi><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">v^{\top}(I + \alpha\Omega)v \le 1</annotation></semantics></math>,
+which charges rough
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>
+against a fixed budget — so you pass the roughness operator (Laplacian,
+second differences) directly via <code>alpha_v</code>, and larger
+<code>alpha_v</code> means <strong>smoother</strong>. Metric form and
+constraint form are inverse to one another: the same Laplacian smooths
+in <code><a href="../reference/sfpca.html">sfpca()</a></code> and roughens in <code><a href="../reference/genpca.html">genpca()</a></code>.</p>
 </div>
 </div>
 <div class="section level2">
@@ -165,9 +306,9 @@ matrix-normal maximum likelihood:</p>
 <span>                    lambda <span class="op">=</span> <span class="fl">1e-3</span>, scale_fix <span class="op">=</span> <span class="st">"trace"</span>,</span>
 <span>                    method <span class="op">=</span> <span class="st">"eigen"</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">M</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 289.4551 459.8213</span></span>
+<span><span class="co">#&gt; [1] 156827.4 249196.5</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">A</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1]  8.230071 69.330188</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 2.583950 3.330251</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-metrics_files/figure-html/mle-plot-1.png" class="r-plt" alt="Learned row metric M (left) and column metric A (right) on i.i.d. Gaussian data. With identity-noise input the learner stays close to identity, with mild row- and column-specific damping." width="85%"><p class="caption">
 Learned row metric M (left) and column metric A (right) on i.i.d.
@@ -199,7 +340,9 @@ problems to verify conditioning.</li>
 <div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
-<p>See <code><a href="../articles/gpca-scale.html">vignette("gpca-scale")</a></code> for backend choices, sparse
+<p>See <code><a href="../articles/structured-noise.html">vignette("structured-noise")</a></code> for how to choose the
+transfer function when several kinds of structure are present at once,
+and <code><a href="../articles/gpca-scale.html">vignette("gpca-scale")</a></code> for backend choices, sparse
 workflows, and covariance-only GPCA.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -213,7 +356,7 @@ workflows, and covariance-only GPCA.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

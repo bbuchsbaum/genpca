@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Generalized Principal Component Analysis">
-<meta name="description" content='Generalized PCA and related matrix decompositions in weighted inner-product spaces. Methods are based on Allen, G. I., Grosenick, L., and Taylor, J. (2014) &lt;doi:10.1080/01621459.2013.852978&gt;, "A generalized least-square matrix decomposition", Journal of the American Statistical Association, 109(505), 145-159; and Abdi, H. (2007), "Singular value decomposition (SVD) and generalized singular value decomposition", Encyclopedia of Measurement and Statistics, 907-912.'>
-<meta property="og:description" content='Generalized PCA and related matrix decompositions in weighted inner-product spaces. Methods are based on Allen, G. I., Grosenick, L., and Taylor, J. (2014) &lt;doi:10.1080/01621459.2013.852978&gt;, "A generalized least-square matrix decomposition", Journal of the American Statistical Association, 109(505), 145-159; and Abdi, H. (2007), "Singular value decomposition (SVD) and generalized singular value decomposition", Encyclopedia of Measurement and Statistics, 907-912.'>
+<meta name="description" content='Generalized PCA and related matrix decompositions in weighted inner-product spaces. Methods are based on Allen, G. I., Grosenick, L., and Taylor, J. (2014) &lt;doi:10.1080/01621459.2013.852978&gt;, "A generalized least-square matrix decomposition", Journal of the American Statistical Association, 109(505), 145-159; and Abdi, H. (2007), "Singular value decomposition (SVD) and generalized singular value decomposition" &lt;https://personal.utdallas.edu/~herve/Abdi-SVD2007-pretty.pdf&gt;, in "Encyclopedia of Measurement and Statistics", 907-912.'>
+<meta property="og:description" content='Generalized PCA and related matrix decompositions in weighted inner-product spaces. Methods are based on Allen, G. I., Grosenick, L., and Taylor, J. (2014) &lt;doi:10.1080/01621459.2013.852978&gt;, "A generalized least-square matrix decomposition", Journal of the American Statistical Association, 109(505), 145-159; and Abdi, H. (2007), "Singular value decomposition (SVD) and generalized singular value decomposition" &lt;https://personal.utdallas.edu/~herve/Abdi-SVD2007-pretty.pdf&gt;, in "Encyclopedia of Measurement and Statistics", 907-912.'>
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -115,6 +116,20 @@
 </ul>
 </div>
 <div class="section level3">
+<h3 id="related-decompositions">Related Decompositions<a class="anchor" aria-label="anchor" href="#related-decompositions"></a>
+</h3>
+<ul>
+<li>
+<strong>Sparse functional PCA</strong> (<code>sfpca</code>): Rank-1 components with sparsity and spatial smoothness penalties, e.g. <code>sfpca(X, K = 2, spat_cds = coords)</code>. See <code><a href="reference/sfpca.html">?sfpca</a></code>.</li>
+<li>
+<strong>Regularized PLS</strong> (<code>rpls</code>): Single-metric penalized PLS (Allen et al. 2013) with <code>"l1"</code> or <code>"ridge"</code> penalties, e.g. <code>rpls(X, Y, K = 3, lambda = 0.1, penalty = "l1")</code>. See <code><a href="reference/rpls.html">?rpls</a></code>.</li>
+<li>
+<strong>Matrix-normal PCA</strong> (<code>mnpca_mrl</code>): Low-rank factorization with sparse row/column precision matrices under matrix-normal noise, e.g. <code>mnpca_mrl(Y, ncomp = 3, lambda_row = 0.05, lambda_col = 0.05)</code>. See <code><a href="reference/mnpca_mrl.html">?mnpca_mrl</a></code>.</li>
+<li>
+<strong>Metric learning</strong> (<code>gpca_mle</code>): Experimental alternation of GPCA with maximum-likelihood estimation of the row/column metrics themselves, e.g. <code>gpca_mle(X, ncomp = 2)</code>. See <code><a href="reference/gpca_mle.html">?gpca_mle</a></code>.</li>
+</ul>
+</div>
+<div class="section level3">
 <h3 id="integration">Integration<a class="anchor" aria-label="anchor" href="#integration"></a>
 </h3>
 <ul>
@@ -127,7 +142,7 @@
 <div class="section level2">
 <h2 id="backend-selection-guide">Backend Selection Guide<a class="anchor" aria-label="anchor" href="#backend-selection-guide"></a>
 </h2>
-<p>Use <code>method = "auto"</code> unless you have a strong reason to pin a backend.</p>
+<p>The default backend is <code>method = "eigen"</code>. <code>"auto"</code> is opt-in: pass it explicitly to let a heuristic pick among <code>"eigen"</code>, <code>"spectra"</code>, and <code>"randomized"</code> based on problem shape and constraint structure.</p>
 <table class="table">
 <colgroup>
 <col width="25%">
@@ -201,7 +216,9 @@
 <span></span>
 <span><span class="co"># Standard PCA (identity metrics by default)</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, ncomp <span class="op">=</span> <span class="fl">5</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span>                             <span class="co"># singular values</span></span>
+<span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span>                             <span class="co"># generalized singular values;</span></span>
+<span>                                      <span class="co"># with identity metrics this is</span></span>
+<span>                                      <span class="co"># prcomp(X)$sdev * sqrt(nrow(X) - 1)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>      <span class="co"># scores (n × k)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>  <span class="co"># loadings (p × k)</span></span></code></pre></div>
 </div>
@@ -225,10 +242,14 @@
 <h3 id="covariance-based-gpca">Covariance-based GPCA<a class="anchor" aria-label="anchor" href="#covariance-based-gpca"></a>
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># When you have pre-computed covariance C = X'MX</span></span>
-<span><span class="va">C</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/matmult-methods.html" class="external-link">crossprod</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">M</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">X</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># When you have pre-computed covariance C = X'MX. fit_weighted above used</span></span>
+<span><span class="co"># preproc = multivarious::center(), so C must be built from centered X for</span></span>
+<span><span class="co"># the two fits to agree exactly.</span></span>
+<span><span class="va">Xc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/scale.html" class="external-link">scale</a></span><span class="op">(</span><span class="va">X</span>, center <span class="op">=</span> <span class="cn">TRUE</span>, scale <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">C</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/matmult-methods.html" class="external-link">crossprod</a></span><span class="op">(</span><span class="va">Xc</span>, <span class="va">M</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Xc</span><span class="op">)</span></span>
 <span><span class="va">fit_cov</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/genpca_cov.html">genpca_cov</a></span><span class="op">(</span><span class="va">C</span>, R <span class="op">=</span> <span class="va">A</span>, ncomp <span class="op">=</span> <span class="fl">5</span>, method <span class="op">=</span> <span class="st">"gmd"</span><span class="op">)</span></span>
-<span><span class="co"># Mathematically equivalent to fit_weighted above</span></span></code></pre></div>
+<span><span class="co"># Mathematically equivalent to fit_weighted above</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/all.equal-methods.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">fit_weighted</span><span class="op">$</span><span class="va">sdev</span>, <span class="va">fit_cov</span><span class="op">$</span><span class="va">d</span>, tolerance <span class="op">=</span> <span class="fl">1e-8</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="generalized-pls">Generalized PLS<a class="anchor" aria-label="anchor" href="#generalized-pls"></a>
@@ -239,8 +260,13 @@
 <span><span class="va">pls</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/genpls.html">genpls</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">Y</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, </span>
 <span>              preproc_x <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span>, </span>
 <span>              preproc_y <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">pls</span><span class="op">$</span><span class="va">d</span>                    <span class="co"># canonical correlations</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">pls</span><span class="op">$</span><span class="va">vx</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">pls</span><span class="op">$</span><span class="va">vy</span><span class="op">)</span> <span class="co"># X/Y weight matrices</span></span></code></pre></div>
+<span><span class="va">pls</span><span class="op">$</span><span class="va">d</span>                    <span class="co"># singular values of the whitened cross-product</span></span>
+<span>                          <span class="co"># Xe'Ye (covariance scale, NOT canonical correlations)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">pls</span><span class="op">$</span><span class="va">vx</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">pls</span><span class="op">$</span><span class="va">vy</span><span class="op">)</span> <span class="co"># X/Y weight matrices</span></span>
+<span></span>
+<span><span class="co"># To get canonical-correlation-like quantities, correlate the latent</span></span>
+<span><span class="co"># variable pairs directly:</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">pls</span><span class="op">$</span><span class="va">lx</span>, <span class="va">pls</span><span class="op">$</span><span class="va">ly</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -295,8 +321,11 @@
 <ul>
 <li>Vignettes
 <ul>
-<li>genpca: Generalized PCA and Related Decompositions (overview)</li>
-<li>Generalized PLS‑SVD: Explicit Whitening Reference (operator vs explicit whitening)</li>
+<li>Getting Started with genpca</li>
+<li>GPCA Metrics: Building M and A</li>
+<li>Modelling Structured Noise</li>
+<li>GPCA at Scale and Special Cases</li>
+<li>Generalized PLS-SVD: Explicit Whitening Reference</li>
 </ul>
 </li>
 </ul>
@@ -348,15 +377,10 @@
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
 </h2>
 <p>Issues and PRs welcome. Please open a ticket with a minimal example, your R session info, and (if relevant) a pointer to the metric matrices that reproduce the behavior.</p>
-</div>
-<div class="section level2">
-<h2 id="albers-theme">Albers theme<a class="anchor" aria-label="anchor" href="#albers-theme"></a>
-</h2>
-<p>This package uses the albersdown theme. Vignettes are styled with <code>vignettes/albers.css</code> and a local <code>vignettes/albers.js</code>; the palette family is provided via <code>params$family</code> (default ‘red’). The pkgdown site uses <code>template: { package: albersdown }</code>.</p>
 <!-- albersdown:theme-note:start -->
 </div>
 <div class="section level2">
-<h2 id="albers-theme-1">Albers theme<a class="anchor" aria-label="anchor" href="#albers-theme-1"></a>
+<h2 id="albers-theme">Albers theme<a class="anchor" aria-label="anchor" href="#albers-theme"></a>
 </h2>
 <p>This package uses the albersdown theme. Existing vignette theme hooks are replaced so <code>albers.css</code> and local <code>albers.js</code> render consistently on CRAN and GitHub Pages. The defaults are configured via <code>params$family</code> and <code>params$preset</code> (family = ‘teal’, preset = ‘homage’). The pkgdown site uses <code>template: { package: albersdown }</code> together with generated <code>pkgdown/extra.css</code> and <code>pkgdown/extra.js</code> so the theme is linked and activated on site pages. <!-- albersdown:theme-note:end --></p>
 </div>
@@ -404,7 +428,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

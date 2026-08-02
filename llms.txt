@@ -48,6 +48,26 @@ al. (2016).
 - **Constraint handling**: Automatic validation and repair of metric
   matrices (PSD enforcement)
 
+### Related Decompositions
+
+- **Sparse functional PCA** (`sfpca`): Rank-1 components with sparsity
+  and spatial smoothness penalties,
+  e.g. `sfpca(X, K = 2, spat_cds = coords)`. See
+  [`?sfpca`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md).
+- **Regularized PLS** (`rpls`): Single-metric penalized PLS (Allen et
+  al. 2013) with `"l1"` or `"ridge"` penalties,
+  e.g. `rpls(X, Y, K = 3, lambda = 0.1, penalty = "l1")`. See
+  [`?rpls`](https://bbuchsbaum.github.io/genpca/reference/rpls.md).
+- **Matrix-normal PCA** (`mnpca_mrl`): Low-rank factorization with
+  sparse row/column precision matrices under matrix-normal noise,
+  e.g. `mnpca_mrl(Y, ncomp = 3, lambda_row = 0.05, lambda_col = 0.05)`.
+  See
+  [`?mnpca_mrl`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md).
+- **Metric learning** (`gpca_mle`): Experimental alternation of GPCA
+  with maximum-likelihood estimation of the row/column metrics
+  themselves, e.g. `gpca_mle(X, ncomp = 2)`. See
+  [`?gpca_mle`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md).
+
 ### Integration
 
 - Full compatibility with the `multivarious` package ecosystem
@@ -57,7 +77,9 @@ al. (2016).
 
 ## Backend Selection Guide
 
-Use `method = "auto"` unless you have a strong reason to pin a backend.
+The default backend is `method = "eigen"`. `"auto"` is opt-in: pass it
+explicitly to let a heuristic pick among `"eigen"`, `"spectra"`, and
+`"randomized"` based on problem shape and constraint structure.
 
 | Method | Best for | Pros | Cons |
 |----|----|----|----|
@@ -96,7 +118,9 @@ X <- matrix(rnorm(200 * 50), 200, 50)
 
 # Standard PCA (identity metrics by default)
 fit <- genpca(X, ncomp = 5, preproc = multivarious::center())
-fit$sdev                             # singular values
+fit$sdev                             # generalized singular values;
+                                      # with identity metrics this is
+                                      # prcomp(X)$sdev * sqrt(nrow(X) - 1)
 head(multivarious::scores(fit))      # scores (n × k)
 head(multivarious::components(fit))  # loadings (p × k)
 ```
@@ -122,10 +146,14 @@ fit_weighted <- genpca(X, M = M, A = A, ncomp = 5,
 
 ``` r
 
-# When you have pre-computed covariance C = X'MX
-C <- crossprod(X, M %*% X)
+# When you have pre-computed covariance C = X'MX. fit_weighted above used
+# preproc = multivarious::center(), so C must be built from centered X for
+# the two fits to agree exactly.
+Xc <- scale(X, center = TRUE, scale = FALSE)
+C  <- crossprod(Xc, M %*% Xc)
 fit_cov <- genpca_cov(C, R = A, ncomp = 5, method = "gmd")
 # Mathematically equivalent to fit_weighted above
+all.equal(fit_weighted$sdev, fit_cov$d, tolerance = 1e-8)
 ```
 
 ### Generalized PLS
@@ -137,8 +165,13 @@ Y <- matrix(rnorm(200 * 20), 200, 20)
 pls <- genpls(X, Y, ncomp = 3, 
               preproc_x = multivarious::center(), 
               preproc_y = multivarious::center())
-pls$d                    # canonical correlations
+pls$d                    # singular values of the whitened cross-product
+                          # Xe'Ye (covariance scale, NOT canonical correlations)
 dim(pls$vx); dim(pls$vy) # X/Y weight matrices
+
+# To get canonical-correlation-like quantities, correlate the latent
+# variable pairs directly:
+diag(cor(pls$lx, pls$ly))
 ```
 
 ## Understanding Metrics in GPCA
@@ -173,9 +206,11 @@ When `M = I` and `A = I`, GPCA reduces to standard PCA.
 ## Documentation
 
 - Vignettes
-  - genpca: Generalized PCA and Related Decompositions (overview)
-  - Generalized PLS‑SVD: Explicit Whitening Reference (operator vs
-    explicit whitening)
+  - Getting Started with genpca
+  - GPCA Metrics: Building M and A
+  - Modelling Structured Noise
+  - GPCA at Scale and Special Cases
+  - Generalized PLS-SVD: Explicit Whitening Reference
 
 Build locally:
 
@@ -238,13 +273,6 @@ that reproduce the behavior.
 
 ## Albers theme
 
-This package uses the albersdown theme. Vignettes are styled with
-`vignettes/albers.css` and a local `vignettes/albers.js`; the palette
-family is provided via `params$family` (default ‘red’). The pkgdown site
-uses `template: { package: albersdown }`.
-
-## Albers theme
-
 This package uses the albersdown theme. Existing vignette theme hooks
 are replaced so `albers.css` and local `albers.js` render consistently
 on CRAN and GitHub Pages. The defaults are configured via
@@ -257,6 +285,8 @@ the theme is linked and activated on site pages.
 
 ## All functions
 
+- [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+  : Generalised Principal Components Analysis (GPCA)
 - [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
   : Generalized PCA on a covariance matrix
 - [`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md)
@@ -266,15 +296,28 @@ the theme is linked and activated on site pages.
 - [`gmd_clear_cache()`](https://bbuchsbaum.github.io/genpca/reference/gmd_clear_cache.md)
   : Clear internal cache for matrix decompositions
 - [`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
-  : Experimental ML estimation of GPCA metrics
+  : Experimental penalized-ML estimation of GPCA metrics
 - [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md)
   : Generalized PLS-SVD via Implicit Operator (memory-safe)
 - [`mnpca_mrl()`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md)
   : Matrix-Normal PCA via Maximum Regularized Likelihood
+- [`print(`*`<sfpca>`*`)`](https://bbuchsbaum.github.io/genpca/reference/print.sfpca.md)
+  : Print an sfpca fit
+- [`reconstruct(`*`<genpca>`*`)`](https://bbuchsbaum.github.io/genpca/reference/reconstruct.genpca.md)
+  : Reconstruct data from a genpca fit
+- [`reconstruct(`*`<sfpca>`*`)`](https://bbuchsbaum.github.io/genpca/reference/reconstruct.sfpca.md)
+  : Reconstruct data from an sfpca fit
+- [`rpls()`](https://bbuchsbaum.github.io/genpca/reference/rpls.md) :
+  Regularised / Generalised Partial Least Squares (RPLS / GPLS)
+- [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) :
+  Sparse and Functional Principal Components Analysis (SFPCA) with
+  Spatial Coordinates
 - [`transfer(`*`<cross_projector>`*`)`](https://bbuchsbaum.github.io/genpca/reference/transfer.cross_projector.md)
   : Compatibility wrapper for multivarious::transfer
 - [`truncate()`](https://bbuchsbaum.github.io/genpca/reference/truncate.md)
   : Truncate a projection to fewer components
+- [`truncate(`*`<genpca>`*`)`](https://bbuchsbaum.github.io/genpca/reference/truncate.genpca.md)
+  : Truncate a genpca fit to fewer components
 
 # Articles
 
@@ -288,3 +331,5 @@ the theme is linked and activated on site pages.
   Cases](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md):
 - [Generalized PLS-SVD: Explicit Whitening
   Reference](https://bbuchsbaum.github.io/genpca/articles/gplssvd-reference.md):
+- [Modelling Structured
+  Noise](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md):

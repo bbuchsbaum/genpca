@@ -1,9 +1,9 @@
 # Generalised Principal Components Analysis (GPCA)
 
 Implements the Generalised Least-Squares Matrix Decomposition of Allen,
-Grosenick & Taylor (2014) for data observed in a \*\*row\*\*
-inner-product space M and a \*\*column\*\* inner-product space A.
-Setting M = I_n, A = I_p recovers ordinary PCA.
+Grosenick & Taylor (2014) for data observed in a **row** inner-product
+space M and a **column** inner-product space A. Setting M = I_n, A = I_p
+recovers ordinary PCA.
 
 ## Usage
 
@@ -31,37 +31,6 @@ genpca(
   tol_polish_randomized = 1e-04,
   verbose = FALSE
 )
-
-gmdLA(
-  X,
-  Q,
-  R,
-  k = min(n_orig, p_orig),
-  n_orig,
-  p_orig,
-  maxeig = 800,
-  tol = 1e-08,
-  use_dual = FALSE,
-  warn_approx = TRUE,
-  verbose = FALSE
-)
-
-gmd_deflationR(X, Q, R, k, thr = 1e-06, maxit = 500L, verbose = FALSE)
-
-# S3 method for class 'genpca'
-truncate(x, ncomp)
-
-# S3 method for class 'genpca'
-reconstruct(
-  x,
-  comp = 1:multivarious::ncomp(x),
-  rowind = NULL,
-  colind = NULL,
-  ...
-)
-
-# S3 method for class 'genpca'
-ncomp(x)
 ```
 
 ## Arguments
@@ -73,16 +42,16 @@ ncomp(x)
 - A:
 
   Column constraint: vector (implies diagonal), dense matrix, or sparse
-  symmetric p x p PSD matrix. If \`NULL\`, defaults to identity.
+  symmetric p x p PSD matrix. If `NULL`, defaults to identity.
 
 - M:
 
   Row constraint: vector (implies diagonal), dense matrix, or sparse
-  symmetric n x n PSD matrix. If \`NULL\`, defaults to identity.
+  symmetric n x n PSD matrix. If `NULL`, defaults to identity.
 
 - ncomp:
 
-  Number of components to extract. Defaults to \`min(dim(X))\`. Must be
+  Number of components to extract. Defaults to `min(dim(X))`. Must be
   positive.
 
 - method:
@@ -96,29 +65,50 @@ ncomp(x)
 
 - constraints_remedy:
 
-  Character string specifying the remedy for constraints. One of
-  `"error"`, `"ridge"`, `"clip"`, or `"identity"`.
+  Character string specifying how a supplied `A` or `M` that is not
+  symmetric positive (semi)definite is repaired. Default `"ridge"`. One
+  of: `"error"` (reject the input with an error), `"ridge"` (Gershgorin
+  diagonal shift: add the smallest diagonal loading that restores
+  positive definiteness, falling back to
+  [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) for
+  small dense matrices), `"clip"` (spectral clip to the PSD cone by
+  zeroing negative eigenvalues; this densifies the matrix and refuses
+  sparse input larger than 2000 rows/cols, where `"ridge"` should be
+  used instead), or `"identity"` (replace the matrix with the identity).
+  Note that
+  [`genpca_cov`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
+  defaults to `"error"` instead of `"ridge"`, since it expects an
+  already-validated covariance matrix; see its documentation for
+  details.
 
 - preproc:
 
-  Pre-processing transformer object from the \*\*multivarious\*\*
-  package (default \`multivarious::pass()\`). Use
-  \`multivarious::center()\` for centered GPCA. See
-  \`?multivarious::prep\` for options.
+  Pre-processing transformer object from the **multivarious** package
+  (default
+  [`multivarious::pass()`](https://bbuchsbaum.github.io/multivarious/reference/pass.html)).
+  Use
+  [`multivarious::center()`](https://bbuchsbaum.github.io/multivarious/reference/center.html)
+  for centered GPCA. See
+  [`?multivarious::prep`](https://bbuchsbaum.github.io/multivarious/reference/prep.html)
+  for options.
 
 - threshold:
 
   Convergence tolerance for the `"deflation"` method's inner loop.
-  Default \`1e-6\`.
+  Default `1e-6`. Cutoffs are relative to the scale of the problem (the
+  norm/singular-value floors scale with \\\sqrt{\mathrm{tr}(X'MXA)}\\),
+  so results are invariant to rescaling `X`. The convergence check is on
+  a squared step difference, so the resulting singular-vector accuracy
+  scales like \\\sqrt{\code{threshold}}\\, not `threshold` itself.
 
 - maxit_deflation:
 
   Maximum iterations per component for the `"deflation"` method. Default
-  \`500\`.
+  `500`.
 
 - use_cpp:
 
-  Logical. If \`TRUE\` (default) and package was compiled with C++
+  Logical. If `TRUE` (default) and package was compiled with C++
   support, use faster C++ implementation for `method = "deflation"`.
   Fallback to R otherwise. (Ignored for `method = "eigen"` and
   `method = "spectra"`).
@@ -130,7 +120,7 @@ ncomp(x)
   `<= maxeig` a full eigen decomposition is used. Otherwise only the
   leading `maxeig` eigencomponents are computed via
   [`RSpectra::eigs_sym`](https://rdrr.io/pkg/RSpectra/man/eigs.html), so
-  results may be approximate. Default \`800\`.
+  results may be approximate. Default `800`.
 
 - warn_approx:
 
@@ -140,61 +130,63 @@ ncomp(x)
 - maxit_spectra:
 
   Maximum iterations for the Spectra iterative solver when
-  `method = "spectra"`. Default \`1000\`.
+  `method = "spectra"`. Default `1000`.
 
 - tol_spectra:
 
   Tolerance for the Spectra iterative solver when `method = "spectra"`.
-  Default \`1e-9\`.
+  Default `1e-9`.
 
 - oversample:
 
   Oversampling for `method = "randomized"` (sketch size =
-  `ncomp + oversample`). Default \`20\`.
+  `ncomp + oversample`). Default `20`.
 
 - n_power:
 
-  Number of power iterations for `method = "randomized"`. Default \`1\`.
+  Number of power iterations for `method = "randomized"`. Default `1`.
 
 - n_polish:
 
   Number of optional block-polish iterations for
-  `method = "randomized"`. Default \`0\`.
+  `method = "randomized"`. Default `0`.
 
 - jitter_metric:
 
   Small jitter used in metric orthonormalization for
-  `method = "randomized"`. Default \`1e-10\`.
+  `method = "randomized"`. Default `1e-10`.
 
 - seed_randomized:
 
-  Optional seed for `method = "randomized"`. Default \`1234\`.
+  Optional seed for `method = "randomized"`. Default `1234`. This fully
+  determines the randomized backend's random stream: the C++ kernel
+  seeds its own generator from this value rather than from R's
+  [`set.seed()`](https://rdrr.io/r/base/Random.html)/`.Random.seed`, and
+  calling `genpca()` with `method = "randomized"` does not alter the
+  caller's `.Random.seed`. To reproduce a randomized fit, fix
+  `seed_randomized`, not the R seed.
 
 - tol_polish_randomized:
 
   Relative tolerance used for early stopping of polish iterations in
-  `method = "randomized"`. Set \`0\` to disable early stop. Default
-  \`1e-4\`.
+  `method = "randomized"`. Set `0` to disable early stop. Default
+  `1e-4`.
 
 - verbose:
 
-  Logical. If \`TRUE\`, print progress messages. Default \`FALSE\`.
-
-- maxit:
-
-  Maximum number of iterations for deflation convergence. Default
-  \`500\`.
+  Logical. If `TRUE`, print progress messages. Default `FALSE`.
 
 ## Value
 
-An object of class \`c("genpca", "bi_projector")\` inheriting from
-\`multivarious::bi_projector\`, with slots including:
+An object of class `c("genpca", "bi_projector")` inheriting from
+[`multivarious::bi_projector`](https://bbuchsbaum.github.io/multivarious/reference/bi_projector.html),
+with slots including:
 
 - u,v:
 
   Left/right singular vectors scaled by the constraint metrics (MU, AV).
   These correspond to components in the original space's geometry. Use
-  \`components(fit)\`.
+  `components(fit)`.
 
 - ou,ov:
 
@@ -203,16 +195,20 @@ An object of class \`c("genpca", "bi_projector")\` inheriting from
 
 - sdev:
 
-  Generalised singular values d_k.
+  Generalised singular values d_k. Note these are singular values of the
+  metric-whitened data matrix, not standard deviations: with identity
+  metrics and centering, `sdev = prcomp(X)$sdev * sqrt(nrow(X) - 1)`.
 
 - s:
 
-  Scores ( X V or equivalently MU D). Represent projection of rows onto
-  components. Use \`scores(fit)\`.
+  Scores: the generalised principal components
+  `z_k = X A ov_k = ou_k d_k` (Allen et al. 2014, Section 2.4).
+  Identical to `project(fit, X)` on the training data. Use
+  `scores(fit)`.
 
 - preproc:
 
-  The \`multivarious\` pre-processing object used.
+  The `multivarious` pre-processing object used.
 
 - A, M:
 
@@ -227,21 +223,13 @@ An object of class \`c("genpca", "bi_projector")\` inheriting from
 
   Cumulative proportion of generalized variance explained.
 
-## Details
-
-\`gmdLA\` caches the eigen decomposition of the constraint matrices by
-storing it as an attribute on the matrix. \`compute_sqrtm()\` returns
-this modified matrix so callers can reassign it (e.g. \`R \<-
-sqrtm_res\$matrix\`) to reuse the cached decomposition in subsequent
-calls.
-
 ## Method
 
 We compute the rank-ncomp factors UDVT that minimise \$\$ \\X -
 UDV^\top\\\_{M,A}^2 = \mathrm{tr}\\\bigl(M\\
 (X-UDV^\top)\\A\\(X-UDV^\top)^\top\bigr) \$\$ subject to UT M U = I, VT
-AV = I. (Allen et al., 2014). Three methods are available via the
-\`method\` argument:
+AV = I. (Allen et al., 2014). Five methods are available via the
+`method` argument:
 
 - `"eigen"` (Default): Uses a one-shot eigen decomposition strategy
   based on `gmdLA`. It explicitly forms and decomposes a \\p \times p\\
@@ -251,10 +239,10 @@ AV = I. (Allen et al., 2014). Three methods are available via the
   using heuristics on shape, rank ratio (`ncomp / min(n,p)`), and
   constraint structure.
 
-- `"spectra"`: Uses a matrix-free iterative approach via the RcppSpectra
+- `"spectra"`: Uses a matrix-free iterative approach via the RSpectra
   package to solve the same eigen problem as `"eigen"` but without
   forming the large intermediate matrix. Generally faster and uses less
-  memory for large `n` or `p`. Requires C++ compiler and RcppSpectra.
+  memory for large `n` or `p`. Requires C++ compiler and RSpectra.
 
 - `"randomized"`: Uses a randomized block range finder and small
   projected eigendecomposition. This is an approximate low-pass method
@@ -267,10 +255,13 @@ AV = I. (Allen et al., 2014). Three methods are available via the
 
 ## Backend Guidance
 
-- Use `method = "auto"` as the default in production pipelines.
+The default is `method = "eigen"`; `"auto"` is opt-in, not the default.
 
-- Use `"eigen"` when you need a stable reference solution on
-  small/medium problems.
+- Use `"eigen"` (the default) when you need a stable reference solution
+  on small/medium problems.
+
+- Use `"auto"` to let a heuristic pick among `"eigen"`, `"spectra"`, and
+  `"randomized"` based on problem shape and constraint structure.
 
 - Use `"spectra"` for larger matrix-free iterative solves where memory
   pressure is a concern.
@@ -288,17 +279,21 @@ to A).
 
 ## References
 
-Allen, G. I., Grosenick, L., & Taylor, J. (2014). \*A Generalized
-Least-Squares Matrix Decomposition.\* Journal of the American
-Statistical Association, 109(505), 145-159. arXiv:1102.3074.
+Allen, G. I., Grosenick, L., & Taylor, J. (2014). *A Generalized
+Least-Squares Matrix Decomposition.* Journal of the American Statistical
+Association, 109(505), 145-159. arXiv:1102.3074.
 
 ## See also
 
 [`genpca_cov`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
-for GPCA on pre-computed covariance matrices, `truncate.genpca`,
-`reconstruct.genpca`, \`multivarious::bi_projector\`,
-\`multivarious::project\`, \`multivarious::scores\`,
-\`multivarious::components\`, \`multivarious::reconstruct\`.
+for GPCA on pre-computed covariance matrices,
+[`truncate.genpca`](https://bbuchsbaum.github.io/genpca/reference/truncate.genpca.md),
+[`reconstruct.genpca`](https://bbuchsbaum.github.io/genpca/reference/reconstruct.genpca.md),
+[`multivarious::bi_projector`](https://bbuchsbaum.github.io/multivarious/reference/bi_projector.html),
+[`multivarious::project`](https://bbuchsbaum.github.io/multivarious/reference/project.html),
+[`multivarious::scores`](https://bbuchsbaum.github.io/multivarious/reference/scores.html),
+[`multivarious::components`](https://bbuchsbaum.github.io/multivarious/reference/components.html),
+[`multivarious::reconstruct`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html).
 
 ## Examples
 

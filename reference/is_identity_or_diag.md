@@ -12,7 +12,7 @@ is_identity_or_diag(M, eps = 1e-15)
 
 - M:
 
-  A matrix (often \`dsCMatrix\`) or \`NULL\`.
+  A matrix (often `dsCMatrix`) or `NULL`.
 
 - eps:
 

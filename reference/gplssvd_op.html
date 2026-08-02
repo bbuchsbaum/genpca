@@ -32,6 +32,7 @@ matrix-vector product in the iterative SVD costs two multiplies."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -105,7 +106,9 @@ matrix-vector product in the iterative SVD costs two multiplies.</p>
 
 
 <dt id="arg-k">k<a class="anchor" aria-label="anchor" href="#arg-k"></a></dt>
-<dd><p>Number of components</p></dd>
+<dd><p>Number of components. If <code>k</code> exceeds
+<code>min(ncol(X), ncol(Y))</code>, a warning is issued and <code>k</code> is silently
+truncated to that maximum.</p></dd>
 
 
 <dt id="arg-center-scale">center, scale<a class="anchor" aria-label="anchor" href="#arg-center-scale"></a></dt>
@@ -113,7 +116,9 @@ matrix-vector product in the iterative SVD costs two multiplies.</p>
 
 
 <dt id="arg-svd-backend">svd_backend<a class="anchor" aria-label="anchor" href="#arg-svd-backend"></a></dt>
-<dd><p>One of "RSpectra" (default) or "irlba"</p></dd>
+<dd><p>One of "RSpectra" (default) or "irlba". Ignored
+whenever both <code>ncol(X) &lt;= 64</code> and <code>ncol(Y) &lt;= 64</code>, in which case <code>S</code> is
+materialized densely and solved with <code><a href="https://rdrr.io/r/base/svd.html" class="external-link">base::svd()</a></code>.</p></dd>
 
 
 <dt id="arg-svd-opts">svd_opts<a class="anchor" aria-label="anchor" href="#arg-svd-opts"></a></dt>
@@ -122,7 +127,75 @@ matrix-vector product in the iterative SVD costs two multiplies.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>list with elements d, u, v, p, q, fi, fj, lx, ly, k, dims, center, scale</p>
+    <p>A list with elements:</p><dl><dt>d</dt>
+<dd><p>Length-<code>k</code> numeric vector of singular values of
+\(S = Xe' Ye\).</p></dd>
+
+<dt>u</dt>
+<dd><p><code>I x k</code> matrix; left singular vectors of <code>S</code> (orthonormal in
+the Euclidean metric).</p></dd>
+
+<dt>v</dt>
+<dd><p><code>J x k</code> matrix; right singular vectors of <code>S</code> (orthonormal in
+the Euclidean metric).</p></dd>
+
+<dt>p</dt>
+<dd><p><code>I x k</code> matrix of generalized X-weights,
+\(p = W_X^{-1/2} u\).</p></dd>
+
+<dt>q</dt>
+<dd><p><code>J x k</code> matrix of generalized Y-weights,
+\(q = W_Y^{-1/2} v\).</p></dd>
+
+<dt>fi</dt>
+<dd><p><code>I x k</code> matrix of X-variable scores, \(F_i = W_X p D\)
+(columns of <code>p</code> rescaled by the singular values).</p></dd>
+
+<dt>fj</dt>
+<dd><p><code>J x k</code> matrix of Y-variable scores, \(F_j = W_Y q D\).</p></dd>
+
+<dt>lx</dt>
+<dd><p><code>N x k</code> matrix of X row latent variables,
+\(L_x = M_X^{1/2} X W_X p\).</p></dd>
+
+<dt>ly</dt>
+<dd><p><code>N x k</code> matrix of Y row latent variables,
+\(L_y = M_Y^{1/2} Y W_Y q\).</p></dd>
+
+<dt>k</dt>
+<dd><p>Integer; number of components actually returned (may be
+less than the requested <code>k</code> if it exceeded <code>min(I, J)</code>).</p></dd>
+
+<dt>dims</dt>
+<dd><p>A list <code>list(N, I, J)</code> with the row count <code>N</code> and column
+counts <code>I = ncol(X)</code>, <code>J = ncol(Y)</code>.</p></dd>
+
+<dt>center</dt>
+<dd><p>A list <code>list(X, Y)</code> of the length-<code>I</code> / length-<code>J</code>
+column means subtracted from <code>X</code>/<code>Y</code> (all zero when
+<code>center = FALSE</code>).</p></dd>
+
+<dt>scale</dt>
+<dd><p>A list <code>list(X, Y)</code> of the length-<code>I</code> / length-<code>J</code>
+column scale factors divided out of <code>X</code>/<code>Y</code> (all one when
+<code>scale = FALSE</code>).</p></dd>
+
+
+</dl></div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Naming map: this function names its metrics <code>XLW</code>/<code>YLW</code> (left/row
+weights) and <code>XRW</code>/<code>YRW</code> (right/column weights); these correspond to
+<code>Mx</code>/<code>My</code> (row metrics) and <code>Ax</code>/<code>Ay</code> (column metrics) in <code><a href="genpca.html">genpca()</a></code>'s and
+<code><a href="genpls.html">genpls()</a></code>'s M/A convention.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
+    <p>Beaton, D. (2020). Generalized eigen, singular value, and partial least
+squares decompositions: The GSVD package. arXiv:2010.14734.</p>
+<p>Abdi, H. (2007). Partial least square regression PLS-Regression. In
+N. Salkind (Ed.), <em>Encyclopedia of Measurement and Statistics</em>.
+Thousand Oaks, CA: Sage.</p>
     </div>
 
     <div class="section level2">
@@ -144,7 +217,7 @@ matrix-vector product in the iterative SVD costs two multiplies.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

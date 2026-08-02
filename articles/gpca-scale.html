@@ -37,6 +37,7 @@
 <li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -124,8 +125,9 @@ workloads</td>
 </tr>
 </tbody>
 </table>
-<p>In practice, leave it on <code>"auto"</code> unless you have a reason
-to pin a backend.</p>
+<p>The default is <code>"eigen"</code>; pass
+<code>method = "auto"</code> to let the heuristics pick a backend for
+you on larger problems.</p>
 </div>
 <div class="section level2">
 <h2 id="backends-on-the-same-problem">Backends on the same problem<a class="anchor" aria-label="anchor" href="#backends-on-the-same-problem"></a>
@@ -149,8 +151,8 @@ singular values agree across paths:</p>
 <span>           elapsed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">t_eig</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="va">t_rnd</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">)</span>,</span>
 <span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       method elapsed   top_sv</span></span>
-<span><span class="co">#&gt; 1      eigen   0.105 19.48896</span></span>
-<span><span class="co">#&gt; 2 randomized   0.010 19.14753</span></span></code></pre></div>
+<span><span class="co">#&gt; 1      eigen   0.112 19.48896</span></span>
+<span><span class="co">#&gt; 2 randomized   0.008 19.14753</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="Singular values from the eigen and randomized paths agree to plotting precision on this dense problem." width="85%"><p class="caption">
 Singular values from the eigen and randomized paths agree to plotting
@@ -162,15 +164,24 @@ precision on this dense problem.
 <h2 id="sparse-workflow-spectra">Sparse workflow (<code>spectra</code>)<a class="anchor" aria-label="anchor" href="#sparse-workflow-spectra"></a>
 </h2>
 <p>The <code>spectra</code> backend uses an iterative C++ solver and is
-the right choice for large sparse problems. The chunk below is shown but
-not evaluated to keep the vignette fast; it is the pattern to copy:</p>
+the right choice for large sparse problems, including problems with
+sparse row/column metrics:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">X_sparse</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/rsparsematrix.html" class="external-link">rsparsematrix</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">300</span>, density <span class="op">=</span> <span class="fl">0.005</span><span class="op">)</span></span>
-<span><span class="va">fit_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X_sparse</span>, ncomp <span class="op">=</span> <span class="fl">5</span>, method <span class="op">=</span> <span class="st">"spectra"</span>,</span>
+<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">300</span>; <span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
+<span><span class="va">X_sparse</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/rsparsematrix.html" class="external-link">rsparsematrix</a></span><span class="op">(</span><span class="va">n</span>, <span class="va">p</span>, density <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Sparse tridiagonal row/column metrics (mild AR(1)-style coupling)</span></span>
+<span><span class="va">M_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/bandSparse.html" class="external-link">bandSparse</a></span><span class="op">(</span><span class="va">n</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>                   diagonals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="va">n</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">n</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="va">n</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">A_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/bandSparse.html" class="external-link">bandSparse</a></span><span class="op">(</span><span class="va">p</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>                   diagonals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="va">p</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">p</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="va">p</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">fit_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X_sparse</span>, M <span class="op">=</span> <span class="va">M_sp</span>, A <span class="op">=</span> <span class="va">A_sp</span>, ncomp <span class="op">=</span> <span class="fl">5</span>, method <span class="op">=</span> <span class="st">"spectra"</span>,</span>
 <span>                 preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/pass.html" class="external-link">pass</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>                 constraints_remedy <span class="op">=</span> <span class="st">"ridge"</span><span class="op">)</span></span>
-<span><span class="va">fit_sp</span><span class="op">$</span><span class="va">sdev</span></span></code></pre></div>
+<span><span class="va">fit_sp</span><span class="op">$</span><span class="va">sdev</span></span>
+<span><span class="co">#&gt; [1] 5.153523 4.533004 4.258609 4.174038 3.991699</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="covariance-only-gpca">Covariance-only GPCA<a class="anchor" aria-label="anchor" href="#covariance-only-gpca"></a>
@@ -205,11 +216,11 @@ same component space:</p>
 <span>              preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">scores_test</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">X</span><span class="op">[</span><span class="fl">151</span><span class="op">:</span><span class="fl">200</span>, <span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scores_test</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;             PC1        PC2        PC3        PC4</span></span>
-<span><span class="co">#&gt; [1,] -1.9323426  0.4080526  0.1924407  0.6673048</span></span>
-<span><span class="co">#&gt; [2,] -0.3498745 -0.6490485 -0.2579339 -0.9996621</span></span>
-<span><span class="co">#&gt; [3,] -0.9590113 -0.9305126  1.4603670  1.1496702</span></span>
-<span><span class="co">#&gt; [4,] -0.1125973 -1.0845757  0.2493420  1.2509707</span></span></code></pre></div>
+<span><span class="co">#&gt;            PC1        PC2        PC3        PC4</span></span>
+<span><span class="co">#&gt; [1,] 1.9323426  0.4080526  0.1924407  0.6673048</span></span>
+<span><span class="co">#&gt; [2,] 0.3498745 -0.6490485 -0.2579339 -0.9996621</span></span>
+<span><span class="co">#&gt; [3,] 0.9590113 -0.9305126  1.4603670  1.1496702</span></span>
+<span><span class="co">#&gt; [4,] 0.1125973 -1.0845757  0.2493420  1.2509707</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/oos-plot-1.png" class="r-plt" alt="Training scores (grey) and out-of-sample scores (blue) projected into the same component space." width="85%"><p class="caption">
 Training scores (grey) and out-of-sample scores (blue) projected into
@@ -244,7 +255,7 @@ consider the covariance route when <code>n</code> is huge but
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

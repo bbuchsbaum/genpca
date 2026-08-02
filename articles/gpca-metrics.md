@@ -9,10 +9,17 @@ learner.
 
 Metrics encode weighting and correlation. The row metric `M` changes how
 observations are compared. The column metric `A` changes how variables
-are compared. Both must be symmetric positive definite (SPD) for GPCA.
-In return, you can bake known structure – temporal smoothness, spatial
+are compared. Both must be symmetric positive **semi-definite** (PSD)
+for GPCA – singular metrics are accepted (e.g. a rank-deficient graph
+Laplacian), and `constraints_remedy` can repair mildly invalid input. In
+return, you can bake known structure – temporal correlation, spatial
 proximity, group membership, heteroscedastic noise – straight into the
 decomposition.
+
+Structure alone is not enough, though: you also have to get the
+*direction* right, and supplying a matrix versus its inverse produces
+opposite results. The next section is about that, and it is worth
+reading before the recipes.
 
 ## Heteroscedastic diagonals
 
@@ -43,12 +50,75 @@ weights.](gpca-metrics_files/figure-html/hetero-plot-1.png)
 Inverse-variance weights on columns (top) and rows (bottom). Noisier
 dimensions get smaller weights.
 
+## Which way does a metric point?
+
+Before the recipes, the single most important thing to get right — and
+the easiest to get backwards. **A metric amplifies its own dominant
+eigendirections.** Loadings are `components(fit)` $`= A\,`$`ov`, so
+whichever patterns $`A`$ assigns large eigenvalues to are the patterns
+that come out of the decomposition.
+
+For a spatial or temporal structure there are two natural matrices, and
+they point in *opposite* directions:
+
+| You supply | $`v^{\top}Av`$ measures | Large eigenvalues on | Components come out |
+|:---|:---|:---|:---|
+| A **smoother**: kernel $`K`$, adjacency $`I + \alpha W`$, $`(I+\alpha L)^{-1}`$, heat kernel $`e^{-tL}`$ | agreement between neighbours | smooth patterns | **smoother** |
+| A **precision**: Laplacian $`L`$, $`I + \alpha L`$, $`K^{-1}`$, inverse AR(1) | disagreement across edges (Dirichlet energy $`\sum_{i\sim j}(v_i - v_j)^2`$) | rough patterns | **rougher** |
+
+Both are legitimate, because they encode different beliefs about *where
+the noise lives*. Recall that $`A = \Sigma_{\text{col}}^{-1}`$:
+
+- **Smoother as metric** $`\Rightarrow`$$`\Sigma_{\text{col}}`$ has its
+  variance in the rough directions $`\Rightarrow`$ “the noise is
+  high-frequency speckle; the signal is smooth.” This is denoising, and
+  it is what you want when you are after spatially coherent maps.
+- **Precision as metric** $`\Rightarrow`$$`\Sigma_{\text{col}}`$ has its
+  variance in the smooth directions $`\Rightarrow`$ “a smooth field —
+  drift, a scanner gradient, a global trend — is the nuisance.”
+  Whitening it away lets fine-scale structure surface. This is ordinary
+  generalized least squares against correlated noise.
+
+So the question is never “adjacency or Laplacian?” in the abstract. It
+is: **is the smooth thing my signal, or my nuisance?**
+
+![The same graph, two metrics. Left: a smoother concentrates PC1 on the
+smooth blob. Right: the Laplacian whitens the smooth field away, so PC1
+locks onto the fine-scale checkerboard that was buried underneath
+it.](gpca-metrics_files/figure-html/orientation-demo-1.png)
+
+The same graph, two metrics. Left: a smoother concentrates PC1 on the
+smooth blob. Right: the Laplacian whitens the smooth field away, so PC1
+locks onto the fine-scale checkerboard that was buried underneath it.
+
+Two practical notes on the graph matrices themselves. A raw adjacency
+$`W`$ is **indefinite** (its eigenvalues sum to zero), so it is not a
+valid metric on its own — shift it, as in $`I + \alpha W`$ with
+$`\alpha`$ small enough to keep it PSD. A raw Laplacian $`L`$ is PSD but
+**singular**: $`L\mathbf{1} = 0`$, so the spatially constant pattern has
+zero length under it.
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+accepts that (the whitening uses a pseudo-inverse), but adding a small
+ridge, $`L + \varepsilon I`$, is usually what you want.
+
+Finally, the strength matters and is not cosmetic. In the example above
+the first component only switched from the smooth blob to the
+checkerboard once $`\alpha`$ passed roughly 50; at $`\alpha = 2`$ the
+blob still dominated. Sweep it and look at your loadings.
+
 ## Recipes
 
-These three patterns – AR(1) smoothing, spatial RBF kernel, graph
-Laplacian – cover most structured-noise applications.
+Each recipe below is labelled with the direction it produces. All three
+are written here as **precision** matrices, i.e. the noise-whitening
+stance; drop the
+[`solve()`](https://rdrr.io/pkg/Matrix/man/solve-methods.html) to get
+the smoothing version instead.
 
-### AR(1) row metric (smoothness in time)
+### AR(1) row metric (whitens temporal autocorrelation)
+
+Standard GLS treatment of serially correlated observations, as in fMRI
+prewhitening: it removes temporal autocorrelation rather than imposing
+temporal smoothness.
 
 ``` r
 
@@ -59,7 +129,7 @@ Sigma_r <- outer(idx, idx, function(i, j) rho^abs(i - j))
 M_ar1   <- solve(Sigma_r + 1e-3 * diag(n_t))
 ```
 
-### Spatial RBF kernel
+### Spatial RBF kernel (whitens smooth spatial noise)
 
 ``` r
 
@@ -67,10 +137,11 @@ coords <- as.matrix(expand.grid(x = 1:8, y = 1:8))
 d2     <- as.matrix(dist(coords))^2
 ell    <- 2
 K      <- exp(-d2 / (2 * ell^2))
-A_rbf  <- solve(K + 1e-3 * diag(nrow(K)))
+A_rbf  <- solve(K + 1e-3 * diag(nrow(K)))   # precision: emphasises fine scale
+# A_smooth <- K + 1e-3 * diag(nrow(K))      # kernel itself: smooth loadings
 ```
 
-### Graph Laplacian
+### Graph Laplacian (emphasises contrast across edges)
 
 ``` r
 
@@ -80,15 +151,31 @@ W <- bandSparse(30, k = c(-1, 0, 1),
                                  rep(0.2, 29)))
 D     <- Diagonal(x = rowSums(W))
 A_lap <- (D - W) + 1e-2 * Diagonal(nrow(W))
+# A_smooth <- solve(A_lap)                  # smoother: spatially coherent loadings
 ```
 
-![Three structured metrics. Off-diagonal banding is what couples nearby
-rows or variables -- it tells GPCA 'treat these dimensions as related,
-not independent'.](gpca-metrics_files/figure-html/recipe-plots-1.png)
+![Three structured metrics, all shown in the precision (noise-whitening)
+orientation. Off-diagonal banding is what couples nearby rows or
+variables -- it tells GPCA 'treat these dimensions as related, not
+independent'.](gpca-metrics_files/figure-html/recipe-plots-1.png)
 
-Three structured metrics. Off-diagonal banding is what couples nearby
-rows or variables – it tells GPCA ‘treat these dimensions as related,
-not independent’.
+Three structured metrics, all shown in the precision (noise-whitening)
+orientation. Off-diagonal banding is what couples nearby rows or
+variables – it tells GPCA ‘treat these dimensions as related, not
+independent’.
+
+### A note on `sfpca()`
+
+[`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md)
+takes the *opposite* input for the same intent. There the structure
+enters as a constraint, $`v^{\top}(I + \alpha\Omega)v \le 1`$, which
+charges rough $`v`$ against a fixed budget — so you pass the roughness
+operator (Laplacian, second differences) directly via `alpha_v`, and
+larger `alpha_v` means **smoother**. Metric form and constraint form are
+inverse to one another: the same Laplacian smooths in
+[`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) and
+roughens in
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md).
 
 ## Learning metrics with `gpca_mle()`
 
@@ -106,9 +193,9 @@ fit_mle <- gpca_mle(X_mle, ncomp = 2, max_iter = 6,
                     lambda = 1e-3, scale_fix = "trace",
                     method = "eigen", verbose = FALSE)
 range(diag(as.matrix(fit_mle$M)))
-#> [1] 289.4551 459.8213
+#> [1] 156827.4 249196.5
 range(diag(as.matrix(fit_mle$A)))
-#> [1]  8.230071 69.330188
+#> [1] 2.583950 3.330251
 ```
 
 ![Learned row metric M (left) and column metric A (right) on i.i.d.
@@ -137,5 +224,8 @@ they signal a metric was repaired during the iteration.
 ## Where next
 
 See
+[`vignette("structured-noise")`](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md)
+for how to choose the transfer function when several kinds of structure
+are present at once, and
 [`vignette("gpca-scale")`](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md)
 for backend choices, sparse workflows, and covariance-only GPCA.

@@ -1,8 +1,8 @@
 # Compatibility wrapper for multivarious::transfer
 
-Provides a transfer method that accepts \`source\`/\`target\` arguments
-used in the tests. The method forwards to \`multivarious\`'s transfer
-method which expects \`from\`/\`to\`.
+Provides a transfer method that accepts `source`/`target` arguments used
+in the tests. The method forwards to `multivarious`'s transfer method
+which expects `from`/`to`.
 
 ## Usage
 
@@ -35,9 +35,9 @@ transfer(x, new_data, from = NULL, to = NULL, opts = list(), ...)
 
 - ...:
 
-  Additional arguments. Legacy parameters \`source\` and \`target\` are
+  Additional arguments. Legacy parameters `source` and `target` are
   accepted here for backwards compatibility but are deprecated; use
-  \`from\` and \`to\` instead.
+  `from` and `to` instead.
 
 ## Value
 
@@ -46,7 +46,6 @@ Matrix with transferred data.
 ## Examples
 
 ``` r
-# \donttest{
 # Generate sample data
 set.seed(123)
 n <- 50
@@ -59,5 +58,4 @@ fit <- rpls(X, Y, K = 2)
 # Transfer new X data to Y space
 new_X <- matrix(rnorm(10 * 10), 10, 10)
 transferred <- transfer(fit, new_X, from = "X", to = "Y")
-# }
 ```

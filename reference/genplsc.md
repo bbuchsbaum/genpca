@@ -1,7 +1,10 @@
 # Canonical Generalized PLS (alias)
 
-Convenience alias for \`genpls()\`; computes canonical generalized PLS
-(PLS-SVD/GPLSSVD). See \`?genpls\` for full documentation.
+Convenience alias for
+[`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md);
+computes canonical generalized PLS (PLS-SVD/GPLSSVD). See
+[`?genpls`](https://bbuchsbaum.github.io/genpca/reference/genpls.md) for
+full documentation.
 
 ## Usage
 
@@ -30,25 +33,25 @@ genplsc(
 
 - Y:
 
-  Numeric or Matrix, n x q. Must have same n as \`X\`.
+  Numeric or Matrix, n x q. Must have same n as `X`.
 
 - Ax:
 
-  Column metric for X (W_X): vector/diagonal/matrix; \`NULL\` ⇒
+  Column metric for X (W_X): vector/diagonal/matrix; `NULL` means
   identity.
 
 - Ay:
 
-  Column metric for Y (W_Y): vector/diagonal/matrix; \`NULL\` ⇒
+  Column metric for Y (W_Y): vector/diagonal/matrix; `NULL` means
   identity.
 
 - Mx:
 
-  Row metric for X (M_X): vector/diagonal/matrix; \`NULL\` ⇒ identity.
+  Row metric for X (M_X): vector/diagonal/matrix; `NULL` means identity.
 
 - My:
 
-  Row metric for Y (M_Y): vector/diagonal/matrix; \`NULL\` ⇒ identity.
+  Row metric for Y (M_Y): vector/diagonal/matrix; `NULL` means identity.
 
 - ncomp:
 
@@ -56,18 +59,23 @@ genplsc(
 
 - preproc_x, preproc_y:
 
-  Optional \`multivarious\` preprocessors (e.g., \`center()\`). Defaults
-  to \`multivarious::pass()\` (no-op).
+  Optional `multivarious` preprocessors (e.g., `center()`). Defaults to
+  [`multivarious::pass()`](https://bbuchsbaum.github.io/multivarious/reference/pass.html)
+  (no-op).
 
 - svd_backend:
 
-  Character, one of \`"RSpectra"\` (default) or \`"irlba"\` for
-  iterative SVD. If neither backend is available, a dense fallback is
-  used for small problems by materializing S.
+  Character, one of `"RSpectra"` (default) or `"irlba"` for the
+  iterative SVD. This choice only matters for larger problems: whenever
+  both `X` and `Y` have at most 64 columns after preprocessing, the
+  operator materializes `S` densely and computes a direct
+  [`svd()`](https://rdrr.io/r/base/svd.html), ignoring `svd_backend`
+  entirely (see
+  [`gplssvd_op()`](https://bbuchsbaum.github.io/genpca/reference/gplssvd_op.md)).
 
 - svd_opts:
 
-  List of options passed to the SVD backend, e.g., \`tol\`, \`maxitr\`.
+  List of options passed to the SVD backend, e.g., `tol`, `maxitr`.
 
 - verbose:
 
@@ -75,7 +83,24 @@ genplsc(
 
 ## Value
 
-See \`genpls()\`
+An object of class `c("genpls", "cross_projector", "projector")` with
+the same structure as
+[`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md)
+returns (X-/Y-weights `vx`/`vy`, singular values `d`, generalized
+weights `p`/`q`, scores `fi`/`fj`, latent variables `lx`/`ly`, `ncomp`,
+and `backend`); see
+[`?genpls`](https://bbuchsbaum.github.io/genpca/reference/genpls.md) for
+the definition of each slot.
+
+## References
+
+Beaton, D. (2020). Generalized eigen, singular value, and partial least
+squares decompositions: The GSVD package. (Eqs. 10-14).
+arXiv:2010.14734.
+
+## See also
+
+[`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md)
 
 ## Examples
 

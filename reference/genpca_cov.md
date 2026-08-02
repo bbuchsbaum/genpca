@@ -57,7 +57,14 @@ genpca_cov(
 
 - constraints_remedy:
 
-  How to handle slightly non-PSD inputs (for geigen method). One of:
+  How to handle slightly non-PSD inputs (used only by the `"geigen"`
+  method; `"gmd"` always clips negative eigenvalues of `R` internally,
+  see Details). Default `"error"` – note this differs from
+  [`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md),
+  whose default is `"ridge"`; `genpca_cov()` expects an
+  already-validated covariance matrix `C` and metric `R`, so it errs on
+  the side of rejecting bad input rather than silently repairing it. One
+  of:
 
   - "error": Stop with an error if constraints are not PSD
 
@@ -78,7 +85,7 @@ genpca_cov(
 
 ## Value
 
-A list with components:
+A plain list (**not** a multivarious `bi_projector`) with components:
 
 - v:
 
@@ -111,6 +118,17 @@ A list with components:
 - method:
 
   The method used ("gmd" or "geigen")
+
+Because this is a plain list rather than a `bi_projector`, the
+`multivarious` generics `scores()`,
+[`components()`](https://bbuchsbaum.github.io/multivarious/reference/components.html),
+and
+[`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html)
+do not apply to it; index `$v`/`$d` directly, or use
+[`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md) when
+you need the full projector interface (out-of-sample `project()`,
+[`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html),
+etc.) on a data matrix rather than a pre-computed covariance matrix.
 
 ## Details
 

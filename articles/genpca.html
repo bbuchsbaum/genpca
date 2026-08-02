@@ -37,6 +37,7 @@
 <li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -99,6 +100,362 @@ The interesting cases are when <code>M</code> or <code>A</code> is
 non-trivial.</p>
 </div>
 <div class="section level2">
+<h2 id="the-decomposition">The decomposition<a class="anchor" aria-label="anchor" href="#the-decomposition"></a>
+</h2>
+<div class="section level3">
+<h3 id="two-metrics-one-inner-product">Two metrics, one inner product<a class="anchor" aria-label="anchor" href="#two-metrics-one-inner-product"></a>
+</h3>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+be the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \times p</annotation></semantics></math>
+data matrix. Generalized PCA asks you to supply two symmetric positive
+semi-definite matrices:</p>
+<ul>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">n \times n</annotation></semantics></math>),
+the <strong>row metric</strong>, which puts a geometry on the space of
+observations;</li>
+<li>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">p \times p</annotation></semantics></math>),
+the <strong>column metric</strong>, which puts a geometry on the space
+of variables.</li>
+</ul>
+<p>Together they define an inner product on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \times p</annotation></semantics></math>
+matrices,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>Y</mi><mo>,</mo><mi>Z</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mrow><mi mathvariant="normal">tr</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Y</mi><mi>⊤</mi></msup><mi>M</mi><mi>Z</mi><mi>A</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><mo stretchy="false" form="postfix">∥</mo><mi>Y</mi><msubsup><mo stretchy="false" form="postfix">∥</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow><mn>2</mn></msubsup><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mrow><mi mathvariant="normal">tr</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Y</mi><mi>⊤</mi></msup><mi>M</mi><mi>Y</mi><mi>A</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">\langle Y, Z \rangle_{M,A} \;=\; \operatorname{tr}\!\left(Y^{\top} M Z A\right),
+\qquad
+\|Y\|_{M,A}^{2} \;=\; \operatorname{tr}\!\left(Y^{\top} M Y A\right).</annotation></semantics></math></p>
+<p>When
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msub><mi>I</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">M = I_n</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msub><mi>I</mi><mi>p</mi></msub></mrow><annotation encoding="application/x-tex">A = I_p</annotation></semantics></math>
+this is the ordinary Frobenius inner product, and everything below
+collapses to the familiar SVD and PCA.</p>
+</div>
+<div class="section level3">
+<h3 id="the-problem-it-solves">The problem it solves<a class="anchor" aria-label="anchor" href="#the-problem-it-solves"></a>
+</h3>
+<p>The <strong>generalized least-squares matrix decomposition</strong>
+(GMD) of Allen, Grosenick &amp; Taylor (2014) is the best
+rank-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+approximation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math><em>in that norm</em>:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mi mathvariant="normal">min</mi><mrow><mi>U</mi><mo>,</mo><mi>D</mi><mo>,</mo><mi>V</mi></mrow></munder><mspace width="0.278em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">∥</mo><mi>X</mi><mo>−</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup><msubsup><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">∥</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow><mn>2</mn></msubsup><mspace width="2.0em"></mspace><mtext mathvariant="normal">subject to</mtext><mspace width="2.0em"></mspace><msup><mi>U</mi><mi>⊤</mi></msup><mi>M</mi><mi>U</mi><mo>=</mo><msub><mi>I</mi><mi>K</mi></msub><mo>,</mo><mspace width="1.0em"></mspace><msup><mi>V</mi><mi>⊤</mi></msup><mi>A</mi><mi>V</mi><mo>=</mo><msub><mi>I</mi><mi>K</mi></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">\min_{U, D, V} \;\bigl\|X - U D V^{\top}\bigr\|_{M,A}^{2}
+\qquad \text{subject to} \qquad
+U^{\top} M U = I_K, \quad V^{\top} A V = I_K,</annotation></semantics></math></p>
+<p>with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>D</mi><mo>=</mo><mrow><mi mathvariant="normal">diag</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>d</mi><mn>1</mn></msub><mo>≥</mo><msub><mi>d</mi><mn>2</mn></msub><mo>≥</mo><mi>⋯</mi><mo>≥</mo><msub><mi>d</mi><mi>K</mi></msub><mo>≥</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">D = \operatorname{diag}(d_1 \ge d_2 \ge \cdots \ge d_K \ge 0)</annotation></semantics></math>.</p>
+<p>Only two things changed relative to the SVD, and they are the same
+change twice: the discrepancy is measured in the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>M</mi><mo>,</mo><mi>A</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(M,A)</annotation></semantics></math>
+norm rather than the Frobenius norm, and the factors are orthonormal
+<em>in the metrics</em> rather than Euclidean-orthonormal.</p>
+</div>
+<div class="section level3">
+<h3 id="the-solution-whiten-decompose-unwhiten">The solution: whiten, decompose, unwhiten<a class="anchor" aria-label="anchor" href="#the-solution-whiten-decompose-unwhiten"></a>
+</h3>
+<p>The problem has a closed form. Take symmetric square roots
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">M = M^{1/2}M^{1/2}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">A = A^{1/2}A^{1/2}</annotation></semantics></math>,
+whiten the data,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>X</mi><mo accent="true">̃</mo></mover><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mi>X</mi><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mo>,</mo></mrow><annotation encoding="application/x-tex">\widetilde{X} \;=\; M^{1/2} X A^{1/2},</annotation></semantics></math></p>
+<p>and compute its <em>ordinary</em> SVD,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>X</mi><mo accent="true">̃</mo></mover><mo>=</mo><mover><mi>U</mi><mo accent="true">̃</mo></mover><mi>D</mi><msup><mover><mi>V</mi><mo accent="true">̃</mo></mover><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">\widetilde{X} = \widetilde{U} D \widetilde{V}^{\top}</annotation></semantics></math>.
+Then</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>=</mo><msup><mi>M</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mover><mi>U</mi><mo accent="true">̃</mo></mover><mo>,</mo><mspace width="2.0em"></mspace><mi>V</mi><mo>=</mo><msup><mi>A</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mover><mi>V</mi><mo accent="true">̃</mo></mover><mo>,</mo><mspace width="2.0em"></mspace><mi>D</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> unchanged</mtext></mrow></mrow><annotation encoding="application/x-tex">U = M^{-1/2}\widetilde{U}, \qquad V = A^{-1/2}\widetilde{V}, \qquad D \text{ unchanged}</annotation></semantics></math></p>
+<p>solves the problem above (with pseudo-inverses when a metric is
+singular). That is the whole idea: <strong>GMD is an SVD performed in a
+different coordinate system.</strong> Everything else is bookkeeping and
+computation.</p>
+<p>Eliminating the whitening gives the form the solvers actually use —
+an eigenproblem for a single operator,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi><mi>A</mi><mspace width="0.167em"></mspace><msub><mi>v</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><msubsup><mi>d</mi><mi>k</mi><mn>2</mn></msubsup><mspace width="0.167em"></mspace><msub><mi>v</mi><mi>k</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>v</mi><mi>k</mi><mi>⊤</mi></msubsup><mi>A</mi><msub><mi>v</mi><mi>k</mi></msub><mo>=</mo><mn>1</mn><mo>,</mo></mrow><annotation encoding="application/x-tex">X^{\top} M X A \, v_k \;=\; d_k^{2}\, v_k, \qquad v_k^{\top} A v_k = 1,</annotation></semantics></math></p>
+<p>and the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>-th
+generalized principal component (the score vector) is</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mi>X</mi><mi>A</mi><msub><mi>v</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><msub><mi>d</mi><mi>k</mi></msub><mspace width="0.167em"></mspace><msub><mi>u</mi><mi>k</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">z_k \;=\; X A v_k \;=\; d_k\, u_k .</annotation></semantics></math></p>
+<p>In the package these are <code>components(fit)</code>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>
+for the loadings and <code>scores(fit)</code>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>=</mo><annotation encoding="application/x-tex">=</annotation></semantics></math><code>ou %*% diag(sdev)</code> for the scores, with <code>ou</code> and
+<code>ov</code> holding the metric-orthonormal factors
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>.</p>
+</div>
+<div class="section level3">
+<h3 id="what-the-metrics-mean">What the metrics mean<a class="anchor" aria-label="anchor" href="#what-the-metrics-mean"></a>
+</h3>
+<p>There are two readings of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>,
+and both are worth carrying.</p>
+<p><strong>As geometry.</strong> The metrics define what “distance”
+means, and they act crosswise. Observations are rows of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>,
+living in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>ℝ</mi><mi>p</mi></msup><annotation encoding="application/x-tex">\mathbb{R}^p</annotation></semantics></math>,
+so the <em>column</em> metric sets the distance between two
+observations,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><msub><mi>x</mi><mi>j</mi></msub><msubsup><mo stretchy="false" form="postfix">∥</mo><mi>A</mi><mn>2</mn></msubsup><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><msub><mi>x</mi><mi>j</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mi>A</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><msub><mi>x</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\|x_i - x_j\|_A^2 = (x_i - x_j)^{\top} A\,(x_i - x_j)</annotation></semantics></math>.
+Variables are columns, living in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>ℝ</mi><mi>n</mi></msup><annotation encoding="application/x-tex">\mathbb{R}^n</annotation></semantics></math>,
+so the <em>row</em> metric sets the distance between two variables —
+and, when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+is diagonal, simply weights the observations. Choose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+to say which variables should be treated as similar; choose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+to say which observations count more.</p>
+<p><strong>As statistics.</strong> Suppose the noise is separable,
+meaning the errors follow a matrix-normal law
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo>∼</mo><mrow><mi>ℳ</mi><mi>𝒩</mi></mrow><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">row</mtext></msub><mo>,</mo><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">E \sim \mathcal{MN}(0, \Sigma_{\text{row}}, \Sigma_{\text{col}})</annotation></semantics></math>,
+equivalently
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">vec</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>E</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{vec}(E)</annotation></semantics></math>
+has covariance
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext></msub><mo>⊗</mo><msub><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">row</mtext></msub></mrow><annotation encoding="application/x-tex">\Sigma_{\text{col}} \otimes \Sigma_{\text{row}}</annotation></semantics></math>.
+Then the log-likelihood of a
+rank-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+mean is, up to constants, exactly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mstyle displaystyle="false"><mfrac><mn>1</mn><mn>2</mn></mfrac></mstyle><mo stretchy="false" form="postfix">∥</mo><mi>X</mi><mo>−</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup><msubsup><mo stretchy="false" form="postfix">∥</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">-\tfrac12\|X - UDV^{\top}\|^2_{M,A}</annotation></semantics></math>
+with</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msubsup><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">row</mtext><mrow><mi>−</mi><mn>1</mn></mrow></msubsup><mo>,</mo><mspace width="2.0em"></mspace><mi>A</mi><mo>=</mo><msubsup><mi mathvariant="normal">Σ</mi><mtext mathvariant="normal">col</mtext><mrow><mi>−</mi><mn>1</mn></mrow></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">M = \Sigma_{\text{row}}^{-1}, \qquad A = \Sigma_{\text{col}}^{-1}.</annotation></semantics></math></p>
+<p>So the metrics are not an arbitrary regularizer: setting them to the
+inverse noise covariances makes GMD the maximum-likelihood low-rank fit.
+This is why the package ships <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code>, which learns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>M</mi><mo>,</mo><mi>A</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(M, A)</annotation></semantics></math>
+by penalized maximum likelihood, and <code><a href="../reference/mnpca_mrl.html">mnpca_mrl()</a></code>, which
+does the same with sparse precision matrices.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="relation-to-the-french-school">Relation to the French school<a class="anchor" aria-label="anchor" href="#relation-to-the-french-school"></a>
+</h2>
+<p>Readers coming from <em>analyse des données</em> will recognize all
+of this. The French tradition — Benzécri’s correspondence analysis,
+formalized by Escoufier as the <strong>duality diagram</strong> —
+describes an analysis by a <em>triplet</em>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>X</mi><mo>,</mo><mi>Q</mi><mo>,</mo><mi>D</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(X, Q, D)</annotation></semantics></math>:
+a data table, a metric on the variable space, and a set of row masses.
+The analysis is then the eigendecomposition of the operator
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>X</mi><mi>⊤</mi></msup><mi>D</mi><mi>X</mi><mi>Q</mi></mrow><annotation encoding="application/x-tex">X^{\top} D X Q</annotation></semantics></math>.
+That is, term for term, the eigenproblem two sections above.
+Correspondence analysis, multiple correspondence analysis, principal
+coordinates, discriminant analysis, canonical correlation, and PLS are
+all recovered by choosing the triplet appropriately; the
+<code>ade4</code> package is built directly on this formalism, and
+Abdi’s papers on the generalized SVD — cited in this package’s
+<code>DESCRIPTION</code> — are the same construction in English.</p>
+<p>The one genuine trap is notation:
+<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>
+means opposite things in the two literatures.</strong></p>
+<table class="table">
+<thead><tr class="header">
+<th align="left">Role</th>
+<th align="left"><code>genpca</code></th>
+<th align="left">Allen et al. (2014)</th>
+<th align="left">Duality diagram</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">Row metric / observation weights</td>
+<td align="left"><code>M</code></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>D</mi><annotation encoding="application/x-tex">D</annotation></semantics></math></td>
+</tr>
+<tr class="even">
+<td align="left">Column metric / variable geometry</td>
+<td align="left"><code>A</code></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
+</tr>
+</tbody>
+</table>
+<p>What Allen, Grosenick &amp; Taylor contribute on top of the classical
+theory is less the geometry than the framing and the machinery: the
+decomposition is posed as a <em>best
+rank-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+approximation</em> with an optimality theorem rather than only an
+eigenanalysis; the metrics are allowed to be large, dense, and
+structured (spatial kernels, temporal covariances) instead of the
+diagonal weights typical of the classical treatments; and the
+formulation extends cleanly to regularized and sparse variants, which is
+what <code><a href="../reference/sfpca.html">sfpca()</a></code> implements.</p>
+</div>
+<div class="section level2">
+<h2 id="where-this-pays-off">Where this pays off<a class="anchor" aria-label="anchor" href="#where-this-pays-off"></a>
+</h2>
+<p><strong>Genomics and microbiome data.</strong> Genes in a pathway or
+taxa on a phylogeny are not exchangeable. A column metric built from a
+gene-network Laplacian or a phylogenetic distance encodes that, so
+components respect known biology; double principal coordinate analysis
+is precisely this choice of triplet. On the row side, a diagonal
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+down-weights samples with low sequencing depth, and a kinship matrix as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+absorbs relatedness.</p>
+<p><strong>Imaging.</strong> In fMRI the natural table is time
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
+voxels. Neighbouring voxels are correlated, so an
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+built from the voxel adjacency graph or a spatial smoothing operator
+yields spatially coherent components instead of salt-and-pepper maps —
+the motivating example in Allen et al. On the row side,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+can carry AR(1) temporal whitening or simply down-weight
+motion-corrupted frames.</p>
+<p><strong>Time series and functional data.</strong> When the variables
+are ordered — time points, wavelengths, positions along a transect — you
+usually want loadings that vary smoothly rather than jumping between
+neighbours. GPCA delivers that through the metric, which is Silverman’s
+“smoothing by choice of norm” construction: components become smooth
+functions of the index. This is the foundation <code><a href="../reference/sfpca.html">sfpca()</a></code>
+builds on, adding sparsity to smoothness.</p>
+<p>One direction trap is worth stating explicitly, because the two
+interfaces in this package take <em>opposite</em> inputs. Write
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Ω</mi><mo>=</mo><msubsup><mi>D</mi><mn>2</mn><mi>⊤</mi></msubsup><msub><mi>D</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\Omega = D_2^{\top}D_2</annotation></semantics></math>
+for a second-difference roughness operator, so that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mi mathvariant="normal">Ω</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">v^{\top}\Omega v</annotation></semantics></math>
+is large for wiggly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>.</p>
+<ul>
+<li>In <code><a href="../reference/genpca.html">genpca()</a></code>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+is a <strong>metric</strong>, and a metric amplifies its own dominant
+directions: <code>components(fit)</code>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>.
+To get smooth loadings, pass a <em>smoothing</em> operator —
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">A = (I + \alpha\Omega)^{-1}</annotation></semantics></math>,
+or a kernel or adjacency matrix, as in the banded example above. Passing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Ω</mi><annotation encoding="application/x-tex">\Omega</annotation></semantics></math>
+itself makes loadings <strong>rougher</strong>, not smoother.</li>
+<li>In <code><a href="../reference/sfpca.html">sfpca()</a></code>, the same information enters as a
+<strong>constraint</strong>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>v</mi><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">v^{\top}(I + \alpha\Omega)\,v \le 1</annotation></semantics></math>,
+which charges wiggly
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>
+against a fixed budget. There you supply the roughness operator directly
+(via <code>alpha_v</code> and <code>spat_cds</code>), and larger
+<code>alpha_v</code> means smoother.</li>
+</ul>
+<p>Metric form and constraint form are inverse to one another; mixing
+them up silently produces the opposite of what you wanted, so it is
+worth checking the smoothness of your loadings against a small sweep of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>α</mi><annotation encoding="application/x-tex">\alpha</annotation></semantics></math>.</p>
+<p><strong>Space
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
+time.</strong> The case where both metrics earn their keep at once:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+from the temporal covariance,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+from the spatial covariance, on a single space-by-time table. Under a
+separable noise model this is exactly the maximum-likelihood fit from
+the statistics reading above, which makes it the principled choice
+rather than a convenient one. The same structure appears in EEG and MEG
+(sensor covariance estimated from empty-room noise), in climate fields,
+and generally in any table whose two margins each carry their own
+dependence.</p>
+</div>
+<div class="section level2">
+<h2 id="how-the-package-computes-it">How the package computes it<a class="anchor" aria-label="anchor" href="#how-the-package-computes-it"></a>
+</h2>
+<p>The literal recipe — form
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">M^{1/2}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">A^{1/2}</annotation></semantics></math>,
+whiten, take an SVD — costs
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>n</mi><mn>3</mn></msup><mo>+</mo><msup><mi>p</mi><mn>3</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(n^3 + p^3)</annotation></semantics></math>
+and densifies everything in sight. That is fine for small dense problems
+and hopeless for a spatial metric over 200,000 voxels. So
+<code><a href="../reference/genpca.html">genpca()</a></code> offers several backends that compute the same
+decomposition by different routes:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th align="left"><code>method</code></th>
+<th align="left">Approach</th>
+<th align="left">Best for</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>"eigen"</code></td>
+<td align="left">Works on the smaller side: a
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">p \times p</annotation></semantics></math>
+Gram eigenproblem when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>≥</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \ge p</annotation></semantics></math>,
+an
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">n \times n</annotation></semantics></math>
+one when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>&lt;</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n &lt; p</annotation></semantics></math>.
+Metric square roots are cached.</td>
+<td align="left">Small to medium dense problems (the default)</td>
+</tr>
+<tr class="even">
+<td align="left"><code>"spectra"</code></td>
+<td align="left">Matrix-free. Supplies only the <em>action</em>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi><mo>↦</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi><mi>A</mi><mspace width="0.167em"></mspace><mi>w</mi></mrow><annotation encoding="application/x-tex">w \mapsto X^{\top}MXA\,w</annotation></semantics></math>
+to a C++ Krylov eigensolver; neither the whitened matrix nor the Gram
+matrix is ever formed.</td>
+<td align="left">Large problems with sparse structured metrics</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>"randomized"</code></td>
+<td align="left">Randomized range finder with power iterations and a
+polish step, all in the metric geometry.</td>
+<td align="left">Wide
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>≫</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">p \gg n</annotation></semantics></math>),
+low-rank problems</td>
+</tr>
+<tr class="even">
+<td align="left"><code>"deflation"</code></td>
+<td align="left">Generalized power iteration one component at a time,
+with the residual applied implicitly so sparse inputs stay sparse.</td>
+<td align="left">Tight memory budgets</td>
+</tr>
+</tbody>
+</table>
+<p>Underneath, metrics are handled as operator closures rather than
+materialized matrices, with element-wise fast paths for diagonal metrics
+and Cholesky factors for general SPD ones. <code><a href="../reference/genpca_cov.html">genpca_cov()</a></code>
+covers the case where you only have the cross-product
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi><mo>=</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi></mrow><annotation encoding="application/x-tex">C = X^{\top}MX</annotation></semantics></math>
+rather than
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+itself. The backends are mathematically equivalent and the test suite
+asserts they agree; they differ only in cost and in the accuracy
+trade-offs of iterative solvers.</p>
+<div class="section level3">
+<h3 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h3>
+<p>Allen, G. I., Grosenick, L., &amp; Taylor, J. (2014). A generalized
+least-square matrix decomposition. <em>Journal of the American
+Statistical Association</em>, 109(505), 145–159.</p>
+<p>Escoufier, Y. (1987). The duality diagram: a means for better
+practical applications. In <em>Development in Numerical Ecology</em>.
+Springer.</p>
+<p>Holmes, S. (2008). Multivariate data analysis: the French way. In
+<em>Probability and Statistics: Essays in Honor of David A.
+Freedman</em>. IMS.</p>
+<p>Dray, S., &amp; Dufour, A.-B. (2007). The ade4 package: implementing
+the duality diagram for ecologists. <em>Journal of Statistical
+Software</em>, 22(4).</p>
+<p>Silverman, B. W. (1996). Smoothed functional principal components
+analysis by choice of norm. <em>The Annals of Statistics</em>, 24(1),
+1–24.</p>
+</div>
+</div>
+<div class="section level2">
 <h2 id="row-weights-diagonal-metric">Row weights (diagonal metric)<a class="anchor" aria-label="anchor" href="#row-weights-diagonal-metric"></a>
 </h2>
 <p>A diagonal <code>M</code> says “weight observation <code>i</code> by
@@ -110,10 +467,10 @@ sizes, or when some rows are more reliable than others.</p>
 <span><span class="va">fit_row</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_row</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             PC1         PC2        PC3</span></span>
-<span><span class="co">#&gt; Obs1  0.6081369 -0.56870409  0.3255369</span></span>
-<span><span class="co">#&gt; Obs2  1.6138469 -0.95435834 -0.5040896</span></span>
-<span><span class="co">#&gt; Obs3  0.2417079  4.12986019  1.7555520</span></span>
-<span><span class="co">#&gt; Obs4 -1.1451390 -0.05141449 -1.3684167</span></span></code></pre></div>
+<span><span class="co">#&gt; Obs1  0.7120376 -0.66586763  0.3811552</span></span>
+<span><span class="co">#&gt; Obs2  1.8471851 -1.09234435 -0.5769734</span></span>
+<span><span class="co">#&gt; Obs3  0.1803497  3.08148414  1.3099005</span></span>
+<span><span class="co">#&gt; Obs4 -1.8055237 -0.08106447 -2.1575624</span></span></code></pre></div>
 <div class="figure">
 <img src="genpca_files/figure-html/row-compare-1.png" class="r-plt" alt="Identity (left) vs row-weighted (right) component scores. Symbol size in the right panel scales with row weight." width="85%"><p class="caption">
 Identity (left) vs row-weighted (right) component scores. Symbol size in
@@ -149,15 +506,19 @@ high-frequency wiggle.
 <div class="section level2">
 <h2 id="choosing-the-number-of-components">Choosing the number of components<a class="anchor" aria-label="anchor" href="#choosing-the-number-of-components"></a>
 </h2>
-<p>A scree plot is the quickest first look:</p>
+<p><code>fit$sdev</code> holds the generalized singular values
+<code>d_k</code> of the metric-whitened data, not standard deviations:
+with identity metrics and centering, <code>fit$sdev</code> equals
+<code>prcomp(X)$sdev * sqrt(nrow(X) - 1)</code>. A scree plot of the
+squared values is the quickest first look:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/barplot.html" class="external-link">barplot</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span><span class="op">^</span><span class="fl">2</span>,</span>
 <span>        names.arg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"PC"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>        xlab <span class="op">=</span> <span class="st">"Component"</span>, ylab <span class="op">=</span> <span class="st">"Variance"</span>,</span>
+<span>        xlab <span class="op">=</span> <span class="st">"Component"</span>, ylab <span class="op">=</span> <span class="st">"Squared generalized singular value"</span>,</span>
 <span>        col <span class="op">=</span> <span class="st">"grey60"</span>, border <span class="op">=</span> <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="figure">
-<img src="genpca_files/figure-html/scree-1.png" class="r-plt" alt="Variance explained by each component." width="85%"><p class="caption">
-Variance explained by each component.
+<img src="genpca_files/figure-html/scree-1.png" class="r-plt" alt="Squared generalized singular value by component." width="85%"><p class="caption">
+Squared generalized singular value by component.
 </p>
 </div>
 <p>For a more principled choice, split the rows into train and holdout,
@@ -223,7 +584,7 @@ rape-heavy states once the dominant rate axis is removed.</p>
 <td align="left">Out-of-sample scores</td>
 </tr>
 <tr class="even">
-<td align="left"><code>reconstruct(fit, ncomp = k)</code></td>
+<td align="left"><code>reconstruct(fit, comp = 1:k)</code></td>
 <td align="left"><code>n x p</code></td>
 <td align="left">Rank-<code>k</code> reconstruction of
 <code>X</code>
@@ -236,13 +597,75 @@ rape-heavy states once the dominant rate axis is removed.</p>
 once you learn them on <code>genpca</code> they carry over.</p>
 </div>
 <div class="section level2">
+<h2 id="what-are-ou-ov-u-and-v">What are <code>ou</code>, <code>ov</code>, <code>u</code>, and
+<code>v</code>?<a class="anchor" aria-label="anchor" href="#what-are-ou-ov-u-and-v"></a>
+</h2>
+<p>Under the hood, <code><a href="../reference/genpca.html">genpca()</a></code> stores the raw factors of the
+decomposition alongside the verbs above. <code>ou</code> and
+<code>ov</code> are the metric-orthonormal factors of the paper (Allen,
+Grosenick &amp; Taylor 2014): <code>ou</code> is orthonormal in the row
+metric (<code>t(ou) %*% M %*% ou</code> is the identity) and
+<code>ov</code> is orthonormal in the column metric
+(<code>t(ov) %*% A %*% ov</code> is the identity). <code>u</code> and
+<code>v</code> are the same factors after applying the metric
+(<code>u = M %*% ou</code>, <code>v = A %*% ov</code>), which is the
+form used for <code><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components()</a></code>. The table below ties these to
+the verbs:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Quantity</th>
+<th align="left">Definition</th>
+<th align="left">Relation to verbs</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>ou</code></td>
+<td align="left">Row-metric-orthonormal left factor</td>
+<td align="left"><code>t(ou) %*% M %*% ou = I</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>ov</code></td>
+<td align="left">Column-metric-orthonormal right factor</td>
+<td align="left"><code>t(ov) %*% A %*% ov = I</code></td>
+</tr>
+<tr class="odd">
+<td align="left">
+<code>v</code> (<code>components(fit)</code>)</td>
+<td align="left"><code>A %*% ov</code></td>
+<td align="left">Loadings in the original variable space</td>
+</tr>
+<tr class="even">
+<td align="left">
+<code>s</code> (<code>scores(fit)</code>)</td>
+<td align="left"><code>X %*% A %*% ov = ou %*% diag(sdev)</code></td>
+<td align="left">Equal to <code>project(fit, X)</code> on the training
+data</td>
+</tr>
+</tbody>
+</table>
+<p>In other words, <code>scores(fit)</code> and
+<code>project(fit, X)</code> compute the same quantity two ways – one
+directly from <code>X</code> and the column loadings, the other from the
+stored orthonormal factors and the singular values – and they agree
+exactly on the training data.</p>
+</div>
+<div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
 <ul>
 <li>
 <code><a href="../articles/gpca-metrics.html">vignette("gpca-metrics")</a></code> covers metric recipes (AR(1),
-spatial kernels, graph Laplacians) and the <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code>
-learner.</li>
+spatial kernels, graph Laplacians), the smoother-versus-precision
+orientation rule, and the <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> learner.</li>
+<li>
+<code><a href="../articles/structured-noise.html">vignette("structured-noise")</a></code> works out which noise a
+metric can and cannot remove, with worked simulations – start here if
+your data has several kinds of structure at once.</li>
 <li>
 <code><a href="../articles/gpca-scale.html">vignette("gpca-scale")</a></code> covers backends, sparse
 workflows, and covariance-only GPCA.</li>
@@ -263,7 +686,7 @@ implementation.</li>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -1,7 +1,7 @@
 # Coordinate descent for the SFPCA penalized quadratic subproblem
 
-Internal solver for \`min_x 0.5 x'Sx - b'x + P(x; lambda)\` with sparse
-SPD \`S\` and an L1 or SCAD penalty.
+Internal solver for `min_x 0.5 x'Sx - b'x + P(x; lambda)` with sparse
+SPD `S` and an L1 or SCAD penalty.
 
 ## Usage
 
@@ -13,7 +13,7 @@ sfpca_cd_solve_cpp(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
 
 - S:
 
-  sparse SPD matrix (\`dgCMatrix\`)
+  sparse SPD matrix (`dgCMatrix`)
 
 - b:
 
@@ -45,4 +45,4 @@ sfpca_cd_solve_cpp(S, b, x0, lambda, penalty, scad_a, max_sweeps, tol)
 
 ## Value
 
-list with \`x\`, \`sweeps\`, and \`kkt\` (max KKT residual)
+list with `x`, `sweeps`, and `kkt` (max KKT residual)

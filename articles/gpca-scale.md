@@ -14,8 +14,8 @@ covariance-only fit, and how to project out-of-sample observations.
 | `deflation` | Few components, tight memory | Low memory footprint | Can converge slowly; monitor iteration warnings |
 | `auto` | Default production usage | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime |
 
-In practice, leave it on `"auto"` unless you have a reason to pin a
-backend.
+The default is `"eigen"`; pass `method = "auto"` to let the heuristics
+pick a backend for you on larger problems.
 
 ## Backends on the same problem
 
@@ -40,8 +40,8 @@ data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
 #>       method elapsed   top_sv
-#> 1      eigen   0.105 19.48896
-#> 2 randomized   0.010 19.14753
+#> 1      eigen   0.112 19.48896
+#> 2 randomized   0.008 19.14753
 ```
 
 ![Singular values from the eigen and randomized paths agree to plotting
@@ -54,17 +54,26 @@ precision on this dense problem.
 ## Sparse workflow (`spectra`)
 
 The `spectra` backend uses an iterative C++ solver and is the right
-choice for large sparse problems. The chunk below is shown but not
-evaluated to keep the vignette fast; it is the pattern to copy:
+choice for large sparse problems, including problems with sparse
+row/column metrics:
 
 ``` r
 
 set.seed(42)
-X_sparse <- rsparsematrix(800, 300, density = 0.005)
-fit_sp <- genpca(X_sparse, ncomp = 5, method = "spectra",
+n <- 300; p <- 200
+X_sparse <- rsparsematrix(n, p, density = 0.01)
+
+# Sparse tridiagonal row/column metrics (mild AR(1)-style coupling)
+M_sp <- bandSparse(n, k = c(-1, 0, 1),
+                   diagonals = list(rep(0.1, n - 1), rep(1, n), rep(0.1, n - 1)))
+A_sp <- bandSparse(p, k = c(-1, 0, 1),
+                   diagonals = list(rep(0.1, p - 1), rep(1, p), rep(0.1, p - 1)))
+
+fit_sp <- genpca(X_sparse, M = M_sp, A = A_sp, ncomp = 5, method = "spectra",
                  preproc = multivarious::pass(),
                  constraints_remedy = "ridge")
 fit_sp$sdev
+#> [1] 5.153523 4.533004 4.258609 4.174038 3.991699
 ```
 
 ## Covariance-only GPCA
@@ -104,11 +113,11 @@ fit <- genpca(X[1:150, ], ncomp = 4,
               preproc = multivarious::center())
 scores_test <- multivarious::project(fit, X[151:200, ])
 head(scores_test, 4)
-#>             PC1        PC2        PC3        PC4
-#> [1,] -1.9323426  0.4080526  0.1924407  0.6673048
-#> [2,] -0.3498745 -0.6490485 -0.2579339 -0.9996621
-#> [3,] -0.9590113 -0.9305126  1.4603670  1.1496702
-#> [4,] -0.1125973 -1.0845757  0.2493420  1.2509707
+#>            PC1        PC2        PC3        PC4
+#> [1,] 1.9323426  0.4080526  0.1924407  0.6673048
+#> [2,] 0.3498745 -0.6490485 -0.2579339 -0.9996621
+#> [3,] 0.9590113 -0.9305126  1.4603670  1.1496702
+#> [4,] 0.1125973 -1.0845757  0.2493420  1.2509707
 ```
 
 ![Training scores (grey) and out-of-sample scores (blue) projected into

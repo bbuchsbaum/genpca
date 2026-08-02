@@ -1,7 +1,7 @@
 # Coerce dense symmetric Matrix classes to general dense (dgeMatrix)
 
-Replacement for the deprecated direct \`as(., "dgeMatrix")\` coercion
-from dsyMatrix/dpoMatrix.
+Replacement for the deprecated direct `as(., "dgeMatrix")` coercion from
+dsyMatrix/dpoMatrix.
 
 ## Usage
 
