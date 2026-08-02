@@ -28,6 +28,7 @@ provided spatial coordinates."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
     <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
     <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
+    <li><a class="dropdown-item" href="../articles/sfpca.html">Sparse and Functional PCA with sfpca()</a></li>
     <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -188,7 +189,9 @@ across components – <code>sfpca()</code> extracts each rank-1 term from a
 constraint-form subproblem rather than a joint SVD, so <code>U'U != I</code> and
 <code>V'V != I</code> in general. Consequently <code><a href="https://bbuchsbaum.github.io/multivarious/reference/sdev.html" class="external-link">multivarious::sdev()</a></code> here is
 <em>not</em> the singular values of <code>X</code>; it is the per-component captured
-covariance \(d_k = u_k' X v_k\). This non-orthogonality is also why
+covariance \(d_k = u_k' X_k v_k\), where \(X_k\) is the matrix after
+the preceding components have been deflated out (so the identity holds
+against <code>X</code> itself only for \(k = 1\)). This non-orthogonality is also why
 <code><a href="https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html" class="external-link">reconstruct()</a></code> for <code>"sfpca"</code> objects uses the stored <code>U</code>, <code>d</code>, <code>V</code>
 factors directly (<code>U D V'</code>) rather than SVD-based identities such as the
 Moore-Penrose pseudoinverse of the loadings, which would not reproduce
@@ -231,7 +234,11 @@ number of every subproblem system <code>I + alpha * Omega</code> by 2.</p>
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Allen, G. I., &amp; Weylandt, M. (2019). Sparse and functional
 principal components analysis. In <em>2019 IEEE Data Science Workshop
-(DSW)</em> (pp. 11-16).</p>
+(DSW)</em> (pp. 11-16). <a href="https://doi.org/10.1109/DSW.2019.8755778" class="external-link">doi:10.1109/DSW.2019.8755778</a>
+. Also available as
+<a href="https://arxiv.org/abs/1309.2895" class="external-link">arXiv:1309.2895</a>, first posted in
+2013 and revised through 2019; the preprint and the DSW paper are the
+same work, which is why both years appear in the literature.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

@@ -151,8 +151,10 @@ rank-1 term from a constraint-form subproblem rather than a joint SVD,
 so `U'U != I` and `V'V != I` in general. Consequently
 [`multivarious::sdev()`](https://bbuchsbaum.github.io/multivarious/reference/sdev.html)
 here is *not* the singular values of `X`; it is the per-component
-captured covariance \\d_k = u_k' X v_k\\. This non-orthogonality is also
-why
+captured covariance \\d_k = u_k' X_k v_k\\, where \\X_k\\ is the matrix
+after the preceding components have been deflated out (so the identity
+holds against `X` itself only for \\k = 1\\). This non-orthogonality is
+also why
 [`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html)
 for `"sfpca"` objects uses the stored `U`, `d`, `V` factors directly
 (`U D V'`) rather than SVD-based identities such as the Moore-Penrose
@@ -203,6 +205,11 @@ number of every subproblem system `I + alpha * Omega` by 2.
 Allen, G. I., & Weylandt, M. (2019). Sparse and functional principal
 components analysis. In *2019 IEEE Data Science Workshop (DSW)* (pp.
 11-16).
+[doi:10.1109/DSW.2019.8755778](https://doi.org/10.1109/DSW.2019.8755778)
+. Also available as [arXiv:1309.2895](https://arxiv.org/abs/1309.2895),
+first posted in 2013 and revised through 2019; the preprint and the DSW
+paper are the same work, which is why both years appear in the
+literature.
 
 ## See also
 

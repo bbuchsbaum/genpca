@@ -82,7 +82,7 @@ Alap <- adjoin::spatial_laplacian(cds, nnk = 8, weight_mode = "heat", sigma = 1.
 range(eigen(as.matrix(Aadj), symmetric = TRUE, only.values = TRUE)$values)
 #> [1] -0.1882372  1.0065493
 range(eigen(as.matrix(Alap), symmetric = TRUE, only.values = TRUE)$values)
-#> [1] 4.676095e-16 1.490016e+00
+#> [1] -5.662857e-16  1.490016e+00
 ```
 
 Both traps from the previous section show up in real output. The
@@ -159,9 +159,9 @@ dimnames(out) <- list(paste(grid$signal, "signal /", grid$noise, "noise"),
 round(out, 3)
 #>                              identity smoother precision
 #> smooth signal / smooth noise    0.437    0.495     0.336
-#> fine signal / smooth noise      0.031    0.023     0.573
+#> fine signal / smooth noise      0.040    0.036     0.639
 #> smooth signal / fine noise      0.058    0.733     0.035
-#> fine signal / fine noise        0.144    0.200     0.063
+#> fine signal / fine noise        0.111    0.172     0.078
 ```
 
 Read the rows. When signal and noise sit in **different** bands, the
@@ -239,7 +239,7 @@ for (r in seq_len(reps)) {
 }
 setNames(round(acc, 3), c("identity", "bounded precision", "unbounded I + 6L"))
 #>          identity bounded precision  unbounded I + 6L 
-#>             0.042             0.552             0.456
+#>             0.070             0.383             0.305
 ```
 
 Both precisions beat plain PCA by a wide margin, and the bounded one
