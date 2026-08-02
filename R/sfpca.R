@@ -79,6 +79,10 @@ second_diff_matrix <- function(n) {
 #' @param K The number of principal components to estimate.
 #' @param spat_cds A matrix of spatial coordinates for each column of X (variables). Each row
 #'   corresponds to a spatial dimension (e.g., x, y, z), and each column corresponds to a variable.
+#'   Note the orientation: this is `dimensions x variables`, so
+#'   `ncol(spat_cds)` must equal `ncol(X)` -- the transpose of the layout a
+#'   coordinate data frame usually has. For a one-dimensional axis (a spectrum,
+#'   a transect) pass `matrix(coords, nrow = 1)`.
 #' @param lambda_u Sparsity penalty parameter for u. If NULL, selected per component by BIC
 #'   along a regularization path (see Details).
 #' @param lambda_v Sparsity penalty parameter for v. If NULL, selected per component by BIC
@@ -205,6 +209,27 @@ sfpca <- function(X, K, spat_cds,
   # We will use a weighted graph Laplacian where weights are based on distances
   if (is.null(spat_cds)) {
     stop("spat_cds must be provided for constructing the spatial penalty matrix Omega_v.")
+  }
+
+  # `spat_cds` is dimensions x variables, which is the transpose of the layout
+  # most callers reach for. Catch the mismatch here: downstream it silently
+  # redefines p and fails much later with an unrelated message.
+  if (is.null(dim(spat_cds)) || length(dim(spat_cds)) != 2L) {
+    stop("`spat_cds` must be a matrix with one column per variable ",
+         "(spatial dimensions in rows, variables in columns). For a ",
+         "one-dimensional axis use matrix(coords, nrow = 1).")
+  }
+  if (ncol(spat_cds) != p) {
+    msg <- paste0("`spat_cds` must have one column per variable: ncol(X) is ",
+                  p, " but ncol(spat_cds) is ", ncol(spat_cds), ".")
+    if (nrow(spat_cds) == p) {
+      msg <- paste0(msg, " It looks transposed -- `spat_cds` is ",
+                    "dimensions x variables, so pass t(spat_cds).")
+    }
+    stop(msg)
+  }
+  if (anyNA(spat_cds)) {
+    stop("`spat_cds` must not contain NA: nearest-neighbour distances are undefined.")
   }
 
   if (verbose) cat("Constructing spatial penalty matrix Omega_v based on spat_cds...\n")

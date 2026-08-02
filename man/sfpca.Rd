@@ -31,7 +31,11 @@ sfpca(
 \item{K}{The number of principal components to estimate.}
 
 \item{spat_cds}{A matrix of spatial coordinates for each column of X (variables). Each row
-corresponds to a spatial dimension (e.g., x, y, z), and each column corresponds to a variable.}
+corresponds to a spatial dimension (e.g., x, y, z), and each column corresponds to a variable.
+Note the orientation: this is \verb{dimensions x variables}, so
+\code{ncol(spat_cds)} must equal \code{ncol(X)} -- the transpose of the layout a
+coordinate data frame usually has. For a one-dimensional axis (a spectrum,
+a transect) pass \code{matrix(coords, nrow = 1)}.}
 
 \item{lambda_u}{Sparsity penalty parameter for u. If NULL, selected per component by BIC
 along a regularization path (see Details).}

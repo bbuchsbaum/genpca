@@ -324,16 +324,16 @@ of this in detail.
 ## Practical notes
 
 **`spat_cds` is dimensions × variables.** Rows are spatial axes, columns are
-variables — the transpose of the usual data-frame layout. Getting it backwards
-does not give a clean message; on this example it fails with a warning about
-having only 2 locations, then a non-conformable-dimensions error:
+variables, so `ncol(spat_cds)` must equal `ncol(X)`. This is the transpose of
+the layout a coordinate data frame usually has, and it is the easiest thing to
+get wrong here — so the shape is checked up front:
 
-```{r orientation-trap, error = TRUE, warning = TRUE}
+```{r orientation-trap, error = TRUE}
 sfpca(X, K = 1, spat_cds = t(spat_cds))
 ```
 
-Neither message points at the real problem, so check `dim(spat_cds)` first if
-you hit it.
+For a one-dimensional axis — a spectrum, a transect, a genome position — pass
+`matrix(coords, nrow = 1)` rather than a bare vector.
 
 **The column penalty is built for you.** `Omega_v` is constructed internally
 from `spat_cds` via a `knn` nearest-neighbour graph (default

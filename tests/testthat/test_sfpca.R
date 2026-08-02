@@ -88,3 +88,34 @@ test_that("Sparse signals result in sparse components", {
 
   expect_true(u_sparse || v_sparse)  # At least one should be sparse
 })
+
+test_that("spat_cds shape is validated with an actionable message", {
+  set.seed(42)
+  n <- 20; p <- 30
+  X <- matrix(rnorm(n * p), n, p)
+  cds <- rbind(runif(p), runif(p))          # 2 x p, the correct orientation
+
+  # the correct orientation still works
+  expect_no_error(sfpca(X, K = 1, spat_cds = cds))
+
+  # transposed input names the problem and the fix
+  expect_error(sfpca(X, K = 1, spat_cds = t(cds)),
+               "looks transposed", fixed = TRUE)
+  expect_error(sfpca(X, K = 1, spat_cds = t(cds)),
+               "t(spat_cds)", fixed = TRUE)
+
+  # a plain size mismatch reports both sizes but does not claim a transpose
+  wrong <- rbind(runif(p + 3), runif(p + 3))
+  expect_error(sfpca(X, K = 1, spat_cds = wrong), "ncol\\(spat_cds\\) is 33")
+  expect_error(sfpca(X, K = 1, spat_cds = wrong), "one column per variable")
+  expect_false(grepl("transposed",
+    tryCatch(sfpca(X, K = 1, spat_cds = wrong), error = conditionMessage)))
+
+  # a bare vector points at the 1-D form rather than failing downstream
+  expect_error(sfpca(X, K = 1, spat_cds = runif(p)),
+               "matrix(coords, nrow = 1)", fixed = TRUE)
+
+  # NAs are rejected before they reach the kNN search
+  na_cds <- cds; na_cds[1, 1] <- NA
+  expect_error(sfpca(X, K = 1, spat_cds = na_cds), "must not contain NA")
+})
