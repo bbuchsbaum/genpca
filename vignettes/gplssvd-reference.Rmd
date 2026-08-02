@@ -98,86 +98,53 @@ GPLSSVD decomposes the relationship between two data blocks `X` (`N x I`) and `Y
 
 ## Reference implementation
 
-The function below builds the whitened cross-product `S = (M_X^{1/2} X W_X^{1/2})' (M_Y^{1/2} Y W_Y^{1/2})` explicitly and runs a dense SVD. It is intentionally small and dense; the package's operator-based path avoids materialising the whitened matrices.
+The function below builds the whitened cross-product `S = (M_X^{1/2} X W_X^{1/2})' (M_Y^{1/2} Y W_Y^{1/2})` explicitly and runs a dense SVD. It is deliberately the most literal transcription of the algebra above, with no attention to speed or to input types beyond what the check below needs; the package's operator-based path avoids materialising the whitened matrices at all.
+
+Everything rests on one helper. Each metric enters through its symmetric PSD
+square root, and singular metrics need the *pseudo*-inverse of that root --
+zero eigenvalues stay zero rather than blowing up:
+
+```{r ref-sqrt}
+psd_sqrt <- function(W, n) {
+  if (is.null(W)) return(list(h = diag(n), hinv = diag(n), full = diag(n)))
+  W    <- as.matrix(W)
+  e    <- eigen(W, symmetric = TRUE)
+  lam  <- pmax(e$values, 0)                    # clip round-off negatives
+  half <- function(f) e$vectors %*% (f * t(e$vectors))
+  list(h    = half(sqrt(lam)),                 # W^{1/2}
+       hinv = half(ifelse(lam > 0, 1 / sqrt(lam), 0)),  # W^{-1/2}, pseudo
+       full = W)
+}
+```
+
+The decomposition itself is then a whitening, one SVD, and an unwhitening:
 
 ```{r ref-impl}
-make_sqrt_mats <- function(W, n) {
-  if (is.null(W)) {
-    list(sqrt = Diagonal(n), invsqrt = Diagonal(n), full = Diagonal(n))
-  } else if (is.numeric(W) && length(W) == n) {
-    d  <- pmax(as.numeric(W), 0)
-    ds <- sqrt(d)
-    list(sqrt    = Diagonal(x = ds),
-         invsqrt = Diagonal(x = ifelse(ds > 0, 1 / ds, 0)),
-         full    = Diagonal(x = d))
-  } else if (inherits(W, "diagonalMatrix")) {
-    d  <- pmax(as.numeric(diag(W)), 0)
-    ds <- sqrt(d)
-    list(sqrt    = Diagonal(x = ds),
-         invsqrt = Diagonal(x = ifelse(ds > 0, 1 / ds, 0)),
-         full    = W)
-  } else {
-    Wd  <- as.matrix(forceSymmetric(Matrix(W)))
-    es  <- eigen(Wd, symmetric = TRUE)
-    Q   <- es$vectors
-    lam <- pmax(es$values, 0)
-    S   <- Q %*% diag(sqrt(lam), nrow = length(lam)) %*% t(Q)
-    IS  <- Q %*% diag(ifelse(lam > 0, 1 / sqrt(lam), 0), nrow = length(lam)) %*% t(Q)
-    list(sqrt    = Matrix(S,  sparse = FALSE),
-         invsqrt = Matrix(IS, sparse = FALSE),
-         full    = Matrix(Wd, sparse = FALSE))
-  }
-}
-
-dense_gplssvd_ref <- function(X, Y,
-                              MX = NULL, MY = NULL,
-                              WX = NULL, WY = NULL,
-                              k = NULL,
+dense_gplssvd_ref <- function(X, Y, MX = NULL, MY = NULL,
+                              WX = NULL, WY = NULL, k = NULL,
                               center = FALSE, scale = FALSE) {
-  N <- nrow(X); I <- ncol(X); J <- ncol(Y)
-  stopifnot(nrow(Y) == N)
+  X <- scale(as.matrix(X), center = center, scale = scale)
+  Y <- scale(as.matrix(Y), center = center, scale = scale)
+  stopifnot(nrow(X) == nrow(Y))
 
-  cs <- function(A, do_center, do_scale) {
-    A   <- as.matrix(A)
-    cen <- if (isTRUE(do_center)) colMeans(A) else rep(0, ncol(A))
-    if (isTRUE(do_center)) A <- A - matrix(rep(cen, each = nrow(A)), nrow(A))
-    if (isTRUE(do_scale)) {
-      s <- sqrt(colSums(A^2) / pmax(nrow(A) - 1, 1))
-      s[s == 0] <- 1
-      A <- A %*% diag(1 / as.numeric(s), ncol(A))
-    } else s <- rep(1, ncol(A))
-    list(A = A, center = cen, scale = s)
-  }
+  mx <- psd_sqrt(MX, nrow(X)); wx <- psd_sqrt(WX, ncol(X))
+  my <- psd_sqrt(MY, nrow(Y)); wy <- psd_sqrt(WY, ncol(Y))
 
-  Xcs <- cs(X, center, scale); X <- Xcs$A
-  Ycs <- cs(Y, center, scale); Y <- Ycs$A
+  # whiten both blocks, then SVD their cross-product
+  S  <- crossprod(mx$h %*% X %*% wx$h, my$h %*% Y %*% wy$h)
+  sv <- svd(S)
+  keep <- seq_len(if (is.null(k)) length(sv$d) else min(k, length(sv$d)))
 
-  MXm <- make_sqrt_mats(MX, N); MYm <- make_sqrt_mats(MY, N)
-  WXm <- make_sqrt_mats(WX, I); WYm <- make_sqrt_mats(WY, J)
+  # unwhiten: saliences are W^{-1/2} u, so that p' WX p = I
+  p <- wx$hinv %*% sv$u[, keep, drop = FALSE]
+  q <- wy$hinv %*% sv$v[, keep, drop = FALSE]
+  D <- diag(sv$d[keep], nrow = length(keep))
 
-  Xe <- MXm$sqrt %*% X %*% WXm$sqrt
-  Ye <- MYm$sqrt %*% Y %*% WYm$sqrt
-  S  <- crossprod(Xe, Ye)
-
-  sv <- svd(as.matrix(S))
-  if (!is.null(k)) {
-    k     <- min(k, length(sv$d))
-    sv$u  <- sv$u[, seq_len(k), drop = FALSE]
-    sv$v  <- sv$v[, seq_len(k), drop = FALSE]
-    sv$d  <- sv$d[seq_len(k)]
-  }
-
-  p  <- WXm$invsqrt %*% sv$u
-  q  <- WYm$invsqrt %*% sv$v
-  Fi <- WXm$full %*% (p %*% diag(sv$d, nrow = length(sv$d)))
-  Fj <- WYm$full %*% (q %*% diag(sv$d, nrow = length(sv$d)))
-  Lx <- MXm$sqrt %*% (X %*% (WXm$full %*% p))
-  Ly <- MYm$sqrt %*% (Y %*% (WYm$full %*% q))
-
-  list(d = sv$d, u = sv$u, v = sv$v, p = p, q = q,
-       fi = Fi, fj = Fj, lx = Lx, ly = Ly, S = S,
-       center = list(X = Xcs$center, Y = Ycs$center),
-       scale  = list(X = Xcs$scale,  Y = Ycs$scale))
+  list(d  = sv$d[keep], p = p, q = q,
+       fi = wx$full %*% p %*% D,             # factor scores
+       fj = wy$full %*% q %*% D,
+       lx = mx$h %*% X %*% wx$full %*% p,    # latent variables
+       ly = my$h %*% Y %*% wy$full %*% q)
 }
 ```
 
