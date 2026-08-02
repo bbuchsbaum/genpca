@@ -230,7 +230,7 @@ second-difference roughness operator, so that $v^{\top}\Omega v$ is large for
 wiggly $v$.
 
 - In `genpca()`, $A$ is a **metric**, and a metric amplifies its own dominant
-  directions: `components(fit)` $= A\,$`ov`. To get smooth loadings, pass a
+  directions, since the loadings are $AV$ rather than $V$. To get smooth loadings, pass a
   *smoothing* operator — $A = (I + \alpha\Omega)^{-1}$, or a kernel or
   adjacency matrix, as in the banded example above. Passing $\Omega$ itself
   makes loadings **rougher**, not smoother.
