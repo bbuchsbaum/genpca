@@ -213,10 +213,11 @@ so that $`v^{\top}\Omega v`$ is large for wiggly $`v`$.
 - In
   [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md),
   $`A`$ is a **metric**, and a metric amplifies its own dominant
-  directions: `components(fit)` $`= A\,`$`ov`. To get smooth loadings,
-  pass a *smoothing* operator — $`A = (I + \alpha\Omega)^{-1}`$, or a
-  kernel or adjacency matrix, as in the banded example above. Passing
-  $`\Omega`$ itself makes loadings **rougher**, not smoother.
+  directions, since the loadings are $`AV`$ rather than $`V`$. To get
+  smooth loadings, pass a *smoothing* operator —
+  $`A = (I + \alpha\Omega)^{-1}`$, or a kernel or adjacency matrix, as
+  in the banded example above. Passing $`\Omega`$ itself makes loadings
+  **rougher**, not smoother.
 - In
   [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md),
   the same information enters as a **constraint**,

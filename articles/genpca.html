@@ -330,8 +330,10 @@ is large for wiggly
 <li>In <code><a href="../reference/genpca.html">genpca()</a></code>,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
 is a <strong>metric</strong>, and a metric amplifies its own dominant
-directions: <code>components(fit)</code>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>.
+directions, since the loadings are
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mi>V</mi></mrow><annotation encoding="application/x-tex">AV</annotation></semantics></math>
+rather than
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>.
 To get smooth loadings, pass a <em>smoothing</em> operator —
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">A = (I + \alpha\Omega)^{-1}</annotation></semantics></math>,
 or a kernel or adjacency matrix, as in the banded example above. Passing

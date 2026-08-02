@@ -226,13 +226,39 @@ rather than by the data.</p>
 </h2>
 <p>Before the recipes, the single most important thing to get right —
 and the easiest to get backwards. <strong>A metric amplifies its own
-dominant eigendirections.</strong> Loadings are
-<code>components(fit)</code>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>,
-so whichever patterns
+dominant eigendirections.</strong></p>
+<p>Seeing why means being precise about what comes back from a fit. GPCA
+factorises
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>≈</mo><mi>U</mi><mi>D</mi><msup><mi>V</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">X \approx U D V^{\top}</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
+is orthonormal <em>in the column metric</em> rather than in the ordinary
+sense:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>V</mi><mi>⊤</mi></msup><mi>A</mi><mi>V</mi><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">V^{\top} A V = I</annotation></semantics></math>.
+The loadings returned by <code>components(fit)</code> are not
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
+but
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mi>V</mi></mrow><annotation encoding="application/x-tex">AV</annotation></semantics></math>:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">Xd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">400</span><span class="op">)</span>, <span class="fl">40</span>, <span class="fl">10</span><span class="op">)</span></span>
+<span><span class="va">Ad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/matmult-methods.html" class="external-link">crossprod</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">100</span><span class="op">)</span>, <span class="fl">10</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fl">10</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
+<span><span class="va">fd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xd</span>, A <span class="op">=</span> <span class="va">Ad</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components</a></span><span class="op">(</span><span class="va">fd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">Ad</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">fd</span><span class="op">$</span><span class="va">ov</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
+<p>That multiplication by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-assigns large eigenvalues to are the patterns that come out of the
-decomposition.</p>
+is the whole story. It stretches every direction in proportion to the
+eigenvalue
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+assigns it, so the patterns
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+scores highly are the patterns that dominate the loadings you read off.
+(The bare factor
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
+is kept in the <code>ov</code> slot if you ever need it, but
+<code><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components()</a></code> is what you should normally interpret.)</p>
 <p>For a spatial or temporal structure there are two natural matrices,
 and they point in <em>opposite</em> directions:</p>
 <table class="table">
@@ -345,7 +371,7 @@ smoothing version instead.</p>
 <p>Standard GLS treatment of serially correlated observations, as in
 fMRI prewhitening: it removes temporal autocorrelation rather than
 imposing temporal smoothness.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rho</span>     <span class="op">&lt;-</span> <span class="fl">0.7</span></span>
 <span><span class="va">n_t</span>     <span class="op">&lt;-</span> <span class="fl">60</span></span>
 <span><span class="va">idx</span>     <span class="op">&lt;-</span> <span class="fl">0</span><span class="op">:</span><span class="op">(</span><span class="va">n_t</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span></span>
@@ -355,7 +381,7 @@ imposing temporal smoothness.</p>
 <div class="section level3">
 <h3 id="spatial-rbf-kernel-whitens-smooth-spatial-noise">Spatial RBF kernel (whitens smooth spatial noise)<a class="anchor" aria-label="anchor" href="#spatial-rbf-kernel-whitens-smooth-spatial-noise"></a>
 </h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, y <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">d2</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></span><span class="op">(</span><span class="va">coords</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span></span>
 <span><span class="va">ell</span>    <span class="op">&lt;-</span> <span class="fl">2</span></span>
@@ -366,7 +392,7 @@ imposing temporal smoothness.</p>
 <div class="section level3">
 <h3 id="graph-laplacian-emphasises-contrast-across-edges">Graph Laplacian (emphasises contrast across edges)<a class="anchor" aria-label="anchor" href="#graph-laplacian-emphasises-contrast-across-edges"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/bandSparse.html" class="external-link">bandSparse</a></span><span class="op">(</span><span class="fl">30</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>                diagonals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">29</span><span class="op">)</span>,</span>
 <span>                                 <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">30</span><span class="op">)</span>,</span>
@@ -404,7 +430,7 @@ in <code><a href="../reference/sfpca.html">sfpca()</a></code> and roughens in <c
 <p>When you suspect structured noise but lack good priors,
 <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> learns SPD metrics by alternating GPCA with
 matrix-normal maximum likelihood:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">n_m</span> <span class="op">&lt;-</span> <span class="fl">40</span>; <span class="va">p_m</span> <span class="op">&lt;-</span> <span class="fl">10</span></span>
 <span><span class="va">X_mle</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_m</span> <span class="op">*</span> <span class="va">p_m</span><span class="op">)</span>, <span class="va">n_m</span>, <span class="va">p_m</span><span class="op">)</span></span>
@@ -526,7 +552,7 @@ you intended.</li>
 </ul>
 <p>So if a metric matters to the result, verify it rather than trusting
 the remedy to have done something sensible:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Is the metric usable as-is? (small problems)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">A</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
 <span></span>

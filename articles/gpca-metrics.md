@@ -167,9 +167,32 @@ has to be pinned down by convention rather than by the data.
 
 Before the recipes, the single most important thing to get right — and
 the easiest to get backwards. **A metric amplifies its own dominant
-eigendirections.** Loadings are `components(fit)` $`= A\,`$`ov`, so
-whichever patterns $`A`$ assigns large eigenvalues to are the patterns
-that come out of the decomposition.
+eigendirections.**
+
+Seeing why means being precise about what comes back from a fit. GPCA
+factorises $`X \approx U D V^{\top}`$, where $`V`$ is orthonormal *in
+the column metric* rather than in the ordinary sense:
+$`V^{\top} A V = I`$. The loadings returned by `components(fit)` are not
+$`V`$ but $`AV`$:
+
+``` r
+
+set.seed(1)
+Xd <- matrix(rnorm(400), 40, 10)
+Ad <- crossprod(matrix(rnorm(100), 10, 10)) / 10 + diag(10)
+fd <- genpca(Xd, A = Ad, ncomp = 3, preproc = multivarious::center())
+
+max(abs(multivarious::components(fd) - as.matrix(Ad %*% fd$ov)))
+#> [1] 0
+```
+
+That multiplication by $`A`$ is the whole story. It stretches every
+direction in proportion to the eigenvalue $`A`$ assigns it, so the
+patterns $`A`$ scores highly are the patterns that dominate the loadings
+you read off. (The bare factor $`V`$ is kept in the `ov` slot if you
+ever need it, but
+[`components()`](https://bbuchsbaum.github.io/multivarious/reference/components.html)
+is what you should normally interpret.)
 
 For a spatial or temporal structure there are two natural matrices, and
 they point in *opposite* directions:
