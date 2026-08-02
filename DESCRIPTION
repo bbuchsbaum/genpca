@@ -42,7 +42,9 @@ Suggests:
     knitr,
     rmarkdown,
     ggplot2,
-    albersdown
+    albersdown,
+    ragg,
+    systemfonts
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
