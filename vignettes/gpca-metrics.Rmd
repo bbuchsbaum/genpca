@@ -261,4 +261,4 @@ Keep `lambda` non-zero, start with a small `ncomp`, and watch warnings -- they s
 
 ## Where next
 
-See `vignette("gpca-scale")` for backend choices, sparse workflows, and covariance-only GPCA.
+See `vignette("structured-noise")` for how to choose the transfer function when several kinds of structure are present at once, and `vignette("gpca-scale")` for backend choices, sparse workflows, and covariance-only GPCA.

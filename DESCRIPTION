@@ -35,6 +35,7 @@ LinkingTo:
     RSpectra
 Suggests:
     testthat (>= 3.0.0),
+    adjoin,
     irlba,
     matrixStats,
     clue,

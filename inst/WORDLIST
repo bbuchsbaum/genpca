@@ -31,9 +31,11 @@ IMS
 Krylov
 LRU
 Laplacians
+Longrightarrow
 MRL
 MXA
 Maletić
+Modelling
 Mx
 NMR
 Neighbouring
@@ -69,6 +71,7 @@ ade
 al
 albersdown
 analyse
+autocorrelated
 b'x
 backend's
 behaviour
@@ -175,6 +178,7 @@ rangle
 regularised
 regularizer
 renormalization
+reweights
 rowind
 rpls
 saliences
@@ -183,6 +187,7 @@ sdev
 sfpca
 sfpca's
 spd
+spectrally
 sqrtm
 subproblem
 subproblems
@@ -190,6 +195,7 @@ tL
 tfrac
 th
 tol
+transformative
 unwhiten
 urbanisation
 varepsilon

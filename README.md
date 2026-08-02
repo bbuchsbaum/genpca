@@ -164,6 +164,7 @@ When `M = I` and `A = I`, GPCA reduces to standard PCA.
 - Vignettes
   - Getting Started with genpca
   - GPCA Metrics: Building M and A
+  - Modelling Structured Noise
   - GPCA at Scale and Special Cases
   - Generalized PLS-SVD: Explicit Whitening Reference
 

@@ -425,6 +425,7 @@ they agree exactly on the training data.
 
 ## Where next
 
-- `vignette("gpca-metrics")` covers metric recipes (AR(1), spatial kernels, graph Laplacians) and the `gpca_mle()` learner.
+- `vignette("gpca-metrics")` covers metric recipes (AR(1), spatial kernels, graph Laplacians), the smoother-versus-precision orientation rule, and the `gpca_mle()` learner.
+- `vignette("structured-noise")` works out which noise a metric can and cannot remove, with worked simulations -- start here if your data has several kinds of structure at once.
 - `vignette("gpca-scale")` covers backends, sparse workflows, and covariance-only GPCA.
 - `vignette("gplssvd-reference")` covers the generalized PLS / PLS-SVD interface and includes a contributor-oriented reference implementation.
