@@ -231,17 +231,59 @@ point in *opposite* directions:
 | A **precision**: Laplacian $L$, $I + \alpha L$, $K^{-1}$, inverse AR(1) | disagreement across edges (Dirichlet energy $\sum_{i\sim j}(v_i - v_j)^2$) | rough patterns | **rougher** |
 
 Both are legitimate, because they encode different beliefs about *where the
-noise lives*. Recall that $A = \Sigma_{\text{col}}^{-1}$:
+noise lives*. The bridge is $A = \Sigma_{\text{col}}^{-1}$, and the step that
+is easy to skip is the inversion: the metric and the noise covariance share
+eigenvectors but carry **reciprocal** weights, so a direction the metric scores
+highly is a direction the noise model calls quiet.
 
-- **Smoother as metric** $\Rightarrow$ $\Sigma_{\text{col}}$ has its variance in
-  the rough directions $\Rightarrow$ "the noise is high-frequency speckle; the
-  signal is smooth." This is denoising, and it is what you want when you are
-  after spatially coherent maps.
-- **Precision as metric** $\Rightarrow$ $\Sigma_{\text{col}}$ has its variance in
-  the smooth directions $\Rightarrow$ "a smooth field — drift, a scanner
-  gradient, a global trend — is the nuisance." Whitening it away lets
-  fine-scale structure surface. This is ordinary generalized least squares
-  against correlated noise.
+That reciprocal is worth seeing rather than taking on faith. On a cycle graph
+the Laplacian and the adjacency share Fourier eigenvectors exactly, so
+"roughness" is unambiguously frequency:
+
+```{r reciprocal-weights}
+p <- 32
+Wc <- matrix(0, p, p)
+for (i in 1:p) { Wc[i, i %% p + 1] <- 1; Wc[i %% p + 1, i] <- 1 }
+Lc <- diag(rowSums(Wc)) - Wc
+
+ec <- eigen(Lc, symmetric = TRUE)
+o  <- order(ec$values)
+Vc <- ec$vectors[, o]          # smoothest first
+lc <- ec$values[o]             # Dirichlet energy = roughness
+
+Ac  <- diag(p) + 0.45 * Wc     # a smoother (PSD)
+Sig <- solve(Ac)               # the noise covariance it implies
+
+modes <- c(1, 16, 32)          # smoothest, middling, roughest
+data.frame(
+  roughness   = round(lc[modes], 3),
+  metric_wt   = round(sapply(modes, function(k) t(Vc[, k]) %*% Ac  %*% Vc[, k]), 3),
+  noise_var   = round(sapply(modes, function(k) t(Vc[, k]) %*% Sig %*% Vc[, k]), 3)
+)
+```
+
+The metric weight *falls* with roughness while the implied noise variance
+*rises*, each the reciprocal of the other. Note this is a statement about
+$\Sigma_{\text{col}} = A^{-1}$, not about the adjacency matrix you supplied:
+$A$ itself has its large eigenvalues on the **smooth** directions. Inverting
+is what moves the variance to the rough end.
+
+- **Smoother as metric** $\Rightarrow$ $A$ is large on smooth directions
+  $\Rightarrow$ $\Sigma_{\text{col}} = A^{-1}$ is large on the rough ones
+  $\Rightarrow$ "the noise is high-frequency speckle; the signal is smooth."
+  This is denoising, and it is what you want when you are after spatially
+  coherent maps.
+- **Precision as metric** $\Rightarrow$ $A$ is large on rough directions
+  $\Rightarrow$ $\Sigma_{\text{col}}$ is large on the smooth ones $\Rightarrow$
+  "a smooth field — drift, a scanner gradient, a global trend — is the
+  nuisance." Whitening it away lets fine-scale structure surface. This is
+  ordinary generalized least squares against correlated noise.
+
+One caveat on how literally to read this. $A = \Sigma_{\text{col}}^{-1}$ is an
+interpretive frame, not a constraint `genpca()` enforces — the algorithm only
+ever whitens with $A^{1/2}$. The covariance reading is how you should *choose*
+a metric, and it is what makes "smoother $\Rightarrow$ denoising" more than a
+slogan.
 
 So the question is never "adjacency or Laplacian?" in the abstract. It is:
 **is the smooth thing my signal, or my nuisance?**
