@@ -78,12 +78,20 @@ test_that("gen_pca with dense column and row constraints works", {
 })
 
 test_that("gen_pca with sparse column and row constraints works", {
-  skip_if_not_installed("neighborweights")
-  A <- neighborweights:::adjacency.neighbor_graph(neighborweights::graph_weights(mat_10_10, k = 8))
+  skip_if_not_installed("adjoin")
+  A <- adjoin::adjacency(adjoin::graph_weights(mat_10_10, k = 8))
   Matrix::diag(A) <- 1
-  M <- neighborweights:::adjacency.neighbor_graph(neighborweights::graph_weights(t(mat_10_10), k = 3))
+  M <- adjoin::adjacency(adjoin::graph_weights(t(mat_10_10), k = 3))
   Matrix::diag(M) <- 1.5
   res1 <- genpca(mat_10_10, A = A, M = M, preproc = multivarious::center())
+
+  k <- multivarious::ncomp(res1)
+  expect_gt(k, 0)
+  expect_equal(nrow(multivarious::scores(res1)), nrow(mat_10_10))
+  expect_equal(nrow(multivarious::components(res1)), ncol(mat_10_10))
+  # metric orthonormality against the (repaired) constraint matrices actually used
+  expect_equal(as.matrix(t(res1$ou) %*% res1$M %*% res1$ou), diag(k), tolerance = 1e-6)
+  expect_equal(as.matrix(t(res1$ov) %*% res1$A %*% res1$ov), diag(k), tolerance = 1e-6)
 })
 
 
@@ -129,39 +137,55 @@ test_that("can run genpca with deflation", {
 })
 
 test_that("can run genpca with sparse weighting matrix", {
-  skip_if_not_installed("neighborweights")
+  skip_if_not_installed("adjoin")
   set.seed(127)
-  X <- matrix(rnorm(10000 * 20), 10000, 20)
-  A <- neighborweights::temporal_adjacency(1:20)
+  # tall-and-thin with a large sparse row metric; kept modest so the suite
+  # stays fast on CRAN while still exercising the sparse deflation path
+  nr <- 1200
+  X <- matrix(rnorm(nr * 20), nr, 20)
+  A <- adjoin::temporal_adjacency(1:20)
   A <- cov(as.matrix(A))
-  M <- neighborweights::temporal_adjacency(1:10000)
-  res1 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE), M = M, preproc = multivarious::center(), ncomp = 5, method = "deflation")
+  M <- adjoin::temporal_adjacency(1:nr)
+  expect_true(methods::is(M, "sparseMatrix"))
+
+  res1 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE), M = M,
+                 preproc = multivarious::center(), ncomp = 5, method = "deflation")
   res2 <- genpca(X, A = A, M = M, preproc = multivarious::center(), ncomp = 5)
-  expect_true(!is.null(res1))
+
+  expect_equal(multivarious::ncomp(res1), 5L)
+  expect_equal(multivarious::ncomp(res2), 5L)
+  expect_true(all(is.finite(multivarious::sdev(res1))))
+  # deflation and eigen agree on the leading singular values
+  expect_equal(multivarious::sdev(res1)[1:3], multivarious::sdev(res2)[1:3],
+               tolerance = 1e-3)
 })
 
 test_that("can run genpca on a largeish matrix with deflation", {
-  skip_if_not_installed("neighborweights")
+  skip_if_not_installed("adjoin")
   set.seed(138)
-  nr <- 1000
-  nc <- 500
+  nr <- 400
+  nc <- 200
   X <- matrix(rnorm(nr * nc), nr, nc)
-  A <- neighborweights::temporal_adjacency(1:nc)
-  A <- t(A) %*% A
+  A <- adjoin::temporal_adjacency(1:nc)
+  A <- t(A) %*% A                          # PSD by construction
 
-  M <- neighborweights::temporal_adjacency(1:nr)
+  M <- adjoin::temporal_adjacency(1:nr)
   M <- t(M) %*% M
 
   res1 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE),
-                 M = M, preproc = multivarious::center(), ncomp = 5, method = "deflation", threshold = 1e-5)
+                 M = M, preproc = multivarious::center(), ncomp = 5, method = "deflation", threshold = 1e-8)
   res2 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE),
                  M = M, preproc = multivarious::center(), ncomp = 5, method = "deflation",
-                 threshold = 1e-5, use_cpp = FALSE)
+                 threshold = 1e-8, use_cpp = FALSE)
 
   res3 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE),
                  M = M, preproc = multivarious::center(), ncomp = 20, method = "eigen")
 
-  expect_true(!is.null(res1))
+  # C++ and R deflation agree with each other, and with the direct eigen path
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res2), tolerance = 1e-4)
+  expect_equal(multivarious::sdev(res1), multivarious::sdev(res3)[1:5], tolerance = 1e-3)
+  expect_equal(multivarious::ncomp(res3), 20L)
+  expect_true(all(diff(multivarious::sdev(res3)) <= 1e-8))   # non-increasing
 })
 
 ## tests/testthat/test-genpca-spatial.R
@@ -579,9 +603,9 @@ test_that("Spectra method matches eigen method on modest problems", {
 
 ## -------------------------------------------------------------------------------
 test_that("Orthonormality holds in (M,A) metrics", {
-  skip_if_not_installed("neighborweights")
+  skip_if_not_installed("adjoin")
 
-  Mrow <- neighborweights::temporal_adjacency(1:nrow(Xsmall))
+  Mrow <- adjoin::temporal_adjacency(1:nrow(Xsmall))
   Mrow <- t(Mrow) %*% Mrow                 # PSD & dense
   set.seed(561)
   Acol <- cov(matrix(rnorm(ncol(Xsmall)^2), ncol(Xsmall)))
