@@ -77,18 +77,22 @@ learner.</p>
 <h2 id="why-metrics">Why metrics<a class="anchor" aria-label="anchor" href="#why-metrics"></a>
 </h2>
 <p>Metrics encode weighting and correlation. The row metric
-<code>M</code> changes how observations are compared. The column metric
-<code>A</code> changes how variables are compared. Both must be
-symmetric positive <strong>semi-definite</strong> (PSD) for GPCA –
-singular metrics are accepted (e.g. a rank-deficient graph Laplacian),
-and <code>constraints_remedy</code> can repair mildly invalid input. In
-return, you can bake known structure – temporal correlation, spatial
-proximity, group membership, heteroscedastic noise – straight into the
-decomposition.</p>
+<code>M</code> changes how observations are compared; the column metric
+<code>A</code> changes how variables are compared. Setting either to
+something other than the identity is how you tell the decomposition what
+you already know about the data: that the samples are a time series,
+that the variables sit on a spatial grid or fall into groups, that some
+measurements are noisier than others. Ordinary PCA has no way to accept
+that information and treats every row and column alike. GPCA writes it
+into the objective being optimised.</p>
 <p>Structure alone is not enough, though: you also have to get the
 <em>direction</em> right, and supplying a matrix versus its inverse
 produces opposite results. The next section is about that, and it is
 worth reading before the recipes.</p>
+<p>Both metrics must also be symmetric and positive semi-definite. That
+rarely gets in the way, but it does constrain what you can pass; see <a href="#spd-requirements-and-remedies">SPD requirements and remedies</a>
+below for what the requirement means and what <code><a href="../reference/genpca.html">genpca()</a></code> does
+when a metric falls short of it.</p>
 </div>
 <div class="section level2">
 <h2 id="heteroscedastic-diagonals">Heteroscedastic diagonals<a class="anchor" aria-label="anchor" href="#heteroscedastic-diagonals"></a>
@@ -114,6 +118,107 @@ rows or columns:</p>
 Inverse-variance weights on columns (top) and rows (bottom). Noisier
 dimensions get smaller weights.
 </p>
+</div>
+<div class="section level3">
+<h3 id="inverse-column-variance-is-scaled-pca">Inverse column variance <em>is</em> scaled PCA<a class="anchor" aria-label="anchor" href="#inverse-column-variance-is-scaled-pca"></a>
+</h3>
+<p>Inverse-variance weighting on the columns is not a new idea in
+disguise: it is exactly the standardisation that
+<code>prcomp(scale. = TRUE)</code> performs. GPCA whitens with the
+square root
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">A^{1/2}</annotation></semantics></math>,
+so setting
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mrow><mi mathvariant="normal">diag</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><msubsup><mi>s</mi><mi>j</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">A = \operatorname{diag}(1/s_j^2)</annotation></semantics></math>
+makes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mo>=</mo><mi>X</mi><mrow><mi mathvariant="normal">diag</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><msub><mi>s</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">X A^{1/2} = X \operatorname{diag}(1/s_j)</annotation></semantics></math>
+— the column-scaled matrix that correlation-matrix PCA decomposes.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">Xv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">60</span> <span class="op">*</span> <span class="fl">20</span><span class="op">)</span>, <span class="fl">60</span>, <span class="fl">20</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">20</span>, <span class="fl">0.5</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">Xv</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">g</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xv</span>, A <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">sds</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>, ncomp <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>             preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/prcomp.html" class="external-link">prcomp</a></span><span class="op">(</span><span class="va">Xv</span>, scale. <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># scores agree component by component</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">k</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">[</span>, <span class="va">k</span><span class="op">]</span>, <span class="va">pr</span><span class="op">$</span><span class="va">x</span><span class="op">[</span>, <span class="va">k</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] -1 -1 -1</span></span></code></pre></div>
+<p>The scores are identical (up to sign). The reported <code>sdev</code>
+values differ by a single constant, because <code><a href="https://rdrr.io/r/stats/prcomp.html" class="external-link">prcomp()</a></code>
+divides its singular values by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msqrt><mrow><mi>n</mi><mo>−</mo><mn>1</mn></mrow></msqrt><annotation encoding="application/x-tex">\sqrt{n-1}</annotation></semantics></math>
+and <code><a href="../reference/genpca.html">genpca()</a></code> reports them unnormalised:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>genpca <span class="op">=</span> <span class="va">g</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>      prcomp <span class="op">=</span> <span class="va">pr</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>,</span>
+<span>      ratio  <span class="op">=</span> <span class="va">g</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span> <span class="op">/</span> <span class="va">pr</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;             [,1]      [,2]      [,3]     [,4]     [,5]</span></span>
+<span><span class="co">#&gt; genpca 11.527935 10.943470 10.310907 9.651052 9.172200</span></span>
+<span><span class="co">#&gt; prcomp  1.500809  1.424718  1.342366 1.256460 1.194119</span></span>
+<span><span class="co">#&gt; ratio   7.681146  7.681146  7.681146 7.681146 7.681146</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">Xv</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 7.681146</span></span></code></pre></div>
+<p>The constant ratio is the whole difference. This is worth
+internalising as the baseline: <strong>a diagonal <code>A</code>
+generalises column scaling</strong>, and everything else in this
+vignette — kernels, Laplacians, AR(1) structure — generalises it further
+by letting the metric go off-diagonal.</p>
+</div>
+<div class="section level3">
+<h3 id="weighting-both-margins-at-once">Weighting both margins at once<a class="anchor" aria-label="anchor" href="#weighting-both-margins-at-once"></a>
+</h3>
+<p>The example above sets <code>M</code> and <code>A</code>
+simultaneously, which is a reasonable thing to want when both
+observations and variables are heteroscedastic. Two consequences are
+easy to miss.</p>
+<p><strong>The two weightings interact.</strong> GPCA works with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mi>X</mi><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">M^{1/2} X A^{1/2}</annotation></semantics></math>,
+so the row weights change each column’s effective variance and the
+column weights change each row’s. Estimating row and column standard
+deviations from the raw data and applying both at once therefore
+standardises <em>neither</em> margin:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">Xc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/scale.html" class="external-link">scale</a></span><span class="op">(</span><span class="va">Xv</span>, center <span class="op">=</span> <span class="cn">TRUE</span>, scale <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">W</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">Xc</span>, <span class="fl">1</span>, <span class="va">sd</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Xc</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">Xc</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">W</span>, <span class="fl">1</span>, <span class="va">sd</span><span class="op">)</span><span class="op">)</span>   <span class="co"># row SDs, would be constant if standardised</span></span>
+<span><span class="co">#&gt; [1] 0.4075883 0.6182529</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">W</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span><span class="op">)</span>   <span class="co"># column SDs</span></span>
+<span><span class="co">#&gt; [1] 0.4740343 0.5317369</span></span></code></pre></div>
+<p>It moves in the right direction — the row SDs are markedly more
+uniform than in <code>Xc</code> — but one pass does not land on unit
+variance either way, because each rescaling perturbs the other’s
+normalisation. Getting both margins standardised requires alternating
+between them until they settle, which is precisely what
+<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> does when it iterates between <code>M</code> and
+<code>A</code>.</p>
+<p><strong>Only the product of the two scales is identified.</strong>
+Replacing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>M</mi><mo>,</mo><mi>A</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(M, A)</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mi>M</mi><mo>,</mo><mi>A</mi><mi>/</mi><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(cM, A/c)</annotation></semantics></math>
+leaves
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mi>X</mi><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup></mrow><annotation encoding="application/x-tex">M^{1/2} X A^{1/2}</annotation></semantics></math>
+untouched, so the fit cannot distinguish them:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">M0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">Xv</span>, <span class="fl">1</span>, <span class="va">sd</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">A0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">sds</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">f1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xv</span>, M <span class="op">=</span> <span class="va">M0</span>,     A <span class="op">=</span> <span class="va">A0</span>,     ncomp <span class="op">=</span> <span class="fl">4</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xv</span>, M <span class="op">=</span> <span class="fl">7</span> <span class="op">*</span> <span class="va">M0</span>, A <span class="op">=</span> <span class="va">A0</span> <span class="op">/</span> <span class="fl">7</span>, ncomp <span class="op">=</span> <span class="fl">4</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">f1</span><span class="op">$</span><span class="va">sdev</span> <span class="op">-</span> <span class="va">f2</span><span class="op">$</span><span class="va">sdev</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 4.440892e-15</span></span></code></pre></div>
+<p>The singular values and the component subspace are identical; only
+the scores pick up a constant factor, since their normalisation is tied
+to the scale of <code>M</code>. The practical upshot is that there is no
+point tuning the overall magnitude of <code>M</code> against that of
+<code>A</code> — it is the <em>relative</em> weighting within each
+metric that changes the answer. This indeterminacy is also why
+<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> takes a <code>scale_fix</code> argument: when
+both metrics are learned, the split has to be pinned down by convention
+rather than by the data.</p>
 </div>
 </div>
 <div class="section level2">
@@ -240,7 +345,7 @@ smoothing version instead.</p>
 <p>Standard GLS treatment of serially correlated observations, as in
 fMRI prewhitening: it removes temporal autocorrelation rather than
 imposing temporal smoothness.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rho</span>     <span class="op">&lt;-</span> <span class="fl">0.7</span></span>
 <span><span class="va">n_t</span>     <span class="op">&lt;-</span> <span class="fl">60</span></span>
 <span><span class="va">idx</span>     <span class="op">&lt;-</span> <span class="fl">0</span><span class="op">:</span><span class="op">(</span><span class="va">n_t</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span></span>
@@ -250,7 +355,7 @@ imposing temporal smoothness.</p>
 <div class="section level3">
 <h3 id="spatial-rbf-kernel-whitens-smooth-spatial-noise">Spatial RBF kernel (whitens smooth spatial noise)<a class="anchor" aria-label="anchor" href="#spatial-rbf-kernel-whitens-smooth-spatial-noise"></a>
 </h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, y <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">d2</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/dist.html" class="external-link">dist</a></span><span class="op">(</span><span class="va">coords</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span></span>
 <span><span class="va">ell</span>    <span class="op">&lt;-</span> <span class="fl">2</span></span>
@@ -261,7 +366,7 @@ imposing temporal smoothness.</p>
 <div class="section level3">
 <h3 id="graph-laplacian-emphasises-contrast-across-edges">Graph Laplacian (emphasises contrast across edges)<a class="anchor" aria-label="anchor" href="#graph-laplacian-emphasises-contrast-across-edges"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/bandSparse.html" class="external-link">bandSparse</a></span><span class="op">(</span><span class="fl">30</span>, k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>                diagonals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">29</span><span class="op">)</span>,</span>
 <span>                                 <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">30</span><span class="op">)</span>,</span>
@@ -299,7 +404,7 @@ in <code><a href="../reference/sfpca.html">sfpca()</a></code> and roughens in <c
 <p>When you suspect structured noise but lack good priors,
 <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> learns SPD metrics by alternating GPCA with
 matrix-normal maximum likelihood:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">n_m</span> <span class="op">&lt;-</span> <span class="fl">40</span>; <span class="va">p_m</span> <span class="op">&lt;-</span> <span class="fl">10</span></span>
 <span><span class="va">X_mle</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_m</span> <span class="op">*</span> <span class="va">p_m</span><span class="op">)</span>, <span class="va">n_m</span>, <span class="va">p_m</span><span class="op">)</span></span>
@@ -322,21 +427,119 @@ identity, with mild row- and column-specific damping.
 repaired during the iteration.</p>
 </div>
 <div class="section level2">
-<h2 id="spd-remedies-in-practice">SPD remedies in practice<a class="anchor" aria-label="anchor" href="#spd-remedies-in-practice"></a>
+<h2 id="spd-requirements-and-remedies">SPD requirements and remedies<a class="anchor" aria-label="anchor" href="#spd-requirements-and-remedies"></a>
 </h2>
+<div class="section level3">
+<h3 id="why-the-requirement-exists">Why the requirement exists<a class="anchor" aria-label="anchor" href="#why-the-requirement-exists"></a>
+</h3>
+<p>GPCA measures variance in the inner products
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>u</mi><mo>,</mo><mi>v</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mi>M</mi></msub><mo>=</mo><msup><mi>u</mi><mi>⊤</mi></msup><mi>M</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">\langle u, v\rangle_M = u^\top M
+v</annotation></semantics></math> and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>x</mi><mo>,</mo><mi>y</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mi>A</mi></msub><mo>=</mo><msup><mi>x</mi><mi>⊤</mi></msup><mi>A</mi><mi>y</mi></mrow><annotation encoding="application/x-tex">\langle x, y\rangle_A = x^\top A y</annotation></semantics></math>,
+and the solvers whiten the data with the square roots
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">M^{1/2}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">A^{1/2}</annotation></semantics></math>.
+Both steps need the metrics to be symmetric positive semi-definite
+(PSD). If a metric has a negative eigenvalue, vectors in that direction
+have negative squared length, the square root is not real, and “maximise
+variance” no longer picks out anything meaningful.</p>
+<p>Note that <em>semi</em>-definite is enough. <strong>Singular metrics
+are perfectly legal.</strong> A graph Laplacian is rank-deficient by
+construction — it has a zero eigenvalue on the constant vector — and
+<code><a href="../reference/genpca.html">genpca()</a></code> takes it without complaint. A zero eigenvalue
+simply means that direction is given no weight. Only <em>negative</em>
+eigenvalues are a problem.</p>
+</div>
+<div class="section level3">
+<h3 id="what-happens-when-a-metric-falls-short">What happens when a metric falls short<a class="anchor" aria-label="anchor" href="#what-happens-when-a-metric-falls-short"></a>
+</h3>
+<p>Metrics usually fail the test for dull reasons rather than modelling
+mistakes: a covariance estimated from fewer samples than variables, a
+kernel matrix with round-off in the last few digits, a matrix that is
+asymmetric by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>16</mn></mrow></msup><annotation encoding="application/x-tex">10^{-16}</annotation></semantics></math>
+because of the order in which it was assembled. The check itself is
+tolerant — eigenvalues down to <code>-tol * max(abs(diag()))</code> with
+<code>tol = 1e-6</code> count as non-negative — so ordinary
+floating-point noise never triggers a remedy, and a metric that passes
+is used exactly as supplied.</p>
+<p>When a metric does fail, <code>constraints_remedy</code> decides what
+happens next:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Value</th>
+<th>What it does</th>
+<th>What it costs</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>"ridge"</code> (default)</td>
+<td>Adds a diagonal shift (from the Gershgorin bound, with a
+<code><a href="https://rdrr.io/pkg/Matrix/man/nearPD.html" class="external-link">Matrix::nearPD()</a></code> fallback for small dense matrices) just
+large enough to make the matrix positive definite. Preserves
+sparsity.</td>
+<td>The shift pulls the metric toward a multiple of the identity,
+diluting the structure you supplied. A <em>large</em> shift means the
+input was badly indefinite — diagnose it rather than absorb it.</td>
+</tr>
+<tr class="even">
+<td><code>"clip"</code></td>
+<td>Eigendecomposes and sets the negative eigenvalues to zero, leaving
+the rest of the spectrum exactly as it was.</td>
+<td>Densifies the matrix, so it refuses sparse input larger than
+2000×2000. Use <code>"ridge"</code> at that size.</td>
+</tr>
+<tr class="odd">
+<td><code>"identity"</code></td>
+<td>Replaces the offending metric with the identity.</td>
+<td>Discards your structure and quietly hands back ordinary PCA, with
+the run still reporting success. Pass <code>verbose = TRUE</code> to be
+told when this fires.</td>
+</tr>
+<tr class="even">
+<td><code>"error"</code></td>
+<td>Refuses the input.</td>
+<td>Nothing — this is the right setting when the metric comes from a
+pipeline that ought to be producing a valid one.
+<code><a href="../reference/genpca_cov.html">genpca_cov()</a></code> defaults to it for that reason.</td>
+</tr>
+</tbody>
+</table>
+<p>Two behaviours are worth knowing about because they are silent:</p>
 <ul>
 <li>
-<code>constraints_remedy = "ridge"</code> (default) adds a diagonal
-jitter to keep metrics SPD.</li>
+<code>"ridge"</code> and <code>"clip"</code> both symmetrise the
+input by mirroring the <strong>upper</strong> triangle onto the lower.
+If you pass a genuinely asymmetric matrix, the lower triangle is
+discarded without a word. Only <code>"error"</code> reports it.</li>
 <li>
-<code>"clip"</code> truncates tiny negative eigenvalues;
-<code>"identity"</code> falls back to identity if a metric
-misbehaves.</li>
-<li>Scale metrics before use (e.g., divide by mean diagonal) to avoid
-ill-conditioning.</li>
-<li>After fitting, check <code>range(eigen(A)$values)</code> on small
-problems to verify conditioning.</li>
+<code>"identity"</code> and a large <code>"ridge"</code> shift both
+produce a fit that looks healthy while encoding much less structure than
+you intended.</li>
 </ul>
+<p>So if a metric matters to the result, verify it rather than trusting
+the remedy to have done something sensible:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Is the metric usable as-is? (small problems)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">A</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Did a remedy fire, and how hard?</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>Two habits that avoid the problem to begin with: scale metrics before
+use (dividing by the mean diagonal, say) so that <code>M</code> and
+<code>A</code> are comparably conditioned, and prefer building a metric
+that is PSD by construction — a kernel, a Laplacian, an inverse-variance
+diagonal — over one estimated and then patched. With
+<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code>, warnings during the iteration mean a metric was
+repaired along the way and the learned result should be inspected.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>

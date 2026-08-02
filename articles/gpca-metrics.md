@@ -8,18 +8,25 @@ learner.
 ## Why metrics
 
 Metrics encode weighting and correlation. The row metric `M` changes how
-observations are compared. The column metric `A` changes how variables
-are compared. Both must be symmetric positive **semi-definite** (PSD)
-for GPCA – singular metrics are accepted (e.g. a rank-deficient graph
-Laplacian), and `constraints_remedy` can repair mildly invalid input. In
-return, you can bake known structure – temporal correlation, spatial
-proximity, group membership, heteroscedastic noise – straight into the
-decomposition.
+observations are compared; the column metric `A` changes how variables
+are compared. Setting either to something other than the identity is how
+you tell the decomposition what you already know about the data: that
+the samples are a time series, that the variables sit on a spatial grid
+or fall into groups, that some measurements are noisier than others.
+Ordinary PCA has no way to accept that information and treats every row
+and column alike. GPCA writes it into the objective being optimised.
 
 Structure alone is not enough, though: you also have to get the
 *direction* right, and supplying a matrix versus its inverse produces
 opposite results. The next section is about that, and it is worth
 reading before the recipes.
+
+Both metrics must also be symmetric and positive semi-definite. That
+rarely gets in the way, but it does constrain what you can pass; see
+[SPD requirements and remedies](#spd-requirements-and-remedies) below
+for what the requirement means and what
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+does when a metric falls short of it.
 
 ## Heteroscedastic diagonals
 
@@ -49,6 +56,112 @@ weights.](gpca-metrics_files/figure-html/hetero-plot-1.png)
 
 Inverse-variance weights on columns (top) and rows (bottom). Noisier
 dimensions get smaller weights.
+
+### Inverse column variance *is* scaled PCA
+
+Inverse-variance weighting on the columns is not a new idea in disguise:
+it is exactly the standardisation that `prcomp(scale. = TRUE)` performs.
+GPCA whitens with the square root $`A^{1/2}`$, so setting
+$`A = \operatorname{diag}(1/s_j^2)`$ makes
+$`X A^{1/2} = X \operatorname{diag}(1/s_j)`$ — the column-scaled matrix
+that correlation-matrix PCA decomposes.
+
+``` r
+
+set.seed(42)
+Xv <- matrix(rnorm(60 * 20), 60, 20) %*% diag(runif(20, 0.5, 3))
+sds <- apply(Xv, 2, sd)
+
+g  <- genpca(Xv, A = Diagonal(x = 1 / sds^2), ncomp = 5,
+             preproc = multivarious::center())
+pr <- prcomp(Xv, scale. = TRUE)
+
+# scores agree component by component
+sapply(1:3, function(k) cor(multivarious::scores(g)[, k], pr$x[, k]))
+#> [1] -1 -1 -1
+```
+
+The scores are identical (up to sign). The reported `sdev` values differ
+by a single constant, because
+[`prcomp()`](https://rdrr.io/r/stats/prcomp.html) divides its singular
+values by $`\sqrt{n-1}`$ and
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+reports them unnormalised:
+
+``` r
+
+rbind(genpca = g$sdev[1:5],
+      prcomp = pr$sdev[1:5],
+      ratio  = g$sdev[1:5] / pr$sdev[1:5])
+#>             [,1]      [,2]      [,3]     [,4]     [,5]
+#> genpca 11.527935 10.943470 10.310907 9.651052 9.172200
+#> prcomp  1.500809  1.424718  1.342366 1.256460 1.194119
+#> ratio   7.681146  7.681146  7.681146 7.681146 7.681146
+sqrt(nrow(Xv) - 1)
+#> [1] 7.681146
+```
+
+The constant ratio is the whole difference. This is worth internalising
+as the baseline: **a diagonal `A` generalises column scaling**, and
+everything else in this vignette — kernels, Laplacians, AR(1) structure
+— generalises it further by letting the metric go off-diagonal.
+
+### Weighting both margins at once
+
+The example above sets `M` and `A` simultaneously, which is a reasonable
+thing to want when both observations and variables are heteroscedastic.
+Two consequences are easy to miss.
+
+**The two weightings interact.** GPCA works with $`M^{1/2} X A^{1/2}`$,
+so the row weights change each column’s effective variance and the
+column weights change each row’s. Estimating row and column standard
+deviations from the raw data and applying both at once therefore
+standardises *neither* margin:
+
+``` r
+
+Xc <- scale(Xv, center = TRUE, scale = FALSE)
+W  <- diag(1 / apply(Xc, 1, sd)) %*% Xc %*% diag(1 / apply(Xc, 2, sd))
+
+range(apply(W, 1, sd))   # row SDs, would be constant if standardised
+#> [1] 0.4075883 0.6182529
+range(apply(W, 2, sd))   # column SDs
+#> [1] 0.4740343 0.5317369
+```
+
+It moves in the right direction — the row SDs are markedly more uniform
+than in `Xc` — but one pass does not land on unit variance either way,
+because each rescaling perturbs the other’s normalisation. Getting both
+margins standardised requires alternating between them until they
+settle, which is precisely what
+[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
+does when it iterates between `M` and `A`.
+
+**Only the product of the two scales is identified.** Replacing
+$`(M, A)`$ with $`(cM, A/c)`$ leaves $`M^{1/2} X A^{1/2}`$ untouched, so
+the fit cannot distinguish them:
+
+``` r
+
+M0 <- Diagonal(x = 1 / apply(Xv, 1, sd)^2)
+A0 <- Diagonal(x = 1 / sds^2)
+
+f1 <- genpca(Xv, M = M0,     A = A0,     ncomp = 4, preproc = multivarious::center())
+f2 <- genpca(Xv, M = 7 * M0, A = A0 / 7, ncomp = 4, preproc = multivarious::center())
+
+max(abs(f1$sdev - f2$sdev))
+#> [1] 4.440892e-15
+```
+
+The singular values and the component subspace are identical; only the
+scores pick up a constant factor, since their normalisation is tied to
+the scale of `M`. The practical upshot is that there is no point tuning
+the overall magnitude of `M` against that of `A` — it is the *relative*
+weighting within each metric that changes the answer. This indeterminacy
+is also why
+[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
+takes a `scale_fix` argument: when both metrics are learned, the split
+has to be pinned down by convention rather than by the data.
 
 ## Which way does a metric point?
 
@@ -210,16 +323,75 @@ identity, with mild row- and column-specific damping.
 Keep `lambda` non-zero, start with a small `ncomp`, and watch warnings –
 they signal a metric was repaired during the iteration.
 
-## SPD remedies in practice
+## SPD requirements and remedies
 
-- `constraints_remedy = "ridge"` (default) adds a diagonal jitter to
-  keep metrics SPD.
-- `"clip"` truncates tiny negative eigenvalues; `"identity"` falls back
-  to identity if a metric misbehaves.
-- Scale metrics before use (e.g., divide by mean diagonal) to avoid
-  ill-conditioning.
-- After fitting, check `range(eigen(A)$values)` on small problems to
-  verify conditioning.
+### Why the requirement exists
+
+GPCA measures variance in the inner products
+$`\langle u, v\rangle_M = u^\top M
+v`$ and $`\langle x, y\rangle_A = x^\top A y`$, and the solvers whiten
+the data with the square roots $`M^{1/2}`$ and $`A^{1/2}`$. Both steps
+need the metrics to be symmetric positive semi-definite (PSD). If a
+metric has a negative eigenvalue, vectors in that direction have
+negative squared length, the square root is not real, and “maximise
+variance” no longer picks out anything meaningful.
+
+Note that *semi*-definite is enough. **Singular metrics are perfectly
+legal.** A graph Laplacian is rank-deficient by construction — it has a
+zero eigenvalue on the constant vector — and
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+takes it without complaint. A zero eigenvalue simply means that
+direction is given no weight. Only *negative* eigenvalues are a problem.
+
+### What happens when a metric falls short
+
+Metrics usually fail the test for dull reasons rather than modelling
+mistakes: a covariance estimated from fewer samples than variables, a
+kernel matrix with round-off in the last few digits, a matrix that is
+asymmetric by $`10^{-16}`$ because of the order in which it was
+assembled. The check itself is tolerant — eigenvalues down to
+`-tol * max(abs(diag()))` with `tol = 1e-6` count as non-negative — so
+ordinary floating-point noise never triggers a remedy, and a metric that
+passes is used exactly as supplied.
+
+When a metric does fail, `constraints_remedy` decides what happens next:
+
+| Value | What it does | What it costs |
+|----|----|----|
+| `"ridge"` (default) | Adds a diagonal shift (from the Gershgorin bound, with a [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) fallback for small dense matrices) just large enough to make the matrix positive definite. Preserves sparsity. | The shift pulls the metric toward a multiple of the identity, diluting the structure you supplied. A *large* shift means the input was badly indefinite — diagnose it rather than absorb it. |
+| `"clip"` | Eigendecomposes and sets the negative eigenvalues to zero, leaving the rest of the spectrum exactly as it was. | Densifies the matrix, so it refuses sparse input larger than 2000×2000. Use `"ridge"` at that size. |
+| `"identity"` | Replaces the offending metric with the identity. | Discards your structure and quietly hands back ordinary PCA, with the run still reporting success. Pass `verbose = TRUE` to be told when this fires. |
+| `"error"` | Refuses the input. | Nothing — this is the right setting when the metric comes from a pipeline that ought to be producing a valid one. [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md) defaults to it for that reason. |
+
+Two behaviours are worth knowing about because they are silent:
+
+- `"ridge"` and `"clip"` both symmetrise the input by mirroring the
+  **upper** triangle onto the lower. If you pass a genuinely asymmetric
+  matrix, the lower triangle is discarded without a word. Only `"error"`
+  reports it.
+- `"identity"` and a large `"ridge"` shift both produce a fit that looks
+  healthy while encoding much less structure than you intended.
+
+So if a metric matters to the result, verify it rather than trusting the
+remedy to have done something sensible:
+
+``` r
+
+# Is the metric usable as-is? (small problems)
+range(eigen(as.matrix(A), symmetric = TRUE, only.values = TRUE)$values)
+
+# Did a remedy fire, and how hard?
+fit <- genpca(X, A = A, M = M, ncomp = 3, verbose = TRUE)
+```
+
+Two habits that avoid the problem to begin with: scale metrics before
+use (dividing by the mean diagonal, say) so that `M` and `A` are
+comparably conditioned, and prefer building a metric that is PSD by
+construction — a kernel, a Laplacian, an inverse-variance diagonal —
+over one estimated and then patched. With
+[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md),
+warnings during the iteration mean a metric was repaired along the way
+and the learned result should be inspected.
 
 ## Where next
 
