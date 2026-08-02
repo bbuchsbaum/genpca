@@ -6,6 +6,7 @@ experimental/
 ^CLAUDE\.md$
 ^_pkgdown\.yml$
 ^docs$
+^plans$
 ^pkgdown$
 ^\.github$
 ^BUG_REPORTS\.md$
