@@ -35,11 +35,8 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
-    <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
-    <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
-    <li><a class="dropdown-item" href="../articles/sfpca.html">Sparse and Functional PCA with sfpca()</a></li>
-    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
+<li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -71,19 +68,24 @@
 
     
     
-<script>document.addEventListener("DOMContentLoaded",function(){document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-interaction","preset-study","preset-structural","preset-adobe","preset-midnight");document.body.classList.add("palette-red","preset-interaction");});</script><p>This vignette has two audiences. End users who just want to run
-generalized PLS on two blocks should read the <strong>Quick practical
-use</strong> section and stop. Contributors who want to verify the
-whitening identities behind <code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code> should continue to
-the explicit reference implementation below.</p>
+<script>document.addEventListener("DOMContentLoaded",function(){document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-interaction","preset-study","preset-structural","preset-adobe","preset-midnight");document.body.classList.add("palette-red","preset-interaction");});</script><p>Start here to relate two data blocks measured on the same
+observations. The first example fits <code><a href="../reference/genpls.html">genpls()</a></code> and projects
+both blocks into latent coordinates. The later sections provide a dense
+reference for contributors checking the whitening identities behind
+<code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code>.</p>
 <div class="section level2">
 <h2 id="quick-practical-use">Quick practical use<a class="anchor" aria-label="anchor" href="#quick-practical-use"></a>
 </h2>
+<p>Rows must refer to the same observations in the same order. Here
+<code>X</code> has 150 rows and 8 variables, <code>Y</code> has 150 rows
+and 5 variables, and both contain one shared simulated signal. The
+example metrics are positive diagonal weights.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
 <span><span class="va">N</span> <span class="op">&lt;-</span> <span class="fl">150</span></span>
-<span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span> <span class="op">*</span> <span class="fl">8</span><span class="op">)</span>, <span class="va">N</span>, <span class="fl">8</span><span class="op">)</span></span>
-<span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span> <span class="op">*</span> <span class="fl">5</span><span class="op">)</span>, <span class="va">N</span>, <span class="fl">5</span><span class="op">)</span></span>
+<span><span class="va">shared</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span><span class="op">)</span></span>
+<span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/outer.html" class="external-link">outer</a></span><span class="op">(</span><span class="va">shared</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.2</span>, length.out <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span> <span class="op">*</span> <span class="fl">8</span><span class="op">)</span>, <span class="va">N</span>, <span class="fl">8</span><span class="op">)</span></span>
+<span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/outer.html" class="external-link">outer</a></span><span class="op">(</span><span class="va">shared</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.2</span>, length.out <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span> <span class="op">*</span> <span class="fl">5</span><span class="op">)</span>, <span class="va">N</span>, <span class="fl">5</span><span class="op">)</span></span>
 <span><span class="va">row_wt</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">0.5</span>, <span class="fl">1.5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">col_wt_x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">0.8</span>, <span class="fl">1.2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">col_wt_y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">0.8</span>, <span class="fl">1.2</span><span class="op">)</span><span class="op">)</span></span>
@@ -94,18 +96,33 @@ the explicit reference implementation below.</p>
 <span>              Mx <span class="op">=</span> <span class="va">row_wt</span>, My <span class="op">=</span> <span class="va">row_wt</span>,</span>
 <span>              Ax <span class="op">=</span> <span class="va">col_wt_x</span>, Ay <span class="op">=</span> <span class="va">col_wt_y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">d</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 57.572 47.290</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 560.652  62.966</span></span></code></pre></div>
+<p>Project each block using its fitted preprocessing and projection
+weights:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">Sx</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">X</span><span class="op">)</span></span>
+<span><span class="va">Sy</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">Y</span>, source <span class="op">=</span> <span class="st">"Y"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">Sx</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">Sy</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.8086014</span></span></code></pre></div>
 <div class="figure">
-<img src="gplssvd-reference_files/figure-html/quick-plot-1.png" class="r-plt" alt="Singular values of the generalized cross-product." width="85%"><p class="caption">
-Singular values of the generalized cross-product.
+<img src="gplssvd-reference_files/figure-html/quick-plot-1.png" class="r-plt" alt="Leading projected coordinates of the two blocks, which share a simulated signal." width="85%"><p class="caption">
+Leading projected coordinates of the two blocks, which share a simulated
+signal.
 </p>
 </div>
-<p>That is enough to fit and inspect a model. The remainder of this
-vignette is for contributors verifying the math.</p>
+<p>The leading coordinates track the shared variation. This is a
+training-data association, not a held-out predictive assessment. For new
+observations, pass matrices with the same columns to
+<code>project()</code> in the same way. With nonidentity row metrics
+these ambient coordinates differ from the stored row-whitened
+<code>lx</code> and <code>ly</code> used in the identities below.</p>
 </div>
 <div class="section level2">
-<h2 id="notation">Notation<a class="anchor" aria-label="anchor" href="#notation"></a>
+<h2 id="reference-for-contributors">Reference for contributors<a class="anchor" aria-label="anchor" href="#reference-for-contributors"></a>
 </h2>
+<div class="section level3">
+<h3 id="notation">Notation<a class="anchor" aria-label="anchor" href="#notation"></a>
+</h3>
 <p>GPLSSVD decomposes the relationship between two data blocks
 <code>X</code> (<code>N x I</code>) and <code>Y</code>
 (<code>N x J</code>) with optional row and column metrics:</p>
@@ -133,26 +150,27 @@ onto components)</li>
 matrix</li>
 </ul>
 </div>
-<div class="section level2">
-<h2 id="reference-implementation">Reference implementation<a class="anchor" aria-label="anchor" href="#reference-implementation"></a>
-</h2>
+<div class="section level3">
+<h3 id="reference-implementation">Reference implementation<a class="anchor" aria-label="anchor" href="#reference-implementation"></a>
+</h3>
 <p>The function below builds the whitened cross-product
 <code>S = (M_X^{1/2} X W_X^{1/2})' (M_Y^{1/2} Y W_Y^{1/2})</code>
 explicitly and runs a dense SVD. It is deliberately the most literal
 transcription of the algebra above, with no attention to speed or to
-input types beyond what the check below needs; the package’s
-operator-based path avoids materialising the whitened matrices at
-all.</p>
+input types beyond what the check below needs; the package’s operator
+path can apply the corresponding products without explicitly assembling
+these matrices, with dense fallbacks where needed.</p>
 <p>Everything rests on one helper. Each metric enters through its
 symmetric PSD square root, and singular metrics need the
 <em>pseudo</em>-inverse of that root – zero eigenvalues stay zero rather
-than blowing up:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+than blowing up. This small reference assumes valid PSD inputs; it is
+not a replacement for package validation or numerical rank handling:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">psd_sqrt</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">W</span>, <span class="va">n</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span><span class="op">)</span> <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>h <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span>, hinv <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span>, full <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">W</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span></span>
 <span>  <span class="va">e</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="va">W</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span>  <span class="va">lam</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax</a></span><span class="op">(</span><span class="va">e</span><span class="op">$</span><span class="va">values</span>, <span class="fl">0</span><span class="op">)</span>                    <span class="co"># clip round-off negatives</span></span>
+<span>  <span class="va">lam</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax</a></span><span class="op">(</span><span class="va">e</span><span class="op">$</span><span class="va">values</span>, <span class="fl">0</span><span class="op">)</span>                    <span class="co"># PSD assumed; clip numerical negatives</span></span>
 <span>  <span class="va">half</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="va">e</span><span class="op">$</span><span class="va">vectors</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="op">(</span><span class="va">f</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">e</span><span class="op">$</span><span class="va">vectors</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>h    <span class="op">=</span> <span class="fu">half</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">lam</span><span class="op">)</span><span class="op">)</span>,                 <span class="co"># W^{1/2}</span></span>
 <span>       hinv <span class="op">=</span> <span class="fu">half</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">lam</span> <span class="op">&gt;</span> <span class="fl">0</span>, <span class="fl">1</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">lam</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>,  <span class="co"># W^{-1/2}, pseudo</span></span>
@@ -160,7 +178,7 @@ than blowing up:</p>
 <span><span class="op">}</span></span></code></pre></div>
 <p>The decomposition itself is then a whitening, one SVD, and an
 unwhitening:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dense_gplssvd_ref</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">X</span>, <span class="va">Y</span>, <span class="va">MX</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">MY</span> <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>                              <span class="va">WX</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">WY</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">k</span> <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>                              <span class="va">center</span> <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">scale</span> <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span></span>
@@ -188,12 +206,12 @@ unwhitening:</p>
 <span>       ly <span class="op">=</span> <span class="va">my</span><span class="op">$</span><span class="va">h</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Y</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">wy</span><span class="op">$</span><span class="va">full</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">q</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
-<div class="section level2">
-<h2 id="cross-checking-the-operator">Cross-checking the operator<a class="anchor" aria-label="anchor" href="#cross-checking-the-operator"></a>
-</h2>
+<div class="section level3">
+<h3 id="cross-checking-the-operator">Cross-checking the operator<a class="anchor" aria-label="anchor" href="#cross-checking-the-operator"></a>
+</h3>
 <p>Run the reference on a small block, run <code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code>
 with the same metrics, and compare:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">N</span> <span class="op">&lt;-</span> <span class="fl">20</span>; <span class="va">I</span> <span class="op">&lt;-</span> <span class="fl">8</span>; <span class="va">J</span> <span class="op">&lt;-</span> <span class="fl">6</span></span>
 <span><span class="va">X</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span> <span class="op">*</span> <span class="va">I</span><span class="op">)</span>, <span class="va">N</span>, <span class="va">I</span><span class="op">)</span></span>
@@ -226,12 +244,13 @@ structure (right).
 <p>The diagonal of <code>t(Lx) %*% Ly</code> recovers the singular
 values, as the GPLSSVD identity guarantees.</p>
 </div>
+</div>
 <div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
-<p>See <code><a href="../articles/genpca.html">vignette("genpca")</a></code> for a getting-started walkthrough
-and <code><a href="../articles/gpca-metrics.html">vignette("gpca-metrics")</a></code> for metric recipes that apply
-to both GPCA and GPLSSVD.</p>
+<p>See <a href="genpca.html">Getting Started</a> for a getting-started
+walkthrough and <a href="gpca-metrics.html">GPCA Metrics</a> for metric
+recipes that apply to both GPCA and GPLSSVD.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

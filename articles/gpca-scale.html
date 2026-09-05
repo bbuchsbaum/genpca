@@ -35,11 +35,8 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
-    <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
-    <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
-    <li><a class="dropdown-item" href="../articles/sfpca.html">Sparse and Functional PCA with sfpca()</a></li>
-    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
+<li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -72,7 +69,7 @@
     
     
 <script>document.addEventListener("DOMContentLoaded",function(){document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-interaction","preset-study","preset-structural","preset-adobe","preset-midnight");document.body.classList.add("palette-red","preset-interaction");});</script><p>This vignette walks through the choices that matter once your data
-outgrows the defaults: which backend to pick, when to switch to a
+outgrow the defaults: which backend to pick, when to switch to a
 covariance-only fit, and how to project out-of-sample observations.</p>
 <div class="section level2">
 <h2 id="backend-selection">Backend selection<a class="anchor" aria-label="anchor" href="#backend-selection"></a>
@@ -95,16 +92,16 @@ covariance-only fit, and how to project out-of-sample observations.</p>
 <td align="left"><code>eigen</code></td>
 <td align="left">Small / medium dense problems</td>
 <td align="left">Robust reference behaviour</td>
-<td align="left">Can be expensive at scale; very large sparse
-constraints may trigger truncated eigensolve via
-<code>maxeig</code>
-</td>
+<td align="left">Can be expensive at scale; <code>maxeig</code> guards
+dense eigendecomposition of a singular general metric; it never
+truncates the metric</td>
 </tr>
 <tr class="even">
 <td align="left"><code>spectra</code></td>
-<td align="left">Larger matrix-free solves</td>
-<td align="left">Lower memory than dense eigendecomp</td>
-<td align="left">Iterative behaviour can vary by conditioning</td>
+<td align="left">Few components with factorizable metrics</td>
+<td align="left">Usually applies a whitened operator</td>
+<td align="left">Dense data copy, factorization costs, and dense
+fallbacks</td>
 </tr>
 <tr class="odd">
 <td align="left"><code>randomized</code></td>
@@ -121,8 +118,9 @@ workloads</td>
 </tr>
 <tr class="odd">
 <td align="left"><code>auto</code></td>
-<td align="left">Default production usage</td>
-<td align="left">Picks among the dense and randomized paths</td>
+<td align="left">Automatic dispatch</td>
+<td align="left">Chooses a backend, including deflation when a singular
+metric exceeds the dense guard</td>
 <td align="left">Heuristics may not be optimal for every regime</td>
 </tr>
 </tbody>
@@ -134,8 +132,10 @@ you on larger problems.</p>
 <div class="section level2">
 <h2 id="backends-on-the-same-problem">Backends on the same problem<a class="anchor" aria-label="anchor" href="#backends-on-the-same-problem"></a>
 </h2>
-<p>A small head-to-head on a dense problem so you can see how the
-singular values agree across paths:</p>
+<p>Compare the dense reference with the randomized approximation on a
+full-rank noise matrix. Its slowly decaying spectrum makes approximation
+error visible. These single-run timings illustrate the calls; they are
+not a benchmark.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">11</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">150</span>; <span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">60</span></span>
@@ -151,24 +151,30 @@ singular values agree across paths:</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"eigen"</span>, <span class="st">"randomized"</span><span class="op">)</span>,</span>
 <span>           elapsed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">t_eig</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span>, <span class="va">t_rnd</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       method elapsed   top_sv</span></span>
-<span><span class="co">#&gt; 1      eigen   0.109 19.48896</span></span>
-<span><span class="co">#&gt; 2 randomized   0.008 19.14753</span></span></code></pre></div>
+<span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>           max_relative_error <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span> <span class="op">/</span> <span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       method elapsed   top_sv max_relative_error</span></span>
+<span><span class="co">#&gt; 1      eigen   0.114 19.48896         0.00000000</span></span>
+<span><span class="co">#&gt; 2 randomized   0.008 19.14753         0.01809748</span></span></code></pre></div>
 <div class="figure">
-<img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="Singular values from the eigen and randomized paths agree to plotting precision on this dense problem." width="85%"><p class="caption">
-Singular values from the eigen and randomized paths agree to plotting
-precision on this dense problem.
+<img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="The randomized approximation underestimates the reference singular values on this full-rank example. The table reports the largest relative difference." width="85%"><p class="caption">
+The randomized approximation underestimates the reference singular
+values on this full-rank example. The table reports the largest relative
+difference.
 </p>
 </div>
+<p>The maximum relative difference here is 1.81%. Increase
+<code>oversample</code>, <code>n_power</code>, or <code>n_polish</code>
+when you need a more accurate approximation, then check the accuracy and
+time on a representative problem.</p>
 </div>
 <div class="section level2">
 <h2 id="sparse-workflow-spectra">Sparse workflow (<code>spectra</code>)<a class="anchor" aria-label="anchor" href="#sparse-workflow-spectra"></a>
 </h2>
 <p>The <code>spectra</code> backend factors each metric once (a sparse
 Cholesky here) and runs eigencore’s iterative partial SVD on the
-whitened operator; it is the right choice for large problems that need
-few components, including problems with sparse row/column metrics:</p>
+whitened operator; this is useful when few components are needed and the
+data copy and metric factors fit in memory:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">300</span>; <span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
@@ -187,30 +193,37 @@ few components, including problems with sparse row/column metrics:</p>
 <div class="section level3">
 <h3 id="what-stays-sparse">What stays sparse<a class="anchor" aria-label="anchor" href="#what-stays-sparse"></a>
 </h3>
-<p>Be precise about what “sparse” buys with each backend, because it is
-less than the name suggests:</p>
+<p>There are three separate storage costs: the data, the metrics or
+their factors, and the matrices used by the solver.</p>
 <ul>
 <li>
-<code>"deflation"</code> is the only backend that keeps the data
-sparse end to end: its C++ kernel takes sparse <code>X</code>,
-<code>M</code> and <code>A</code> and only multiplies.</li>
+<code>"deflation"</code> can retain sparse <code>X</code>,
+<code>M</code>, and <code>A</code> and apply the residual implicitly.
+Use preprocessing that preserves sparsity, such as <code><a href="https://testthat.r-lib.org/reference/fail.html" class="external-link">pass()</a></code>
+here: ordinary centering generally fills implicit zeros.</li>
 <li>
-<code>"spectra"</code> and <code>"randomized"</code> densify
-<code>X</code> before the solve (the iterative solver works on a dense
-copy of the data), but never form a dense metric: a diagonal metric
-costs nothing, a sparse positive definite metric is factored by a sparse
-(CHOLMOD) Cholesky whose fill-in depends on the graph, and a dense
-positive definite metric costs one dense Cholesky of its dimension. A
-metric that is not positive definite needs a dense eigendecomposition,
-refused above <code>maxeig</code> rows.</li>
-<li>Validation itself performs one sparse Cholesky probe of a sparse
-metric under every <code>constraints_remedy</code>; that is fill-in, not
-densification.</li>
+<code>"spectra"</code> and <code>"randomized"</code> make a dense
+copy of <code>X</code>. Sparse input alone therefore does not bound
+their data storage by its nonzero count.</li>
+<li>The eigen and spectra factorization paths handle diagonal metrics
+elementwise, dense positive definite metrics by dense Cholesky, and
+sparse positive definite metrics by sparse Cholesky. Sparse Cholesky can
+add many nonzeros: fill-in depends on graph structure and ordering.</li>
+<li>A singular general metric on the smaller side requires dense
+eigendecomposition, refused above <code>maxeig</code> (default 5000). It
+is never truncated to meet that limit. A singular large-side metric is
+used in products without being factored. <code>method = "auto"</code>
+can route an oversized singular small-side case to deflation.</li>
+<li>Spectra usually applies the whitened operator without forming it,
+but can materialize it for a dense fallback. Its singular large-side
+route forms a smaller Gram matrix. The randomized method instead works
+with projected blocks and metric products; <code>maxeig</code> is not
+its workspace guard.</li>
 </ul>
-<p>So “sparse <code>X</code> with a sparse metric” is memory-safe with
-<code>"deflation"</code>, and compute-safe with <code>"spectra"</code>
-as long as the metric’s Cholesky factor stays sparse (banded,
-spatial-graph and AR-type metrics all do).</p>
+<p>Metric validation can itself require a sparse Cholesky probe. Banded
+metrics such as those above have favourable fill-in; an arbitrary
+spatial graph need not. Budget for the factors and possible dense
+workspaces as well as the original sparse inputs.</p>
 </div>
 </div>
 <div class="section level2">
@@ -261,18 +274,19 @@ the same component space.
 <div class="section level2">
 <h2 id="performance-tips">Performance tips<a class="anchor" aria-label="anchor" href="#performance-tips"></a>
 </h2>
-<p>Keep data sparse when possible; avoid centering dense copies if you
-plan to use <code>spectra</code>. Validate empirical metrics with
-<code><a href="../reference/repair_metric.html">repair_metric()</a></code> before fitting rather than relying on a
-remedy inside the fit. For large problems, limit <code>ncomp</code> to
-what you truly need, and consider the covariance route when
-<code>n</code> is huge but <code>p</code> is moderate.</p>
+<p>Choose preprocessing for the analysis first, then budget its storage:
+a centered sparse matrix can become dense. If a metric needs repair, use
+<code><a href="../reference/repair_metric.html">repair_metric()</a></code> once and inspect its report before fitting.
+Limit <code>ncomp</code> to the components you intend to use, and
+consider the covariance route when <code>n</code> is large but
+<code>p</code> is moderate.</p>
 </div>
 <div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
-<p>See <code><a href="../articles/gpca-metrics.html">vignette("gpca-metrics")</a></code> for building metrics, and
-<code><a href="../articles/genpca.html">vignette("genpca")</a></code> for a getting-started walkthrough.</p>
+<p>See <a href="gpca-metrics.html">GPCA Metrics</a> for building
+metrics, and <a href="genpca.html">Getting Started</a> for a
+getting-started walkthrough.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

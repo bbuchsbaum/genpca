@@ -26,8 +26,8 @@ when both of these hold:
 
 If you only want structure and not sparsity,
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
-with a smoothing metric is the simpler tool; see
-[`vignette("gpca-metrics")`](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md).
+with a smoothing metric is the simpler tool; see [GPCA
+Metrics](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md).
 If you want sparsity with no geometry, an ordinary sparse PCA will do.
 [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) is
 for the case where you want both, and it is worth knowing that it
@@ -75,8 +75,9 @@ c(true_support = sum(v1 != 0), of = p,
 #>        29.00       256.00         1.13
 ```
 
-The signal-to-noise ratio is close to 1, so this is not a giveaway. Fit
-two components:
+The Frobenius signal-to-noise ratio is 1.13. This ratio describes total
+matrix energy; it does not by itself determine the difficulty of
+recovering a leading component. Fit two components:
 
 ``` r
 
@@ -89,8 +90,8 @@ fit
 #>   verbs: scores(), components(), sdev(), reconstruct()
 ```
 
-With every penalty left at its default, the loadings come back sparse
-without being told how sparse to be:
+With the default penalties, BIC selects the sparsity level for each
+component:
 
 ``` r
 
@@ -120,14 +121,14 @@ is perfectly well. The difference is everything else: PCA has to spend
 all 256 loadings to say it, so the map carries a noise floor everywhere
 the true pattern is zero.
 
-![Top row: the true spatial patterns. Middle: sfpca loadings -- compact,
-and exactly zero away from the bumps. Bottom: ordinary PCA loadings,
-which recover the location but smear noise across all 256
-sites.](sfpca_files/figure-html/recovery-plot-1.png)
+![Truth, sfpca, and PCA with signs aligned to truth and one common color
+scale: blue is negative, white is zero, red is positive. sfpca has a few
+extra nonzero sites in PC1; PCA has nonzero loadings
+throughout.](sfpca_files/figure-html/recovery-plot-1.png)
 
-Top row: the true spatial patterns. Middle: sfpca loadings – compact,
-and exactly zero away from the bumps. Bottom: ordinary PCA loadings,
-which recover the location but smear noise across all 256 sites.
+Truth, sfpca, and PCA with signs aligned to truth and one common color
+scale: blue is negative, white is zero, red is positive. sfpca has a few
+extra nonzero sites in PC1; PCA has nonzero loadings throughout.
 
 The temporal factors are recovered too — those are the `ou` slot,
 penalised for roughness along the row index:
@@ -140,8 +141,9 @@ c(PC1 = abs(cor(U[, 1], u1)), PC2 = abs(cor(U[, 2], u2)))
 #> 0.9985844 0.9943258
 ```
 
-Because the loadings are zero off the bumps, the reconstruction discards
-noise that PCA is obliged to keep. Measured against the *noiseless*
+The selected supports have 31 and 29 sites, compared with 29 in each
+planted pattern. Sparsity removes much of the off-pattern noise,
+although support recovery is not exact. Measured against the *noiseless*
 signal:
 
 ``` r
@@ -314,8 +316,8 @@ In
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md),
 the structure matrix $`A`$ is a *metric*, and a metric amplifies its own
 dominant eigendirections — the loadings are $`AV`$. To get smooth
-loadings you pass a **smoother** (a kernel, an adjacency matrix,
-$`(I + \alpha\Omega)^{-1}`$).
+loadings you pass a **smoother** (a PSD kernel, an adjacency shifted to
+be PSD, $`(I + \alpha\Omega)^{-1}`$).
 
 In [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md),
 the same information enters as a *constraint*,
@@ -333,7 +335,8 @@ The same Laplacian therefore *smooths* in
 [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) and
 *roughens* in
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md).
-[`vignette("gpca-metrics")`](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
+[GPCA
+Metrics](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
 works through the metric-side version of this in detail.
 
 ## Practical notes
@@ -367,10 +370,12 @@ to interpret.
 
 ## Where next
 
-[`vignette("gpca-metrics")`](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
+[GPCA
+Metrics](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
 covers the metric-side treatment of the same structural ideas, including
-how to build kernels, Laplacians and graph penalties.
-[`vignette("structured-noise")`](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md)
+how to build kernels, Laplacians and graph penalties. [Modelling
+Structured
+Noise](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md)
 discusses choosing between them when several kinds of structure are
 present at once.
 

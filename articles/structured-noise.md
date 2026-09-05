@@ -24,8 +24,9 @@ eigenvalues are smooth patterns, large eigenvalues are rough ones. Then
 A = f(L) = \sum_j f(\lambda_j)\,\phi_j\phi_j^{\top}
 ```
 
-is a filter, and $`f`$ is its transfer function. That single observation
-covers every recipe in this package.
+is a filter, and $`f`$ is its transfer function. This covers the
+Laplacian-based filters compared below; general metrics need not share
+this graph’s eigenvectors.
 
 ``` r
 
@@ -50,14 +51,14 @@ eigenvalues in *decreasing* order, so `Q[, 1]` is the roughest graph
 mode and `Q[, p]` the smoothest. Getting this backwards is an easy way
 to convince yourself of something false.
 
-![Four transfer functions on the same graph. Everything to the left of
-the crossing is smooth structure; everything to the right is rough. A
-metric multiplies the decomposition's attention by this
-curve.](structured-noise_files/figure-html/profiles-1.png)
+![Four transfer functions on the same graph, each normalized to a
+maximum of one. Lower Laplacian eigenvalues represent smoother patterns;
+there is no single boundary between smooth and
+rough.](structured-noise_files/figure-html/profiles-1.png)
 
-Four transfer functions on the same graph. Everything to the left of the
-crossing is smooth structure; everything to the right is rough. A metric
-multiplies the decomposition’s attention by this curve.
+Four transfer functions on the same graph, each normalized to a maximum
+of one. Lower Laplacian eigenvalues represent smoother patterns; there
+is no single boundary between smooth and rough.
 
 So the practical vocabulary is not “adjacency versus Laplacian” — those
 are just two points on this continuum. You are choosing a curve.
@@ -100,17 +101,16 @@ usually what you want. Neither is a defect in `adjoin` — an adjacency
 matrix simply is not positive definite, and that is a property of
 graphs, not of the software.
 
-With those repairs, the two point in the directions the table above
-predicts: used as a column metric, the adjacency produces markedly
-smoother loadings than plain PCA and the Laplacian markedly rougher
-ones.
+With those repairs, the two point in the directions their spectral
+orientations predict: used as a column metric, the adjacency produces
+markedly smoother loadings than plain PCA and the Laplacian markedly
+rougher ones.
 
 ## What a metric can and cannot separate
 
-Here is the part that decides everything. A spatial metric reweights by
-*spatial frequency*, and by nothing else. It can therefore separate
-signal from noise exactly when the two occupy different parts of the
-spectrum.
+A metric of the form $`f(L)`$ reweights graph frequencies. It can favour
+frequencies with a better signal-to-noise ratio, but cannot distinguish
+signal and noise contributions within the same graph mode.
 
 We plant a signal of known spatial character in noise of known spatial
 character, and measure how well the leading component recovers it.
@@ -167,29 +167,28 @@ round(out, 3)
 #> fine signal / fine noise        0.144    0.200     0.063
 ```
 
-Read the rows. When signal and noise sit in **different** bands, the
-matching metric is transformative — better than tenfold in both
-mismatched rows: the smoother rescues a smooth signal from fine noise,
-and the precision rescues a fine signal from smooth noise, in each case
-lifting recovery from near-zero to roughly 0.6–0.7. Note also that in
-those rows the *wrong* metric is no better than identity and sometimes
-worse, so the gain is genuinely about matching the filter to the gap
-between signal and noise.
+In these simulations, matching the metric to the spectral contrast makes
+a large difference: the smoother helps the smooth signal in fine noise,
+while the precision helps the fine signal in smooth noise. The other
+metric can perform worse than identity. These are averages over eight
+simulated data sets, not accuracy guarantees for a new data set.
 
-When signal and noise sit in the **same** band, the picture changes
-completely: all three columns land in the same range, with no metric
-delivering anything like the off-diagonal gain. There is no filter that
-separates two things occupying the same frequencies.
+When signal and noise have the same broad label, the gains are smaller
+and the rankings vary. A broad label such as “smooth” does not imply
+identical spectra, so it cannot establish that no filter could help. If
+signal and noise have identical spectral profiles, however, reweighting
+those profiles cannot improve their relative power.
 
-|                   | smooth noise    | fine noise      |
-|:------------------|:----------------|:----------------|
-| **smooth signal** | no metric helps | smoother        |
-| **fine signal**   | precision       | no metric helps |
+| Planted signal | Noise  | Result among these three metrics                   |
+|:---------------|:-------|:---------------------------------------------------|
+| Smooth         | Fine   | Large gain with the smoother                       |
+| Fine           | Smooth | Large gain with the precision                      |
+| Smooth         | Smooth | Smaller differences; no comparable gain            |
+| Fine           | Fine   | Smaller differences; ranking depends on the filter |
 
-This is the answer to “my data has all four at once.” Decompose the
-problem by band, not by wish. The components of the noise that differ
-spectrally from your signal can be suppressed by $`A`$; the components
-that overlap it cannot, and pretending otherwise just costs you signal.
+For a mixture of signal and nuisance structures, estimate where their
+spectral profiles differ. The table describes the constructed examples;
+it is not a decision rule based solely on the words “smooth” and “fine”.
 
 ## Whiten by the noise, not by the signal
 
@@ -217,12 +216,13 @@ Estimate them from data that does not contain your effect — a baseline
 run, or the residuals after removing the design — rather than from the
 data you are about to decompose.
 
-## Bounded beats unbounded
+## Compare bounded and linearly increasing weights
 
-The reason to insist on that flattening: an unbounded metric such as
-$`I + \alpha L`$ keeps increasing with $`\lambda`$, so it places its
-largest weight on the very roughest directions. That is precisely where
-thermal noise lives and where signal generally does not.
+The noise-floor term changes the high-frequency behaviour: an unbounded
+metric such as $`I + \alpha L`$ keeps increasing with $`\lambda`$, so it
+places its largest weight on the very roughest directions. Broadband
+thermal noise is present there too; whether those directions contain
+useful signal depends on the application.
 
 ``` r
 
@@ -245,23 +245,20 @@ setNames(round(acc, 3), c("identity", "bounded precision", "unbounded I + 6L"))
 #>             0.042             0.552             0.456
 ```
 
-Both precisions beat plain PCA by a wide margin, and the bounded one
-comes out ahead: once broadband thermal noise is in the mixture,
-spending unlimited weight at the top of the spectrum buys noise rather
-than signal. The margin here is modest because the planted signal is
-only mid-frequency; it widens as the thermal component grows or as the
-signal sits further from the top of the spectrum. Prefer the saturating
-form — its worst case is bounded, and the unbounded one has no worst
-case at all.
+Both precisions improve recovery in this example, with a modest
+advantage for the bounded form. It follows from the stated
+smooth-plus-broadband noise model, rather than from a general guarantee
+that bounded filters always win. Here “unbounded” describes the function
+as its argument grows; on this finite graph, `I + 6L` has a finite
+largest eigenvalue. Neither curve alone supplies a worst-case guarantee
+for statistical recovery.
 
 ## Use both margins
 
-The cases the table above marks “no metric helps” are not hopeless —
-they are just not solvable *in space*. A smooth task response and a
-smooth drift are indistinguishable by spatial frequency, but they are
-utterly different in time. That is what the row metric is for, and it is
-why `M` and `A` are separate arguments rather than one blended
-constraint.
+Signal and noise with overlapping spatial profiles may differ in time. A
+task response and drift can, for example, occupy different temporal
+bands. That is what the row metric is for, and it is why `M` and `A` are
+separate arguments rather than one blended constraint.
 
 Here the noise is temporally autocorrelated, the signal is task-locked
 at a frequency where that noise has little power, and the row metric is
@@ -290,8 +287,8 @@ setNames(round(acc, 3), c("no row metric", "AR(1) precision M"))
 ```
 
 Roughly a tenfold improvement on the same data, with the column metric
-left as identity throughout. The temporal structure did the work that no
-spatial metric could.
+left as identity throughout. In this construction, temporal weighting
+exposes the planted pattern without specifying a spatial metric.
 
 The practical consequence for imaging: put temporal nuisances on `M` (AR
 prewhitening, down-weighting motion-corrupted frames) and spatial
@@ -300,32 +297,35 @@ drift terms, physiological regressors — before decomposing at all.
 
 ## When one metric is not enough
 
-A single $`A`$ applies **one** filter to **every** component. If your
-data contains a smooth network component *and* a focal artifact, no
-single choice serves both. Two escape routes:
+A single $`A = f(L)`$ applies the same spectral weighting to every
+component. If different components need different treatment, fitting one
+shared metric may be too restrictive.
 
-- [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md)
-  selects a sparsity penalty per component by BIC, so different
-  components can have different spatial extent. Note its structure
-  argument is a *constraint*, $`v^{\top}(I + \alpha\Omega)v \le 1`$, so
-  you pass the roughness operator directly and larger `alpha_v` means
-  smoother — the opposite convention to a metric.
-- [`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
-  and
-  [`mnpca_mrl()`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md)
-  learn `M` and `A` from the data by penalized maximum likelihood
-  instead of asking you to specify them, the latter with sparse
-  precision matrices.
+[`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md)
+selects sparsity penalties per component, allowing different spatial
+supports. Its spatial roughness operator is built from `spat_cds`, with
+strength controlled by `alpha_v`; this is not an arbitrary per-component
+spectral filter.
+
+The experimental
+[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
+and
+[`mnpca_mrl()`](https://bbuchsbaum.github.io/genpca/reference/mnpca_mrl.md)
+instead estimate a shared `M` and `A` by penalized maximum likelihood,
+the latter with sparse precision matrices. They reduce the need to
+specify those metrics in advance, but do not remove the restriction to
+one metric pair for the fit.
 
 ## Caveats worth carrying
 
-**Separability is an approximation.** The whole framework assumes noise
-covariance factorizes as
-$`\Sigma_{\text{space}} \otimes \Sigma_{\text{time}}`$. That is fair for
-thermal noise and for correlation induced by smoothing. It is not fair
-for cardiac and respiratory noise, which is spatially localized near
-vessels and ventricles *and* temporally periodic; that structure
-violates the Kronecker form rather than being absorbed by it.
+**Separability is an approximation.** The matrix-normal interpretation
+assumes noise covariance factorizes as
+$`\Sigma_{\text{space}} \otimes \Sigma_{\text{time}}`$. This can be a
+useful approximation for independent noise or fixed spatial smoothing.
+Mixtures of spatially localized physiological sources with different
+temporal profiles can violate it. The algebraic decomposition still
+exists when separability fails, but that noise-likelihood interpretation
+no longer follows.
 
 **Whitening does not create signal.** Equalizing the noise floor changes
 which directions dominate the decomposition; it does not change the
@@ -339,9 +339,12 @@ believing a result that depends on the metric.
 
 ## Where next
 
-- [`vignette("gpca-metrics")`](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
+- [GPCA
+  Metrics](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
   — concrete recipes and the smoother/precision orientation rule.
-- [`vignette("genpca")`](https://bbuchsbaum.github.io/genpca/articles/genpca.md)
-  — the decomposition itself, and what the metrics mean geometrically.
-- [`vignette("gpca-scale")`](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md)
-  — backends for when these metrics get large.
+- [Getting
+  Started](https://bbuchsbaum.github.io/genpca/articles/genpca.md) — the
+  decomposition itself, and what the metrics mean geometrically.
+- [GPCA at
+  Scale](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md) —
+  backends for when these metrics get large.

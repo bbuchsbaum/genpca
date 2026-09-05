@@ -129,13 +129,13 @@ range(apply(W, 2, sd))   # column SDs
 #> [1] 0.4740343 0.5317369
 ```
 
-It moves in the right direction — the row SDs are markedly more uniform
-than in `Xc` — but one pass does not land on unit variance either way,
-because each rescaling perturbs the other’s normalisation. Getting both
-margins standardised requires alternating between them until they
-settle, which is precisely what
-[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
-does when it iterates between `M` and `A`.
+Each rescaling changes the other margin’s standard deviations, so one
+pass does not produce unit variance on both. Alternating marginal
+scaling is a separate procedure from
+[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md):
+that learner alternates a low-rank fit with estimates of the full
+residual row and column covariances, including a ridge penalty. It does
+not simply standardize the two margins.
 
 **Only the product of the two scales is identified.** Replacing
 $`(M, A)`$ with $`(cM, A/c)`$ leaves $`M^{1/2} X A^{1/2}`$ untouched, so
@@ -189,11 +189,11 @@ max(abs(multivarious::components(fd) - as.matrix(Ad %*% fd$ov)))
 #> [1] 0
 ```
 
-That multiplication by $`A`$ is the whole story. It stretches every
-direction in proportion to the eigenvalue $`A`$ assigns it, so the
-patterns $`A`$ scores highly are the patterns that dominate the loadings
-you read off. (The bare factor $`V`$ is kept in the `ov` slot if you
-ever need it, but
+Multiplication by $`A`$ changes how the fitted factor is expressed. It
+stretches every direction in proportion to the eigenvalue $`A`$ assigns
+it, so the patterns $`A`$ scores highly are the patterns that dominate
+the loadings you read off. (The bare factor $`V`$ is kept in the `ov`
+slot if you ever need it, but
 [`components()`](https://bbuchsbaum.github.io/multivarious/reference/components.html)
 is what you should normally interpret.)
 
@@ -292,18 +292,19 @@ zero length under it.
 accepts that (the whitening uses a pseudo-inverse), but adding a small
 ridge, $`L + \varepsilon I`$, is usually what you want.
 
-Finally, the strength matters and is not cosmetic. In the example above
-the first component only switched from the smooth blob to the
-checkerboard once $`\alpha`$ passed roughly 50; at $`\alpha = 2`$ the
-blob still dominated. Sweep it and look at your loadings.
+The example compares a smoother with coefficient 2 against a precision
+with coefficient 50. It demonstrates these two choices, not a universal
+switching threshold. Sweep the strength on your own data and inspect the
+loadings.
 
 ## Recipes
 
 Each recipe below is labelled with the direction it produces. All three
-are written here as **precision** matrices, i.e. the noise-whitening
-stance; drop the
-[`solve()`](https://rdrr.io/pkg/Matrix/man/solve-methods.html) to get
-the smoothing version instead.
+are written as **precision** matrices. For the AR(1) and RBF recipes,
+use the covariance inside
+[`solve()`](https://rdrr.io/pkg/Matrix/man/solve-methods.html) to obtain
+the smoother orientation. The Laplacian recipe constructs a precision
+directly; invert its regularized matrix to obtain a smoother.
 
 ### AR(1) row metric (whitens temporal autocorrelation)
 
@@ -360,20 +361,25 @@ independent’.
 [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md)
 takes the *opposite* input for the same intent. There the structure
 enters as a constraint, $`v^{\top}(I + \alpha\Omega)v \le 1`$, which
-charges rough $`v`$ against a fixed budget — so you pass the roughness
-operator (Laplacian, second differences) directly via `alpha_v`, and
-larger `alpha_v` means **smoother**. Metric form and constraint form are
-inverse to one another: the same Laplacian smooths in
+charges rough $`v`$ against a fixed budget — so the spatial roughness
+operator is built from `spat_cds`, and `alpha_v` controls its strength.
+Larger `alpha_v` means **smoother**; it is a scalar, not an argument for
+supplying a matrix. Metric form and constraint form are inverse to one
+another: the same Laplacian smooths in
 [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) and
 roughens in
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md).
 
 ## Learning metrics with `gpca_mle()`
 
-When you suspect structured noise but lack good priors,
 [`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
-learns SPD metrics by alternating GPCA with matrix-normal maximum
-likelihood:
+is an experimental learner that alternates a low-rank fit with
+regularized matrix-normal covariance estimates. Use it to explore
+estimated metrics, checking their spectra and sensitivity to the ridge
+parameter `lambda`. An i.i.d. input does not guarantee an identity-like
+fitted metric: a single small data matrix provides limited information
+about unrestricted row and column covariances, especially after fitting
+a low-rank mean.
 
 ``` r
 
@@ -381,38 +387,64 @@ set.seed(1)
 n_m <- 40; p_m <- 10
 X_mle <- matrix(rnorm(n_m * p_m), n_m, p_m)
 fit_mle <- gpca_mle(X_mle, ncomp = 2, max_iter = 6,
-                    lambda = 1e-3, scale_fix = "trace",
+                    lambda = 1e-3, scale_fix = "none",
                     method = "eigen", verbose = FALSE)
-range(diag(as.matrix(fit_mle$M)))
-#> [1] 156827.4 249196.5
-range(diag(as.matrix(fit_mle$A)))
-#> [1] 2.583950 3.330251
+
+metric_spectrum <- function(W) {
+  ev <- eigen(as.matrix(W), symmetric = TRUE, only.values = TRUE)$values
+  c(min = min(ev), max = max(ev), condition = max(ev) / min(ev))
+}
+signif(rbind(M = metric_spectrum(fit_mle$M),
+             A = metric_spectrum(fit_mle$A)), 3)
+#>        min  max condition
+#> M 4.27e-04 1000  2.34e+06
+#> A 6.34e+02 1000  1.58e+00
 ```
 
-![Learned row metric M (left) and column metric A (right) on i.i.d.
-Gaussian data. With identity-noise input the learner stays close to
-identity, with mild row- and column-specific
-damping.](gpca-metrics_files/figure-html/mle-plot-1.png)
+The row metric has widely separated eigenvalues. A heatmap can look
+nearly diagonal while hiding this distinction, so plot the spectrum
+after removing overall scale. An identity-like metric would have every
+normalized eigenvalue near one.
 
-Learned row metric M (left) and column metric A (right) on i.i.d.
-Gaussian data. With identity-noise input the learner stays close to
-identity, with mild row- and column-specific damping.
+![Metric eigenvalues divided by their mean, on a log scale. The dashed
+line marks an identity-like spectrum; the learned row metric departs
+strongly from it.](gpca-metrics_files/figure-html/mle-plot-1.png)
 
-Keep `lambda` non-zero, start with a small `ncomp`, and watch warnings –
-they signal a metric was repaired during the iteration.
+Metric eigenvalues divided by their mean, on a log scale. The dashed
+line marks an identity-like spectrum; the learned row metric departs
+strongly from it.
+
+Inspect optimization progress as well:
+
+``` r
+
+data.frame(iteration = seq_along(fit_mle$loglik_path),
+           penalized_loglik = fit_mle$loglik_path)
+#>   iteration penalized_loglik
+#> 1         1         1204.753
+#> 2         2         1368.764
+#> 3         3         1526.016
+#> 4         4         1660.870
+#> 5         5         1744.850
+#> 6         6         1773.051
+```
+
+Six iterations are an illustration, not evidence of convergence or
+covariance recovery. Keep `lambda` positive and compare results across
+its plausible values. The default `scale_fix = "none"` retains the scale
+selected by the penalized fit; optional `"trace"` or `"det"` rescaling
+changes the penalized objective, reported in `loglik_rescale_delta`.
 
 ## SPD requirements and remedies
 
 ### Why the requirement exists
 
-GPCA measures variance in the inner products
-$`\langle u, v\rangle_M = u^\top M
-v`$ and $`\langle x, y\rangle_A = x^\top A y`$, and the solvers whiten
-the data with the square roots $`M^{1/2}`$ and $`A^{1/2}`$. Both steps
-need the metrics to be symmetric positive semi-definite (PSD). If a
-metric has a negative eigenvalue, vectors in that direction have
-negative squared length, the square root is not real, and “maximise
-variance” no longer picks out anything meaningful.
+GPCA measures squared lengths using $`u^\top M u`$ and $`v^\top A v`$,
+and the solvers whiten the data with the square roots $`M^{1/2}`$ and
+$`A^{1/2}`$. Both steps need the metrics to be symmetric positive
+semi-definite (PSD). If a metric has a negative eigenvalue, vectors in
+that direction have negative squared length, the square root is not
+real, and “maximise variance” no longer picks out anything meaningful.
 
 Note that *semi*-definite is enough. **Singular metrics are perfectly
 legal.** A graph Laplacian is rank-deficient by construction — it has a
@@ -423,30 +455,32 @@ direction is given no weight. Only *negative* eigenvalues are a problem.
 
 ### What happens when a metric falls short
 
-Metrics usually fail the test for dull reasons rather than modelling
-mistakes: a covariance estimated from fewer samples than variables, a
-kernel matrix with round-off in the last few digits, a matrix that is
-asymmetric by $`10^{-16}`$ because of the order in which it was
-assembled. The checks are relative to the scale of the matrix, so
-ordinary floating-point noise never triggers anything: eigenvalues down
-to $`-\sqrt{\epsilon}\,\max|A_{ii}|`$ (about $`-1.5\times10^{-8}`$ times
-the largest diagonal entry) count as non-negative, and an asymmetry
-$`\|A - A^\top\|_F / \|A\|_F`$ below $`10^{-10}`$ is averaged away. A
-metric that passes is used exactly as supplied.
+Distinguish singularity from invalidity: a sample covariance from fewer
+samples than variables can be singular and still PSD. Rounding can
+produce small negative eigenvalues or slight asymmetry; an incorrectly
+constructed metric can produce larger violations. The checks are
+relative to the scale of the matrix, with a tolerance for floating-point
+noise: eigenvalues down to $`-\sqrt{\epsilon}\,\max|A_{ii}|`$ (about
+$`-1.5\times10^{-8}`$ times the largest diagonal entry) count as
+non-negative, and an asymmetry $`\|A - A^\top\|_F / \|A\|_F`$ below
+$`10^{-10}`$ is averaged away. Tiny asymmetry may therefore be averaged
+away; metric factorization also uses numerical tolerances to identify
+null directions. An explicit `"clip"` request removes negative
+eigenvalues even if they pass the tolerant PSD check.
 
-Two things are never repaired. A genuinely asymmetric matrix is an error
-under every setting: there is no way to know which triangle you meant.
-And a metric that fails the PSD check is an error by default
-(`constraints_remedy = "error"`), because a fit that silently ran on a
-different metric than the one you supplied is worse than no fit. If you
-do want a repair, ask for it, and you will be told what was done:
+A genuinely asymmetric matrix is an error under every setting: there is
+no way to know which triangle you meant. And a metric that fails the PSD
+check is an error by default (`constraints_remedy = "error"`), because a
+fit that silently ran on a different metric than the one you supplied is
+worse than no fit. If you do want a repair, ask for it, and you will be
+told what was done:
 
 | Value | What it does | What it costs |
 |----|----|----|
 | `"error"` (default) | Refuses the input. | Nothing — this is the right setting when the metric comes from a pipeline that ought to be producing a valid one. |
 | `"ridge"` | Adds a diagonal shift (from the Gershgorin bound, with a [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) fallback for small dense matrices) sufficient to make the matrix positive definite. Preserves sparsity. | The shift pulls the metric toward a multiple of the identity, diluting the structure you supplied. A *large* shift means the input was badly indefinite — diagnose it rather than absorb it. |
 | `"clip"` | Eigendecomposes and sets the negative eigenvalues to zero, leaving the rest of the spectrum exactly as it was. | Densifies the matrix, so it refuses sparse input larger than 2000×2000. Use `"ridge"` at that size. |
-| `"identity"` | Replaces the offending metric with the identity. | Discards your structure and hands back ordinary PCA. |
+| `"identity"` | Replaces the offending metric with the identity. | Discards the offending metric; the other metric still applies. |
 
 Every repair that actually changes the metric emits a warning of class
 `genpca_metric_repaired` whose `report` field records the minimum
@@ -469,20 +503,17 @@ fit <- withCallingHandlers(
 )
 ```
 
-Two habits that avoid the problem to begin with: scale metrics before
-use (dividing by the mean diagonal, say) so that `M` and `A` are
-comparably conditioned, and prefer building a metric that is PSD by
-construction — a kernel, a Laplacian, an inverse-variance diagonal —
-over one estimated and then patched. With
-[`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md),
-warnings during the iteration mean a metric was repaired along the way
-and the learned result should be inspected.
+Prefer metrics that are PSD by construction, such as a PSD kernel, a
+graph Laplacian, or a nonnegative diagonal. Dividing a metric by its
+mean diagonal changes its overall magnitude but leaves its condition
+number unchanged. Inspect the repair report when a repair is requested,
+and inspect learned metric spectra even when no warning is emitted.
 
 ## Where next
 
-See
-[`vignette("structured-noise")`](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md)
+See [Modelling Structured
+Noise](https://bbuchsbaum.github.io/genpca/articles/structured-noise.md)
 for how to choose the transfer function when several kinds of structure
-are present at once, and
-[`vignette("gpca-scale")`](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md)
-for backend choices, sparse workflows, and covariance-only GPCA.
+are present at once, and [GPCA at
+Scale](https://bbuchsbaum.github.io/genpca/articles/gpca-scale.md) for
+backend choices, sparse workflows, and covariance-only GPCA.

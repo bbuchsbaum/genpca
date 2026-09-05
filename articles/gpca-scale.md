@@ -1,26 +1,28 @@
 # GPCA at Scale and Special Cases
 
 This vignette walks through the choices that matter once your data
-outgrows the defaults: which backend to pick, when to switch to a
+outgrow the defaults: which backend to pick, when to switch to a
 covariance-only fit, and how to project out-of-sample observations.
 
 ## Backend selection
 
 | Method | Best for | Pros | Cons |
 |:---|:---|:---|:---|
-| `eigen` | Small / medium dense problems | Robust reference behaviour | Can be expensive at scale; very large sparse constraints may trigger truncated eigensolve via `maxeig` |
-| `spectra` | Larger matrix-free solves | Lower memory than dense eigendecomp | Iterative behaviour can vary by conditioning |
+| `eigen` | Small / medium dense problems | Robust reference behaviour | Can be expensive at scale; `maxeig` guards dense eigendecomposition of a singular general metric; it never truncates the metric |
+| `spectra` | Few components with factorizable metrics | Usually applies a whitened operator | Dense data copy, factorization costs, and dense fallbacks |
 | `randomized` | Wide (`p >> n`) low-rank workloads | Fast block GEMM / SpMM path | Approximation error depends on tuning |
 | `deflation` | Few components, tight memory | Low memory footprint | Can converge slowly; monitor iteration warnings |
-| `auto` | Default production usage | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime |
+| `auto` | Automatic dispatch | Chooses a backend, including deflation when a singular metric exceeds the dense guard | Heuristics may not be optimal for every regime |
 
 The default is `"eigen"`; pass `method = "auto"` to let the heuristics
 pick a backend for you on larger problems.
 
 ## Backends on the same problem
 
-A small head-to-head on a dense problem so you can see how the singular
-values agree across paths:
+Compare the dense reference with the randomized approximation on a
+full-rank noise matrix. Its slowly decaying spectrum makes approximation
+error visible. These single-run timings illustrate the calls; they are
+not a benchmark.
 
 ``` r
 
@@ -38,25 +40,31 @@ t_rnd <- system.time(
 )
 data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
-           top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
-#>       method elapsed   top_sv
-#> 1      eigen   0.109 19.48896
-#> 2 randomized   0.008 19.14753
+           top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]),
+           max_relative_error = c(0, max(abs(fit_rnd$sdev / fit_eig$sdev - 1))))
+#>       method elapsed   top_sv max_relative_error
+#> 1      eigen   0.114 19.48896         0.00000000
+#> 2 randomized   0.008 19.14753         0.01809748
 ```
 
-![Singular values from the eigen and randomized paths agree to plotting
-precision on this dense
-problem.](gpca-scale_files/figure-html/backend-plot-1.png)
+![The randomized approximation underestimates the reference singular
+values on this full-rank example. The table reports the largest relative
+difference.](gpca-scale_files/figure-html/backend-plot-1.png)
 
-Singular values from the eigen and randomized paths agree to plotting
-precision on this dense problem.
+The randomized approximation underestimates the reference singular
+values on this full-rank example. The table reports the largest relative
+difference.
+
+The maximum relative difference here is 1.81%. Increase `oversample`,
+`n_power`, or `n_polish` when you need a more accurate approximation,
+then check the accuracy and time on a representative problem.
 
 ## Sparse workflow (`spectra`)
 
 The `spectra` backend factors each metric once (a sparse Cholesky here)
-and runs eigencore’s iterative partial SVD on the whitened operator; it
-is the right choice for large problems that need few components,
-including problems with sparse row/column metrics:
+and runs eigencore’s iterative partial SVD on the whitened operator;
+this is useful when few components are needed and the data copy and
+metric factors fit in memory:
 
 ``` r
 
@@ -78,26 +86,36 @@ fit_sp$sdev
 
 ### What stays sparse
 
-Be precise about what “sparse” buys with each backend, because it is
-less than the name suggests:
+There are three separate storage costs: the data, the metrics or their
+factors, and the matrices used by the solver.
 
-- `"deflation"` is the only backend that keeps the data sparse end to
-  end: its C++ kernel takes sparse `X`, `M` and `A` and only multiplies.
-- `"spectra"` and `"randomized"` densify `X` before the solve (the
-  iterative solver works on a dense copy of the data), but never form a
-  dense metric: a diagonal metric costs nothing, a sparse positive
-  definite metric is factored by a sparse (CHOLMOD) Cholesky whose
-  fill-in depends on the graph, and a dense positive definite metric
-  costs one dense Cholesky of its dimension. A metric that is not
-  positive definite needs a dense eigendecomposition, refused above
-  `maxeig` rows.
-- Validation itself performs one sparse Cholesky probe of a sparse
-  metric under every `constraints_remedy`; that is fill-in, not
-  densification.
+- `"deflation"` can retain sparse `X`, `M`, and `A` and apply the
+  residual implicitly. Use preprocessing that preserves sparsity, such
+  as [`pass()`](https://testthat.r-lib.org/reference/fail.html) here:
+  ordinary centering generally fills implicit zeros.
+- `"spectra"` and `"randomized"` make a dense copy of `X`. Sparse input
+  alone therefore does not bound their data storage by its nonzero
+  count.
+- The eigen and spectra factorization paths handle diagonal metrics
+  elementwise, dense positive definite metrics by dense Cholesky, and
+  sparse positive definite metrics by sparse Cholesky. Sparse Cholesky
+  can add many nonzeros: fill-in depends on graph structure and
+  ordering.
+- A singular general metric on the smaller side requires dense
+  eigendecomposition, refused above `maxeig` (default 5000). It is never
+  truncated to meet that limit. A singular large-side metric is used in
+  products without being factored. `method = "auto"` can route an
+  oversized singular small-side case to deflation.
+- Spectra usually applies the whitened operator without forming it, but
+  can materialize it for a dense fallback. Its singular large-side route
+  forms a smaller Gram matrix. The randomized method instead works with
+  projected blocks and metric products; `maxeig` is not its workspace
+  guard.
 
-So “sparse `X` with a sparse metric” is memory-safe with `"deflation"`,
-and compute-safe with `"spectra"` as long as the metric’s Cholesky
-factor stays sparse (banded, spatial-graph and AR-type metrics all do).
+Metric validation can itself require a sparse Cholesky probe. Banded
+metrics such as those above have favourable fill-in; an arbitrary
+spatial graph need not. Budget for the factors and possible dense
+workspaces as well as the original sparse inputs.
 
 ## Covariance-only GPCA
 
@@ -151,17 +169,17 @@ the same component space.
 
 ## Performance tips
 
-Keep data sparse when possible; avoid centering dense copies if you plan
-to use `spectra`. Validate empirical metrics with
+Choose preprocessing for the analysis first, then budget its storage: a
+centered sparse matrix can become dense. If a metric needs repair, use
 [`repair_metric()`](https://bbuchsbaum.github.io/genpca/reference/repair_metric.md)
-before fitting rather than relying on a remedy inside the fit. For large
-problems, limit `ncomp` to what you truly need, and consider the
-covariance route when `n` is huge but `p` is moderate.
+once and inspect its report before fitting. Limit `ncomp` to the
+components you intend to use, and consider the covariance route when `n`
+is large but `p` is moderate.
 
 ## Where next
 
-See
-[`vignette("gpca-metrics")`](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
-for building metrics, and
-[`vignette("genpca")`](https://bbuchsbaum.github.io/genpca/articles/genpca.md)
-for a getting-started walkthrough.
+See [GPCA
+Metrics](https://bbuchsbaum.github.io/genpca/articles/gpca-metrics.md)
+for building metrics, and [Getting
+Started](https://bbuchsbaum.github.io/genpca/articles/genpca.md) for a
+getting-started walkthrough.

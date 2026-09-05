@@ -35,11 +35,8 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
-    <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
-    <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
-    <li><a class="dropdown-item" href="../articles/sfpca.html">Sparse and Functional PCA with sfpca()</a></li>
-    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
+<li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -187,13 +184,12 @@ standardises <em>neither</em> margin:</p>
 <span><span class="co">#&gt; [1] 0.4075883 0.6182529</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">W</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span><span class="op">)</span>   <span class="co"># column SDs</span></span>
 <span><span class="co">#&gt; [1] 0.4740343 0.5317369</span></span></code></pre></div>
-<p>It moves in the right direction — the row SDs are markedly more
-uniform than in <code>Xc</code> — but one pass does not land on unit
-variance either way, because each rescaling perturbs the other’s
-normalisation. Getting both margins standardised requires alternating
-between them until they settle, which is precisely what
-<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> does when it iterates between <code>M</code> and
-<code>A</code>.</p>
+<p>Each rescaling changes the other margin’s standard deviations, so one
+pass does not produce unit variance on both. Alternating marginal
+scaling is a separate procedure from <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code>: that
+learner alternates a low-rank fit with estimates of the full residual
+row and column covariances, including a ridge penalty. It does not
+simply standardize the two margins.</p>
 <p><strong>Only the product of the two scales is identified.</strong>
 Replacing
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>M</mi><mo>,</mo><mi>A</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(M, A)</annotation></semantics></math>
@@ -251,10 +247,10 @@ but
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components</a></span><span class="op">(</span><span class="va">fd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">Ad</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">fd</span><span class="op">$</span><span class="va">ov</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
-<p>That multiplication by
+<p>Multiplication by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-is the whole story. It stretches every direction in proportion to the
-eigenvalue
+changes how the fitted factor is expressed. It stretches every direction
+in proportion to the eigenvalue
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
 assigns it, so the patterns
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
@@ -406,21 +402,20 @@ so the spatially constant pattern has zero length under it.
 pseudo-inverse), but adding a small ridge,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>+</mo><mi>ε</mi><mi>I</mi></mrow><annotation encoding="application/x-tex">L + \varepsilon I</annotation></semantics></math>,
 is usually what you want.</p>
-<p>Finally, the strength matters and is not cosmetic. In the example
-above the first component only switched from the smooth blob to the
-checkerboard once
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>α</mi><annotation encoding="application/x-tex">\alpha</annotation></semantics></math>
-passed roughly 50; at
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\alpha = 2</annotation></semantics></math>
-the blob still dominated. Sweep it and look at your loadings.</p>
+<p>The example compares a smoother with coefficient 2 against a
+precision with coefficient 50. It demonstrates these two choices, not a
+universal switching threshold. Sweep the strength on your own data and
+inspect the loadings.</p>
 </div>
 <div class="section level2">
 <h2 id="recipes">Recipes<a class="anchor" aria-label="anchor" href="#recipes"></a>
 </h2>
 <p>Each recipe below is labelled with the direction it produces. All
-three are written here as <strong>precision</strong> matrices, i.e. the
-noise-whitening stance; drop the <code><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve()</a></code> to get the
-smoothing version instead.</p>
+three are written as <strong>precision</strong> matrices. For the AR(1)
+and RBF recipes, use the covariance inside <code><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve()</a></code> to
+obtain the smoother orientation. The Laplacian recipe constructs a
+precision directly; invert its regularized matrix to obtain a
+smoother.</p>
 <div class="section level3">
 <h3 id="ar1-row-metric-whitens-temporal-autocorrelation">AR(1) row metric (whitens temporal autocorrelation)<a class="anchor" aria-label="anchor" href="#ar1-row-metric-whitens-temporal-autocorrelation"></a>
 </h3>
@@ -473,9 +468,10 @@ intent. There the structure enters as a constraint,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><mo stretchy="false" form="postfix">)</mo><mi>v</mi><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">v^{\top}(I + \alpha\Omega)v \le 1</annotation></semantics></math>,
 which charges rough
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>
-against a fixed budget — so you pass the roughness operator (Laplacian,
-second differences) directly via <code>alpha_v</code>, and larger
-<code>alpha_v</code> means <strong>smoother</strong>. Metric form and
+against a fixed budget — so the spatial roughness operator is built from
+<code>spat_cds</code>, and <code>alpha_v</code> controls its strength.
+Larger <code>alpha_v</code> means <strong>smoother</strong>; it is a
+scalar, not an argument for supplying a matrix. Metric form and
 constraint form are inverse to one another: the same Laplacian smooths
 in <code><a href="../reference/sfpca.html">sfpca()</a></code> and roughens in <code><a href="../reference/genpca.html">genpca()</a></code>.</p>
 </div>
@@ -483,30 +479,59 @@ in <code><a href="../reference/sfpca.html">sfpca()</a></code> and roughens in <c
 <div class="section level2">
 <h2 id="learning-metrics-with-gpca_mle">Learning metrics with <code>gpca_mle()</code><a class="anchor" aria-label="anchor" href="#learning-metrics-with-gpca_mle"></a>
 </h2>
-<p>When you suspect structured noise but lack good priors,
-<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> learns SPD metrics by alternating GPCA with
-matrix-normal maximum likelihood:</p>
+<p><code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> is an experimental learner that alternates a
+low-rank fit with regularized matrix-normal covariance estimates. Use it
+to explore estimated metrics, checking their spectra and sensitivity to
+the ridge parameter <code>lambda</code>. An i.i.d. input does not
+guarantee an identity-like fitted metric: a single small data matrix
+provides limited information about unrestricted row and column
+covariances, especially after fitting a low-rank mean.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">n_m</span> <span class="op">&lt;-</span> <span class="fl">40</span>; <span class="va">p_m</span> <span class="op">&lt;-</span> <span class="fl">10</span></span>
 <span><span class="va">X_mle</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_m</span> <span class="op">*</span> <span class="va">p_m</span><span class="op">)</span>, <span class="va">n_m</span>, <span class="va">p_m</span><span class="op">)</span></span>
 <span><span class="va">fit_mle</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gpca_mle.html">gpca_mle</a></span><span class="op">(</span><span class="va">X_mle</span>, ncomp <span class="op">=</span> <span class="fl">2</span>, max_iter <span class="op">=</span> <span class="fl">6</span>,</span>
-<span>                    lambda <span class="op">=</span> <span class="fl">1e-3</span>, scale_fix <span class="op">=</span> <span class="st">"trace"</span>,</span>
+<span>                    lambda <span class="op">=</span> <span class="fl">1e-3</span>, scale_fix <span class="op">=</span> <span class="st">"none"</span>,</span>
 <span>                    method <span class="op">=</span> <span class="st">"eigen"</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">M</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 156827.4 249196.5</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">A</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 2.583950 3.330251</span></span></code></pre></div>
+<span></span>
+<span><span class="va">metric_spectrum</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">W</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">ev</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">W</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">ev</span><span class="op">)</span>, max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">ev</span><span class="op">)</span>, condition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">ev</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">ev</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">signif</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>M <span class="op">=</span> <span class="fu">metric_spectrum</span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">M</span><span class="op">)</span>,</span>
+<span>             A <span class="op">=</span> <span class="fu">metric_spectrum</span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">A</span><span class="op">)</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        min  max condition</span></span>
+<span><span class="co">#&gt; M 4.27e-04 1000  2.34e+06</span></span>
+<span><span class="co">#&gt; A 6.34e+02 1000  1.58e+00</span></span></code></pre></div>
+<p>The row metric has widely separated eigenvalues. A heatmap can look
+nearly diagonal while hiding this distinction, so plot the spectrum
+after removing overall scale. An identity-like metric would have every
+normalized eigenvalue near one.</p>
 <div class="figure">
-<img src="gpca-metrics_files/figure-html/mle-plot-1.png" class="r-plt" alt="Learned row metric M (left) and column metric A (right) on i.i.d. Gaussian data. With identity-noise input the learner stays close to identity, with mild row- and column-specific damping." width="85%"><p class="caption">
-Learned row metric M (left) and column metric A (right) on i.i.d.
-Gaussian data. With identity-noise input the learner stays close to
-identity, with mild row- and column-specific damping.
+<img src="gpca-metrics_files/figure-html/mle-plot-1.png" class="r-plt" alt="Metric eigenvalues divided by their mean, on a log scale. The dashed line marks an identity-like spectrum; the learned row metric departs strongly from it." width="85%"><p class="caption">
+Metric eigenvalues divided by their mean, on a log scale. The dashed
+line marks an identity-like spectrum; the learned row metric departs
+strongly from it.
 </p>
 </div>
-<p>Keep <code>lambda</code> non-zero, start with a small
-<code>ncomp</code>, and watch warnings – they signal a metric was
-repaired during the iteration.</p>
+<p>Inspect optimization progress as well:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>iteration <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">fit_mle</span><span class="op">$</span><span class="va">loglik_path</span><span class="op">)</span>,</span>
+<span>           penalized_loglik <span class="op">=</span> <span class="va">fit_mle</span><span class="op">$</span><span class="va">loglik_path</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   iteration penalized_loglik</span></span>
+<span><span class="co">#&gt; 1         1         1204.753</span></span>
+<span><span class="co">#&gt; 2         2         1368.764</span></span>
+<span><span class="co">#&gt; 3         3         1526.016</span></span>
+<span><span class="co">#&gt; 4         4         1660.870</span></span>
+<span><span class="co">#&gt; 5         5         1744.850</span></span>
+<span><span class="co">#&gt; 6         6         1773.051</span></span></code></pre></div>
+<p>Six iterations are an illustration, not evidence of convergence or
+covariance recovery. Keep <code>lambda</code> positive and compare
+results across its plausible values. The default
+<code>scale_fix = "none"</code> retains the scale selected by the
+penalized fit; optional <code>"trace"</code> or <code>"det"</code>
+rescaling changes the penalized objective, reported in
+<code>loglik_rescale_delta</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="spd-requirements-and-remedies">SPD requirements and remedies<a class="anchor" aria-label="anchor" href="#spd-requirements-and-remedies"></a>
@@ -514,10 +539,10 @@ repaired during the iteration.</p>
 <div class="section level3">
 <h3 id="why-the-requirement-exists">Why the requirement exists<a class="anchor" aria-label="anchor" href="#why-the-requirement-exists"></a>
 </h3>
-<p>GPCA measures variance in the inner products
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>u</mi><mo>,</mo><mi>v</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mi>M</mi></msub><mo>=</mo><msup><mi>u</mi><mi>⊤</mi></msup><mi>M</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">\langle u, v\rangle_M = u^\top M
-v</annotation></semantics></math> and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>x</mi><mo>,</mo><mi>y</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mi>A</mi></msub><mo>=</mo><msup><mi>x</mi><mi>⊤</mi></msup><mi>A</mi><mi>y</mi></mrow><annotation encoding="application/x-tex">\langle x, y\rangle_A = x^\top A y</annotation></semantics></math>,
+<p>GPCA measures squared lengths using
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>u</mi><mi>⊤</mi></msup><mi>M</mi><mi>u</mi></mrow><annotation encoding="application/x-tex">u^\top M u</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mi>A</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">v^\top A v</annotation></semantics></math>,
 and the solvers whiten the data with the square roots
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">M^{1/2}</annotation></semantics></math>
 and
@@ -536,14 +561,12 @@ eigenvalues are a problem.</p>
 <div class="section level3">
 <h3 id="what-happens-when-a-metric-falls-short">What happens when a metric falls short<a class="anchor" aria-label="anchor" href="#what-happens-when-a-metric-falls-short"></a>
 </h3>
-<p>Metrics usually fail the test for dull reasons rather than modelling
-mistakes: a covariance estimated from fewer samples than variables, a
-kernel matrix with round-off in the last few digits, a matrix that is
-asymmetric by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>16</mn></mrow></msup><annotation encoding="application/x-tex">10^{-16}</annotation></semantics></math>
-because of the order in which it was assembled. The checks are relative
-to the scale of the matrix, so ordinary floating-point noise never
-triggers anything: eigenvalues down to
+<p>Distinguish singularity from invalidity: a sample covariance from
+fewer samples than variables can be singular and still PSD. Rounding can
+produce small negative eigenvalues or slight asymmetry; an incorrectly
+constructed metric can produce larger violations. The checks are
+relative to the scale of the matrix, with a tolerance for floating-point
+noise: eigenvalues down to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><msqrt><mi>ϵ</mi></msqrt><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">|</mo><msub><mi>A</mi><mrow><mi>i</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">-\sqrt{\epsilon}\,\max|A_{ii}|</annotation></semantics></math>
 (about
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>1.5</mn><mo>×</mo><msup><mn>10</mn><mrow><mi>−</mi><mn>8</mn></mrow></msup></mrow><annotation encoding="application/x-tex">-1.5\times10^{-8}</annotation></semantics></math>
@@ -552,10 +575,13 @@ asymmetry
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>A</mi><mo>−</mo><msup><mi>A</mi><mi>⊤</mi></msup><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub><mi>/</mi><mo stretchy="false" form="postfix">∥</mo><mi>A</mi><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub></mrow><annotation encoding="application/x-tex">\|A - A^\top\|_F / \|A\|_F</annotation></semantics></math>
 below
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><annotation encoding="application/x-tex">10^{-10}</annotation></semantics></math>
-is averaged away. A metric that passes is used exactly as supplied.</p>
-<p>Two things are never repaired. A genuinely asymmetric matrix is an
-error under every setting: there is no way to know which triangle you
-meant. And a metric that fails the PSD check is an error by default
+is averaged away. Tiny asymmetry may therefore be averaged away; metric
+factorization also uses numerical tolerances to identify null
+directions. An explicit <code>"clip"</code> request removes negative
+eigenvalues even if they pass the tolerant PSD check.</p>
+<p>A genuinely asymmetric matrix is an error under every setting: there
+is no way to know which triangle you meant. And a metric that fails the
+PSD check is an error by default
 (<code>constraints_remedy = "error"</code>), because a fit that silently
 ran on a different metric than the one you supplied is worse than no
 fit. If you do want a repair, ask for it, and you will be told what was
@@ -599,7 +625,7 @@ the rest of the spectrum exactly as it was.</td>
 <tr class="even">
 <td><code>"identity"</code></td>
 <td>Replaces the offending metric with the identity.</td>
-<td>Discards your structure and hands back ordinary PCA.</td>
+<td>Discards the offending metric; the other metric still applies.</td>
 </tr>
 </tbody>
 </table>
@@ -610,7 +636,7 @@ applied, the rank and the condition number. The same report is available
 directly from <code><a href="../reference/repair_metric.html">repair_metric()</a></code>, which is the better way to
 work: repair once, look at the report, and pass the repaired matrix to
 every subsequent fit.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Is the metric usable as-is, and what would a repair do to it?</span></span>
 <span><span class="va">A_ok</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/repair_metric.html">repair_metric</a></span><span class="op">(</span><span class="va">A</span>, method <span class="op">=</span> <span class="st">"ridge"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">A_ok</span>, <span class="st">"repair_report"</span><span class="op">)</span></span>
@@ -620,22 +646,20 @@ every subsequent fit.</p>
 <span>  <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, constraints_remedy <span class="op">=</span> <span class="st">"ridge"</span><span class="op">)</span>,</span>
 <span>  genpca_metric_repaired <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="op">{</span> <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">w</span><span class="op">$</span><span class="va">report</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">invokeRestart</a></span><span class="op">(</span><span class="st">"muffleWarning"</span><span class="op">)</span> <span class="op">}</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Two habits that avoid the problem to begin with: scale metrics before
-use (dividing by the mean diagonal, say) so that <code>M</code> and
-<code>A</code> are comparably conditioned, and prefer building a metric
-that is PSD by construction — a kernel, a Laplacian, an inverse-variance
-diagonal — over one estimated and then patched. With
-<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code>, warnings during the iteration mean a metric was
-repaired along the way and the learned result should be inspected.</p>
+<p>Prefer metrics that are PSD by construction, such as a PSD kernel, a
+graph Laplacian, or a nonnegative diagonal. Dividing a metric by its
+mean diagonal changes its overall magnitude but leaves its condition
+number unchanged. Inspect the repair report when a repair is requested,
+and inspect learned metric spectra even when no warning is emitted.</p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
-<p>See <code><a href="../articles/structured-noise.html">vignette("structured-noise")</a></code> for how to choose the
-transfer function when several kinds of structure are present at once,
-and <code><a href="../articles/gpca-scale.html">vignette("gpca-scale")</a></code> for backend choices, sparse
-workflows, and covariance-only GPCA.</p>
+<p>See <a href="structured-noise.html">Modelling Structured Noise</a>
+for how to choose the transfer function when several kinds of structure
+are present at once, and <a href="gpca-scale.html">GPCA at Scale</a> for
+backend choices, sparse workflows, and covariance-only GPCA.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -35,11 +35,8 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/gpca-metrics.html">GPCA Metrics: Building M and A</a></li>
-    <li><a class="dropdown-item" href="../articles/gpca-scale.html">GPCA at Scale and Special Cases</a></li>
-    <li><a class="dropdown-item" href="../articles/gplssvd-reference.html">Generalized PLS-SVD: Explicit Whitening Reference</a></li>
-    <li><a class="dropdown-item" href="../articles/sfpca.html">Sparse and Functional PCA with sfpca()</a></li>
-    <li><a class="dropdown-item" href="../articles/structured-noise.html">Modelling Structured Noise</a></li>
+<li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -72,40 +69,183 @@
     
     
 <script>document.addEventListener("DOMContentLoaded",function(){document.body.classList.remove("palette-red","palette-lapis","palette-ochre","palette-teal","palette-green","palette-violet","preset-homage","preset-interaction","preset-study","preset-structural","preset-adobe","preset-midnight");document.body.classList.add("palette-red","preset-interaction");});</script><div class="section level2">
-<h2 id="why-generalized-pca">Why generalized PCA?<a class="anchor" aria-label="anchor" href="#why-generalized-pca"></a>
+<h2 id="fit-a-weighted-analysis">Fit a weighted analysis<a class="anchor" aria-label="anchor" href="#fit-a-weighted-analysis"></a>
 </h2>
-<p>Standard PCA (<code><a href="https://rdrr.io/r/stats/prcomp.html" class="external-link">prcomp()</a></code>) treats every observation and
-every variable equally. That is fine when the data are homogeneous, but
-in many applications the assumption is wrong: some observations are
-noisier than others, some variables are correlated by design, or there
-is known spatial or temporal structure you want the decomposition to
-respect. Generalized PCA encodes that prior knowledge through a row
-metric <code>M</code> and a column metric <code>A</code>. When both are
-identity, you recover ordinary PCA.</p>
-</div>
-<div class="section level2">
-<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
-</h2>
+<p><code><a href="../reference/genpca.html">genpca()</a></code> takes a numeric matrix with
+<strong>observations in rows and variables in columns</strong>. A row
+metric <code>M</code> weights observations; a column metric
+<code>A</code> weights variables. With identity metrics and the same
+preprocessing, it recovers ordinary PCA.</p>
+<p>Start with the three crime variables in <code>USArrests</code>: 50
+states by 3 variables. Their spreads differ substantially. Set
+<code>A</code> to inverse column variances so that Assault does not
+dominate simply because of its numerical scale. This is equivalent to
+PCA on standardized columns.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">80</span> <span class="op">*</span> <span class="fl">30</span><span class="op">)</span>, <span class="fl">80</span>, <span class="fl">30</span><span class="op">)</span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span></span>
-<span><span class="co">#&gt; [1] 14.29106 13.45933 12.99494</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"USArrests"</span><span class="op">)</span></span>
+<span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">USArrests</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Murder"</span>, <span class="st">"Assault"</span>, <span class="st">"Rape"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">col_sd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">X</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span></span>
+<span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">col_sd</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, ncomp <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>              preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>       <span class="co"># 50 states x 2 components</span></span>
+<span><span class="va">V</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>   <span class="co"># 3 variables x 2 projection weights</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">S</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           PC1   PC2</span></span>
+<span><span class="co">#&gt; Murder  -0.89  0.36</span></span>
+<span><span class="co">#&gt; Assault -0.93  0.14</span></span>
+<span><span class="co">#&gt; Rape    -0.83 -0.55</span></span></code></pre></div>
+<p>The variable-score correlations give the axes an interpretation. PC1
+moves with all three crime variables; PC2 contrasts Murder with Rape
+more strongly than it contrasts Assault with Rape. Component signs are
+arbitrary: reversing an axis leaves the analysis unchanged.</p>
 <div class="figure">
-<img src="genpca_files/figure-html/quick-plot-1.png" class="r-plt" alt="Singular values from the 3-component fit." width="85%"><p class="caption">
-Singular values from the 3-component fit.
+<img src="genpca_files/figure-html/quick-plot-1.png" class="r-plt" alt="States in the two-component space after inverse-variance weighting of the crime variables. Six states with extreme scores are labelled." width="85%"><p class="caption">
+States in the two-component space after inverse-variance weighting of
+the crime variables. Six states with extreme scores are labelled.
 </p>
 </div>
-<p>With identity metrics, <code><a href="../reference/genpca.html">genpca()</a></code> reproduces standard PCA.
-The interesting cases are when <code>M</code> or <code>A</code> is
-non-trivial.</p>
+<p>To see the effect of scaling, compare each variable’s correlation
+with PC1 under the two fits. Absolute correlations remove the arbitrary
+axis sign.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit_raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, ncomp <span class="op">=</span> <span class="fl">2</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span></span>
+<span>  unscaled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">X</span>, <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_raw</span><span class="op">)</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  scaled   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">S</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt;         [,1] [,2]</span></span>
+<span><span class="co">#&gt; Murder  0.80 0.89</span></span>
+<span><span class="co">#&gt; Assault 1.00 0.93</span></span>
+<span><span class="co">#&gt; Rape    0.67 0.83</span></span></code></pre></div>
+<div class="section level3">
+<h3 id="use-the-fitted-object">Use the fitted object<a class="anchor" aria-label="anchor" href="#use-the-fitted-object"></a>
+</h3>
+<p>The result is a <code>bi_projector</code>. Use its public accessors
+to inspect the fit, reconstruct the input, or project new rows with the
+training preprocessing.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">Xhat</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html" class="external-link">reconstruct</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>   <span class="co"># 50 x 3, back in original units</span></span>
+<span><span class="va">scores_again</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/project.html" class="external-link">project</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">X</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">S</span> <span class="op">-</span> <span class="va">scores_again</span><span class="op">)</span><span class="op">)</span>              <span class="co"># numerical zero on training rows</span></span>
+<span><span class="co">#&gt; [1] 8.881784e-16</span></span></code></pre></div>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">Operation</th>
+<th align="left">Output</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>multivarious::scores(fit)</code></td>
+<td align="left">
+<code>n x k</code> training coordinates</td>
+</tr>
+<tr class="even">
+<td align="left"><code>multivarious::components(fit)</code></td>
+<td align="left">
+<code>p x k</code> projection weights</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>multivarious::project(fit, X_new)</code></td>
+<td align="left">
+<code>n_new x k</code> coordinates, with training
+centering applied</td>
+</tr>
+<tr class="even">
+<td align="left"><code>multivarious::reconstruct(fit, comp = 1:k)</code></td>
+<td align="left">
+<code>n x p</code> reconstruction, with centering
+reversed</td>
+</tr>
+</tbody>
+</table>
+<p>New data must have the same variables in the same order. Centering is
+fitted on the training data; do not center a new batch separately before
+<code>project()</code>.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="add-observation-weights">Add observation weights<a class="anchor" aria-label="anchor" href="#add-observation-weights"></a>
+</h2>
+<p>A diagonal <code>M</code> changes how much each row contributes to
+the objective. As an illustration, give greater weight to states with a
+higher urban population percentage. This is an analytical choice, not a
+claim that those states are more reliable or a weighting by total
+population.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">urban_wt</span> <span class="op">&lt;-</span> <span class="va">USArrests</span><span class="op">$</span><span class="va">UrbanPop</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">USArrests</span><span class="op">$</span><span class="va">UrbanPop</span><span class="op">)</span></span>
+<span><span class="va">M</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">urban_wt</span><span class="op">)</span></span>
+<span><span class="va">fit_row</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, M <span class="op">=</span> <span class="va">M</span>, A <span class="op">=</span> <span class="va">A</span>, ncomp <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>                  preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">X</span>, <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_row</span><span class="op">)</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           PC1   PC2</span></span>
+<span><span class="co">#&gt; Murder  -0.89 -0.42</span></span>
+<span><span class="co">#&gt; Assault -0.93 -0.22</span></span>
+<span><span class="co">#&gt; Rape    -0.84  0.49</span></span></code></pre></div>
+<p>The weights change the fitted axes; they do not push a state toward a
+particular signed end of an axis. This fit retains ordinary column
+centering through <code><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">multivarious::center()</a></code>; setting
+<code>M</code> does not change that preprocessing into weighted
+centering.</p>
+</div>
+<div class="section level2">
+<h2 id="choose-the-number-of-components">Choose the number of components<a class="anchor" aria-label="anchor" href="#choose-the-number-of-components"></a>
+</h2>
+<p><code>fit$sdev</code> contains singular values of the metric-whitened
+data. With identity metrics and centering, these equal
+<code>prcomp(X)$sdev * sqrt(nrow(X) - 1)</code>. Fit the full available
+spectrum before using a scree plot to choose a rank:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit_all</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, ncomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span>,</span>
+<span>                  preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">share</span> <span class="op">&lt;-</span> <span class="va">fit_all</span><span class="op">$</span><span class="va">sdev</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fit_all</span><span class="op">$</span><span class="va">sdev</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/barplot.html" class="external-link">barplot</a></span><span class="op">(</span><span class="va">share</span>, names.arg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"PC"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">share</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>        ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, ylab <span class="op">=</span> <span class="st">"Fraction of weighted variation"</span>,</span>
+<span>        col <span class="op">=</span> <span class="st">"grey60"</span>, border <span class="op">=</span> <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<div class="figure">
+<img src="genpca_files/figure-html/scree-1.png" class="r-plt" alt="Fraction of total weighted variation for all three available components." width="85%"><p class="caption">
+Fraction of total weighted variation for all three available components.
+</p>
+</div>
+<p>The first two components account for 93.9% of the weighted variation
+in this example. A scree plot describes the training fit; it does not
+establish how well components will generalize. For prediction, compare
+held-out reconstruction error using preprocessing and data-derived
+metrics estimated on training rows only.</p>
+</div>
+<div class="section level2">
+<h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
+</h2>
+<ul>
+<li>
+<a href="gpca-metrics.html">GPCA Metrics</a>: construct row and
+column metrics and choose between smoothing and noise whitening.</li>
+<li>
+<a href="structured-noise.html">Modelling Structured Noise</a>:
+explore those choices with known signal and noise in simulations.</li>
+<li>
+<a href="gpca-scale.html">GPCA at Scale</a>: choose a backend,
+budget memory, and project held-out observations.</li>
+<li>
+<a href="sfpca.html">Sparse and Functional PCA</a>: fit sparse,
+smooth factors.</li>
+<li>
+<a href="gplssvd-reference.html">Generalized PLS-SVD</a>: relate two
+data blocks, with an explicit whitening reference for contributors.</li>
+</ul>
+<p>The remaining sections explain the mathematics and notation behind
+the fit.</p>
 </div>
 <div class="section level2">
 <h2 id="the-decomposition">The decomposition<a class="anchor" aria-label="anchor" href="#the-decomposition"></a>
 </h2>
 <div class="section level3">
-<h3 id="two-metrics-one-inner-product">Two metrics, one inner product<a class="anchor" aria-label="anchor" href="#two-metrics-one-inner-product"></a>
+<h3 id="two-metrics-one-weighted-objective">Two metrics, one weighted objective<a class="anchor" aria-label="anchor" href="#two-metrics-one-weighted-objective"></a>
 </h3>
 <p>Let
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
@@ -125,7 +265,7 @@ observations;</li>
 the <strong>column metric</strong>, which puts a geometry on the space
 of variables.</li>
 </ul>
-<p>Together they define an inner product on
+<p>For positive definite metrics, they define an inner product on
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \times p</annotation></semantics></math>
 matrices,</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>Y</mi><mo>,</mo><mi>Z</mi><msub><mo stretchy="false" form="postfix">⟩</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mrow><mi mathvariant="normal">tr</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Y</mi><mi>⊤</mi></msup><mi>M</mi><mi>Z</mi><mi>A</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><mo stretchy="false" form="postfix">∥</mo><mi>Y</mi><msubsup><mo stretchy="false" form="postfix">∥</mo><mrow><mi>M</mi><mo>,</mo><mi>A</mi></mrow><mn>2</mn></msubsup><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mrow><mi mathvariant="normal">tr</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Y</mi><mi>⊤</mi></msup><mi>M</mi><mi>Y</mi><mi>A</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">\langle Y, Z \rangle_{M,A} \;=\; \operatorname{tr}\!\left(Y^{\top} M Z A\right),
@@ -135,8 +275,11 @@ matrices,</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msub><mi>I</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">M = I_n</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msub><mi>I</mi><mi>p</mi></msub></mrow><annotation encoding="application/x-tex">A = I_p</annotation></semantics></math>
-this is the ordinary Frobenius inner product, and everything below
-collapses to the familiar SVD and PCA.</p>
+this is the ordinary Frobenius inner product, and the decomposition
+reduces to the familiar SVD and PCA. Singular PSD metrics instead define
+a seminorm: directions in their null spaces have zero weight. Here
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+denotes the preprocessed data, after centering if requested.</p>
 </div>
 <div class="section level3">
 <h3 id="the-problem-it-solves">The problem it solves<a class="anchor" aria-label="anchor" href="#the-problem-it-solves"></a>
@@ -171,16 +314,18 @@ whiten the data,</p>
 Then</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>=</mo><msup><mi>M</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mover><mi>U</mi><mo accent="true">̃</mo></mover><mo>,</mo><mspace width="2.0em"></mspace><mi>V</mi><mo>=</mo><msup><mi>A</mi><mrow><mi>−</mi><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><mover><mi>V</mi><mo accent="true">̃</mo></mover><mo>,</mo><mspace width="2.0em"></mspace><mi>D</mi><mrow><mspace width="0.333em"></mspace><mtext mathvariant="normal"> unchanged</mtext></mrow></mrow><annotation encoding="application/x-tex">U = M^{-1/2}\widetilde{U}, \qquad V = A^{-1/2}\widetilde{V}, \qquad D \text{ unchanged}</annotation></semantics></math></p>
 <p>solves the problem above (with pseudo-inverses when a metric is
-singular). That is the whole idea: <strong>GMD is an SVD performed in a
-different coordinate system.</strong> Everything else is bookkeeping and
-computation.</p>
-<p>Eliminating the whitening gives the form the solvers actually use —
-an eigenproblem for a single operator,</p>
+singular). GMD is therefore an SVD in the coordinates selected by the
+metrics.</p>
+<p>For positive definite metrics, eliminating the whitening gives the
+eigenproblem</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi><mi>A</mi><mspace width="0.167em"></mspace><msub><mi>v</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><msubsup><mi>d</mi><mi>k</mi><mn>2</mn></msubsup><mspace width="0.167em"></mspace><msub><mi>v</mi><mi>k</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>v</mi><mi>k</mi><mi>⊤</mi></msubsup><mi>A</mi><msub><mi>v</mi><mi>k</mi></msub><mo>=</mo><mn>1</mn><mo>,</mo></mrow><annotation encoding="application/x-tex">X^{\top} M X A \, v_k \;=\; d_k^{2}\, v_k, \qquad v_k^{\top} A v_k = 1,</annotation></semantics></math></p>
 <p>and the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>-th
 generalized principal component (the score vector) is</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><mi>X</mi><mi>A</mi><msub><mi>v</mi><mi>k</mi></msub><mspace width="0.278em"></mspace><mo>=</mo><mspace width="0.278em"></mspace><msub><mi>d</mi><mi>k</mi></msub><mspace width="0.167em"></mspace><msub><mi>u</mi><mi>k</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">z_k \;=\; X A v_k \;=\; d_k\, u_k .</annotation></semantics></math></p>
+<p>For singular metrics, the pseudo-inverse factors solve the problem on
+the metrics’ supported subspaces; the identities above need the
+corresponding projections when interpreted outside those subspaces.</p>
 <p>In the package these are <code>components(fit)</code>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><mi>A</mi><mspace width="0.167em"></mspace></mrow><annotation encoding="application/x-tex">= A\,</annotation></semantics></math><code>ov</code>
 for the loadings and <code>scores(fit)</code>
@@ -238,371 +383,53 @@ does the same with sparse precision matrices.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="relation-to-the-french-school">Relation to the French school<a class="anchor" aria-label="anchor" href="#relation-to-the-french-school"></a>
+<h2 id="choosing-structured-metrics">Choosing structured metrics<a class="anchor" aria-label="anchor" href="#choosing-structured-metrics"></a>
 </h2>
-<p>Readers coming from <em>analyse des données</em> will recognize all
-of this. The French tradition — Benzécri’s correspondence analysis,
-formalized by Escoufier as the <strong>duality diagram</strong> —
-describes an analysis by a <em>triplet</em>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>X</mi><mo>,</mo><mi>Q</mi><mo>,</mo><mi>D</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(X, Q, D)</annotation></semantics></math>:
-a data table, a metric on the variable space, and a set of row masses.
-The analysis is then the eigendecomposition of the operator
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>X</mi><mi>⊤</mi></msup><mi>D</mi><mi>X</mi><mi>Q</mi></mrow><annotation encoding="application/x-tex">X^{\top} D X Q</annotation></semantics></math>.
-That is, term for term, the eigenproblem two sections above.
-Correspondence analysis, multiple correspondence analysis, principal
-coordinates, discriminant analysis, canonical correlation, and PLS are
-all recovered by choosing the triplet appropriately; the
-<code>ade4</code> package is built directly on this formalism, and
-Abdi’s papers on the generalized SVD — cited in this package’s
-<code>DESCRIPTION</code> — are the same construction in English.</p>
-<p>The one genuine trap is notation:
-<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>
-means opposite things in the two literatures.</strong></p>
-<table class="table">
-<thead><tr class="header">
-<th align="left">Role</th>
-<th align="left"><code>genpca</code></th>
-<th align="left">Allen et al. (2014)</th>
-<th align="left">Duality diagram</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td align="left">Row metric / observation weights</td>
-<td align="left"><code>M</code></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>D</mi><annotation encoding="application/x-tex">D</annotation></semantics></math></td>
-</tr>
-<tr class="even">
-<td align="left">Column metric / variable geometry</td>
-<td align="left"><code>A</code></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
-</tr>
-</tbody>
-</table>
-<p>What Allen, Grosenick &amp; Taylor contribute on top of the classical
-theory is less the geometry than the framing and the machinery: the
-decomposition is posed as a <em>best
-rank-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-approximation</em> with an optimality theorem rather than only an
-eigenanalysis; the metrics are allowed to be large, dense, and
-structured (spatial kernels, temporal covariances) instead of the
-diagonal weights typical of the classical treatments; and the
-formulation extends cleanly to regularized and sparse variants, which is
-what <code><a href="../reference/sfpca.html">sfpca()</a></code> implements.</p>
-</div>
-<div class="section level2">
-<h2 id="where-this-pays-off">Where this pays off<a class="anchor" aria-label="anchor" href="#where-this-pays-off"></a>
-</h2>
-<p><strong>Genomics and microbiome data.</strong> Genes in a pathway or
-taxa on a phylogeny are not exchangeable. A column metric built from a
-gene-network Laplacian or a phylogenetic distance encodes that, so
-components respect known biology; double principal coordinate analysis
-is precisely this choice of triplet. On the row side, a diagonal
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
-down-weights samples with low sequencing depth, and a kinship matrix as
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
-absorbs relatedness.</p>
-<p><strong>Imaging.</strong> In fMRI the natural table is time
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
-voxels. Neighbouring voxels are correlated, so an
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-built from the voxel adjacency graph or a spatial smoothing operator
-yields spatially coherent components instead of salt-and-pepper maps —
-the motivating example in Allen et al. On the row side,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
-can carry AR(1) temporal whitening or simply down-weight
-motion-corrupted frames.</p>
-<p><strong>Time series and functional data.</strong> When the variables
-are ordered — time points, wavelengths, positions along a transect — you
-usually want loadings that vary smoothly rather than jumping between
-neighbours. GPCA delivers that through the metric, which is Silverman’s
-“smoothing by choice of norm” construction: components become smooth
-functions of the index. This is the foundation <code><a href="../reference/sfpca.html">sfpca()</a></code>
-builds on, adding sparsity to smoothness.</p>
-<p>One direction trap is worth stating explicitly, because the two
-interfaces in this package take <em>opposite</em> inputs. Write
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Ω</mi><mo>=</mo><msubsup><mi>D</mi><mn>2</mn><mi>⊤</mi></msubsup><msub><mi>D</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\Omega = D_2^{\top}D_2</annotation></semantics></math>
-for a second-difference roughness operator, so that
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mi mathvariant="normal">Ω</mi><mi>v</mi></mrow><annotation encoding="application/x-tex">v^{\top}\Omega v</annotation></semantics></math>
-is large for wiggly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>.</p>
+<p>Use <a href="gpca-metrics.html">GPCA Metrics: Building M and A</a>
+for runnable recipes. The direction of the weighting matters:</p>
 <ul>
-<li>In <code><a href="../reference/genpca.html">genpca()</a></code>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-is a <strong>metric</strong>, and a metric amplifies its own dominant
-directions, since the loadings are
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mi>V</mi></mrow><annotation encoding="application/x-tex">AV</annotation></semantics></math>
-rather than
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>.
-To get smooth loadings, pass a <em>smoothing</em> operator —
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">A = (I + \alpha\Omega)^{-1}</annotation></semantics></math>,
-or a kernel or adjacency matrix, as in the banded example above. Passing
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Ω</mi><annotation encoding="application/x-tex">\Omega</annotation></semantics></math>
-itself makes loadings <strong>rougher</strong>, not smoother.</li>
-<li>In <code><a href="../reference/sfpca.html">sfpca()</a></code>, the same information enters as a
-<strong>constraint</strong>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>v</mi><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi mathvariant="normal">Ω</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mi>v</mi><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">v^{\top}(I + \alpha\Omega)\,v \le 1</annotation></semantics></math>,
-which charges wiggly
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>v</mi><annotation encoding="application/x-tex">v</annotation></semantics></math>
-against a fixed budget. There you supply the roughness operator directly
-(via <code>alpha_v</code> and <code>spat_cds</code>), and larger
-<code>alpha_v</code> means smoother.</li>
-</ul>
-<p>Metric form and constraint form are inverse to one another; mixing
-them up silently produces the opposite of what you wanted, so it is
-worth checking the smoothness of your loadings against a small sweep of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>α</mi><annotation encoding="application/x-tex">\alpha</annotation></semantics></math>.</p>
-<p><strong>Space
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
-time.</strong> The case where both metrics earn their keep at once:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
-from the temporal covariance,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
-from the spatial covariance, on a single space-by-time table. Under a
-separable noise model this is exactly the maximum-likelihood fit from
-the statistics reading above, which makes it the principled choice
-rather than a convenient one. The same structure appears in EEG and MEG
-(sensor covariance estimated from empty-room noise), in climate fields,
-and generally in any table whose two margins each carry their own
-dependence.</p>
-</div>
-<div class="section level2">
-<h2 id="how-the-package-computes-it">How the package computes it<a class="anchor" aria-label="anchor" href="#how-the-package-computes-it"></a>
-</h2>
-<p>The literal recipe — form
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>M</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">M^{1/2}</annotation></semantics></math>
+<li>To favour smooth column loadings, start with a PSD kernel or a
+smoother such as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>α</mi><mi>L</mi><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">A = (I + \alpha L)^{-1}</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>
+is a graph Laplacian. A raw adjacency or distance matrix need not be PSD
+and cannot be used without a valid metric construction.</li>
+<li>To account for correlated noise, use its <strong>inverse
+covariance</strong>. For a time-by-voxel table with separable Gaussian
+noise, choose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msubsup><mi mathvariant="normal">Σ</mi><mrow><mi mathvariant="normal">t</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">e</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msubsup></mrow><annotation encoding="application/x-tex">M = \Sigma_{\mathrm{time}}^{-1}</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>A</mi><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow></msup><annotation encoding="application/x-tex">A^{1/2}</annotation></semantics></math>,
-whiten, take an SVD — costs
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>n</mi><mn>3</mn></msup><mo>+</mo><msup><mi>p</mi><mn>3</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(n^3 + p^3)</annotation></semantics></math>
-and densifies everything in sight. That is fine for small dense problems
-and hopeless for a spatial metric over 200,000 voxels. So
-<code><a href="../reference/genpca.html">genpca()</a></code> offers several backends that compute the same
-decomposition by different routes:</p>
-<table class="table">
-<colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th align="left"><code>method</code></th>
-<th align="left">Approach</th>
-<th align="left">Best for</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td align="left"><code>"eigen"</code></td>
-<td align="left">Works on the smaller side: a
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">p \times p</annotation></semantics></math>
-Gram eigenproblem when
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>≥</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \ge p</annotation></semantics></math>,
-an
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">n \times n</annotation></semantics></math>
-one when
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>&lt;</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n &lt; p</annotation></semantics></math>.
-Metric square roots are cached.</td>
-<td align="left">Small to medium dense problems (the default)</td>
-</tr>
-<tr class="even">
-<td align="left"><code>"spectra"</code></td>
-<td align="left">Iterative. Factors each metric once
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msub><mi>F</mi><mi>M</mi></msub><msubsup><mi>F</mi><mi>M</mi><mi>⊤</mi></msubsup></mrow><annotation encoding="application/x-tex">M = F_M F_M^{\top}</annotation></semantics></math>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msub><mi>F</mi><mi>A</mi></msub><msubsup><mi>F</mi><mi>A</mi><mi>⊤</mi></msubsup></mrow><annotation encoding="application/x-tex">A = F_A F_A^{\top}</annotation></semantics></math>:
-diagonal, Cholesky, sparse Cholesky, or an eigen factor for a singular
-metric) and hands the <em>action</em> of the whitened matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>F</mi><mi>M</mi><mi>⊤</mi></msubsup><mi>X</mi><msub><mi>F</mi><mi>A</mi></msub></mrow><annotation encoding="application/x-tex">F_M^{\top} X F_A</annotation></semantics></math>
-to eigencore’s partial SVD; neither the whitened matrix nor the Gram
-matrix is ever formed.</td>
-<td align="left">Large problems where few components are needed</td>
-</tr>
-<tr class="odd">
-<td align="left"><code>"randomized"</code></td>
-<td align="left">Randomized range finder with power iterations and a
-polish step, all in the metric geometry.</td>
-<td align="left">Wide
-(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>≫</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">p \gg n</annotation></semantics></math>),
-low-rank problems</td>
-</tr>
-<tr class="even">
-<td align="left"><code>"deflation"</code></td>
-<td align="left">Generalized power iteration one component at a time,
-with the residual applied implicitly so sparse inputs stay sparse.</td>
-<td align="left">Tight memory budgets</td>
-</tr>
-</tbody>
-</table>
-<p>Underneath, metrics are handled as operator closures rather than
-materialized matrices, with element-wise fast paths for diagonal metrics
-and Cholesky factors for general SPD ones. <code><a href="../reference/genpca_cov.html">genpca_cov()</a></code>
-covers the case where you only have the cross-product
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi><mo>=</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi></mrow><annotation encoding="application/x-tex">C = X^{\top}MX</annotation></semantics></math>
-rather than
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-itself. The backends are mathematically equivalent and the test suite
-asserts they agree; they differ only in cost and in the accuracy
-trade-offs of iterative solvers.</p>
-<div class="section level3">
-<h3 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
-</h3>
-<p>Allen, G. I., Grosenick, L., &amp; Taylor, J. (2014). A generalized
-least-square matrix decomposition. <em>Journal of the American
-Statistical Association</em>, 109(505), 145–159.</p>
-<p>Escoufier, Y. (1987). The duality diagram: a means for better
-practical applications. In <em>Development in Numerical Ecology</em>.
-Springer.</p>
-<p>Holmes, S. (2008). Multivariate data analysis: the French way. In
-<em>Probability and Statistics: Essays in Honor of David A.
-Freedman</em>. IMS.</p>
-<p>Dray, S., &amp; Dufour, A.-B. (2007). The ade4 package: implementing
-the duality diagram for ecologists. <em>Journal of Statistical
-Software</em>, 22(4).</p>
-<p>Silverman, B. W. (1996). Smoothed functional principal components
-analysis by choice of norm. <em>The Annals of Statistics</em>, 24(1),
-1–24.</p>
-</div>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msubsup><mi mathvariant="normal">Σ</mi><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">p</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">c</mi><mi mathvariant="normal">e</mi></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msubsup></mrow><annotation encoding="application/x-tex">A = \Sigma_{\mathrm{space}}^{-1}</annotation></semantics></math>.
+The row metric acts on time and the column metric on space. A covariance
+model for related samples likewise enters through its inverse when the
+goal is noise whitening.</li>
+<li>
+<code><a href="../reference/sfpca.html">sfpca()</a></code> encourages smooth, sparse factors through a
+different constraint. Its spatial penalty is built from
+<code>spat_cds</code>; increasing <code>alpha_v</code> strengthens that
+penalty. See <a href="sfpca.html">Sparse and Functional PCA</a> before
+transferring tuning choices between the two interfaces.</li>
+</ul>
+<p>A Laplacian as <code>A</code> emphasizes contrasts across graph
+edges; its inverse (with a ridge to make it invertible) emphasizes
+smooth directions. Select between these according to whether smooth
+variation is signal or nuisance.</p>
 </div>
 <div class="section level2">
-<h2 id="row-weights-diagonal-metric">Row weights (diagonal metric)<a class="anchor" aria-label="anchor" href="#row-weights-diagonal-metric"></a>
+<h2 id="choosing-a-backend">Choosing a backend<a class="anchor" aria-label="anchor" href="#choosing-a-backend"></a>
 </h2>
-<p>A diagonal <code>M</code> says “weight observation <code>i</code> by
-<code>m_ii</code>.” Useful when rows represent groups of different
-sizes, or when some rows are more reliable than others.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">row_wt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span>, <span class="fl">0.5</span>, <span class="fl">1.5</span><span class="op">)</span></span>
-<span><span class="va">M</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">row_wt</span><span class="op">)</span></span>
-<span><span class="va">fit_row</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_row</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;             PC1         PC2        PC3</span></span>
-<span><span class="co">#&gt; Obs1  0.7120376 -0.66586763  0.3811552</span></span>
-<span><span class="co">#&gt; Obs2  1.8471851 -1.09234435 -0.5769734</span></span>
-<span><span class="co">#&gt; Obs3  0.1803497  3.08148414  1.3099005</span></span>
-<span><span class="co">#&gt; Obs4 -1.8055237 -0.08106447 -2.1575624</span></span></code></pre></div>
-<div class="figure">
-<img src="genpca_files/figure-html/row-compare-1.png" class="r-plt" alt="Identity (left) vs row-weighted (right) component scores. Symbol size in the right panel scales with row weight." width="85%"><p class="caption">
-Identity (left) vs row-weighted (right) component scores. Symbol size in
-the right panel scales with row weight.
-</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="column-structure-smoothness">Column structure (smoothness)<a class="anchor" aria-label="anchor" href="#column-structure-smoothness"></a>
-</h2>
-<p>A non-identity column metric encodes prior structure on the
-variables. Here we add a small AR-style coupling between adjacent
-columns:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span></span>
-<span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">p</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">A</span><span class="op">[</span><span class="va">i</span>, <span class="va">i</span> <span class="op">+</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0.15</span></span>
-<span>  <span class="va">A</span><span class="op">[</span><span class="va">i</span> <span class="op">+</span> <span class="fl">1</span>, <span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0.15</span></span>
-<span><span class="op">}</span></span>
-<span><span class="va">A</span> <span class="op">&lt;-</span> <span class="va">A</span> <span class="op">+</span> <span class="fl">0.05</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span></span>
-<span><span class="va">fit_col</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">fit_col</span><span class="op">$</span><span class="va">sdev</span></span>
-<span><span class="co">#&gt; [1] 14.79937 14.00442 13.28632</span></span></code></pre></div>
-<div class="figure">
-<img src="genpca_files/figure-html/col-metric-plot-1.png" class="r-plt" alt="Banded column metric A (left) and the resulting PC1 loadings, identity vs A (right). The banded A pulls adjacent loadings together, suppressing high-frequency wiggle." width="85%"><p class="caption">
-Banded column metric A (left) and the resulting PC1 loadings, identity
-vs A (right). The banded A pulls adjacent loadings together, suppressing
-high-frequency wiggle.
-</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="choosing-the-number-of-components">Choosing the number of components<a class="anchor" aria-label="anchor" href="#choosing-the-number-of-components"></a>
-</h2>
-<p><code>fit$sdev</code> holds the generalized singular values
-<code>d_k</code> of the metric-whitened data, not standard deviations:
-with identity metrics and centering, <code>fit$sdev</code> equals
-<code>prcomp(X)$sdev * sqrt(nrow(X) - 1)</code>. A scree plot of the
-squared values is the quickest first look:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/barplot.html" class="external-link">barplot</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span><span class="op">^</span><span class="fl">2</span>,</span>
-<span>        names.arg <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"PC"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">sdev</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>        xlab <span class="op">=</span> <span class="st">"Component"</span>, ylab <span class="op">=</span> <span class="st">"Squared generalized singular value"</span>,</span>
-<span>        col <span class="op">=</span> <span class="st">"grey60"</span>, border <span class="op">=</span> <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
-<div class="figure">
-<img src="genpca_files/figure-html/scree-1.png" class="r-plt" alt="Squared generalized singular value by component." width="85%"><p class="caption">
-Squared generalized singular value by component.
-</p>
-</div>
-<p>For a more principled choice, split the rows into train and holdout,
-fit on the training set, and compare holdout reconstruction error across
-values of <code>ncomp</code>. With informative metrics, a small
-<code>ncomp</code> often beats a larger unweighted PCA.</p>
-</div>
-<div class="section level2">
-<h2 id="real-data-usarrests">Real data: USArrests<a class="anchor" aria-label="anchor" href="#real-data-usarrests"></a>
-</h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"USArrests"</span><span class="op">)</span></span>
-<span><span class="va">X_real</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">USArrests</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Murder"</span>, <span class="st">"Assault"</span>, <span class="st">"Rape"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="va">pop_wt</span>  <span class="op">&lt;-</span> <span class="va">USArrests</span><span class="op">$</span><span class="va">UrbanPop</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">USArrests</span><span class="op">$</span><span class="va">UrbanPop</span><span class="op">)</span></span>
-<span><span class="va">M_real</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">pop_wt</span><span class="op">)</span></span>
-<span><span class="va">col_sd</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">X_real</span>, <span class="fl">2</span>, <span class="va">sd</span><span class="op">)</span></span>
-<span><span class="va">A_real</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/Matrix/man/Diagonal.html" class="external-link">Diagonal</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">col_sd</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit_real</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X_real</span>, M <span class="op">=</span> <span class="va">M_real</span>, A <span class="op">=</span> <span class="va">A_real</span>, ncomp <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>                   preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">scores2d</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit_real</span><span class="op">)</span></span></code></pre></div>
-<div class="figure">
-<img src="genpca_files/figure-html/usarrests-plot-1.png" class="r-plt" alt="GPCA on USArrests with row weights from urbanisation and column weights inversely proportional to variance." width="85%"><p class="caption">
-GPCA on USArrests with row weights from urbanisation and column weights
-inversely proportional to variance.
-</p>
-</div>
-<p>PC1 separates states by overall violent-crime rate, with
-high-urbanisation states pulled toward the high end through the row
-weights. PC2 picks up the residual contrast between assault-heavy and
-rape-heavy states once the dominant rate axis is removed.</p>
-</div>
-<div class="section level2">
-<h2 id="object-verbs">Object verbs<a class="anchor" aria-label="anchor" href="#object-verbs"></a>
-</h2>
-<p><code><a href="../reference/genpca.html">genpca()</a></code> returns a <code>bi_projector</code> from the
-<code>multivarious</code> ecosystem. The verbs you reach for most:</p>
-<table class="table">
-<colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
-</colgroup>
-<thead><tr class="header">
-<th align="left">Verb</th>
-<th align="left">Returns</th>
-<th align="left">What it gives you</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td align="left"><code>multivarious::scores(fit)</code></td>
-<td align="left"><code>n x k</code></td>
-<td align="left">Observation coordinates in component space</td>
-</tr>
-<tr class="even">
-<td align="left"><code>multivarious::components(fit)</code></td>
-<td align="left"><code>p x k</code></td>
-<td align="left">Loadings (variable directions)</td>
-</tr>
-<tr class="odd">
-<td align="left"><code>multivarious::project(fit, X_new)</code></td>
-<td align="left"><code>n_new x k</code></td>
-<td align="left">Out-of-sample scores</td>
-</tr>
-<tr class="even">
-<td align="left"><code>reconstruct(fit, comp = 1:k)</code></td>
-<td align="left"><code>n x p</code></td>
-<td align="left">Rank-<code>k</code> reconstruction of
-<code>X</code>
-</td>
-</tr>
-</tbody>
-</table>
-<p>These verbs are shared across <code><a href="../reference/genpca.html">genpca()</a></code>,
-<code><a href="../reference/genpls.html">genpls()</a></code>, <code><a href="../reference/sfpca.html">sfpca()</a></code>, and <code><a href="../reference/rpls.html">rpls()</a></code>, so
-once you learn them on <code>genpca</code> they carry over.</p>
+<p>The default <code>method = "eigen"</code> uses a Gram eigenproblem on
+the smaller side of the data. <code>"spectra"</code> usually applies
+eigencore’s partial SVD to a whitened operator, with a dense fallback
+and a small-side Gram route for a singular large-side metric.
+<code>"randomized"</code> approximates a leading subspace;
+<code>"deflation"</code> extracts components one at a time and can
+preserve sparse data.</p>
+<p>Neither <code>"spectra"</code> nor <code>"randomized"</code>
+preserves sparse <code>X</code>: both make a dense data copy. Metric
+factorizations and fallback storage also matter. <a href="gpca-scale.html">GPCA at Scale</a> describes those costs, the
+<code>maxeig</code> guard, and the covariance-only interface.</p>
 </div>
 <div class="section level2">
 <h2 id="what-are-ou-ov-u-and-v">What are <code>ou</code>, <code>ov</code>, <code>u</code>, and
@@ -650,38 +477,91 @@ the verbs:</p>
 <tr class="even">
 <td align="left">
 <code>s</code> (<code>scores(fit)</code>)</td>
-<td align="left"><code>X %*% A %*% ov = ou %*% diag(sdev)</code></td>
-<td align="left">Equal to <code>project(fit, X)</code> on the training
-data</td>
+<td align="left"><code>ou %*% diag(sdev)</code></td>
+<td align="left">Stored training scores</td>
 </tr>
 </tbody>
 </table>
-<p>In other words, <code>scores(fit)</code> and
-<code>project(fit, X)</code> compute the same quantity two ways – one
-directly from <code>X</code> and the column loadings, the other from the
-stored orthonormal factors and the singular values – and they agree
-exactly on the training data.</p>
+<p>Here the decomposition applies to the preprocessed matrix
+<code>Xp</code>, not raw <code>X</code>. For positive definite metrics,
+the score formula is <code>Xp %*% A %*% ov</code>.
+<code>project()</code> applies the stored preprocessing before
+multiplying by the projection weights. With singular metrics, null-space
+representatives can make projected coordinates differ from the stored
+factor scores outside the weighted subspace.</p>
 </div>
 <div class="section level2">
-<h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
+<h2 id="relation-to-the-french-school">Relation to the French school<a class="anchor" aria-label="anchor" href="#relation-to-the-french-school"></a>
 </h2>
-<ul>
-<li>
-<code><a href="../articles/gpca-metrics.html">vignette("gpca-metrics")</a></code> covers metric recipes (AR(1),
-spatial kernels, graph Laplacians), the smoother-versus-precision
-orientation rule, and the <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> learner.</li>
-<li>
-<code><a href="../articles/structured-noise.html">vignette("structured-noise")</a></code> works out which noise a
-metric can and cannot remove, with worked simulations – start here if
-your data has several kinds of structure at once.</li>
-<li>
-<code><a href="../articles/gpca-scale.html">vignette("gpca-scale")</a></code> covers backends, sparse
-workflows, and covariance-only GPCA.</li>
-<li>
-<code><a href="../articles/gplssvd-reference.html">vignette("gplssvd-reference")</a></code> covers the generalized
-PLS / PLS-SVD interface and includes a contributor-oriented reference
-implementation.</li>
-</ul>
+<p>Readers coming from <em>analyse des données</em> will recognize all
+of this. The French tradition — Benzécri’s correspondence analysis,
+formalized by Escoufier as the <strong>duality diagram</strong> —
+describes an analysis by a <em>triplet</em>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>X</mi><mo>,</mo><mi>Q</mi><mo>,</mo><mi>D</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(X, Q, D)</annotation></semantics></math>:
+a data table, a metric on the variable space, and a set of row masses.
+The analysis is then the eigendecomposition of the operator
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>X</mi><mi>⊤</mi></msup><mi>D</mi><mi>X</mi><mi>Q</mi></mrow><annotation encoding="application/x-tex">X^{\top} D X Q</annotation></semantics></math>.
+That is, term for term, the eigenproblem in <a href="#the-decomposition">The decomposition</a>. Correspondence
+analysis, multiple correspondence analysis, principal coordinates,
+discriminant analysis, canonical correlation, and PLS are all recovered
+by choosing the triplet appropriately; the <code>ade4</code> package is
+built directly on this formalism, and Abdi’s papers on the generalized
+SVD — cited in this package’s <code>DESCRIPTION</code> — are the same
+construction in English.</p>
+<p>Watch the notation:
+<strong><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>
+means opposite things in the two literatures.</strong></p>
+<table class="table">
+<thead><tr class="header">
+<th align="left">Role</th>
+<th align="left"><code>genpca</code></th>
+<th align="left">Allen et al. (2014)</th>
+<th align="left">Duality diagram</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">Row metric / observation weights</td>
+<td align="left"><code>M</code></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>D</mi><annotation encoding="application/x-tex">D</annotation></semantics></math></td>
+</tr>
+<tr class="even">
+<td align="left">Column metric / variable geometry</td>
+<td align="left"><code>A</code></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math></td>
+</tr>
+</tbody>
+</table>
+<p>What Allen, Grosenick &amp; Taylor contribute on top of the classical
+theory is less the geometry than the framing and the machinery: the
+decomposition is posed as a <em>best
+rank-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+approximation</em> with an optimality theorem rather than only an
+eigenanalysis; the metrics are allowed to be large, dense, and
+structured (spatial kernels, temporal covariances) instead of the
+diagonal weights typical of the classical treatments; and the
+formulation extends cleanly to regularized and sparse variants, which is
+what <code><a href="../reference/sfpca.html">sfpca()</a></code> implements.</p>
+</div>
+<div class="section level2">
+<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<p>Allen, G. I., Grosenick, L., &amp; Taylor, J. (2014). A generalized
+least-square matrix decomposition. <em>Journal of the American
+Statistical Association</em>, 109(505), 145–159.</p>
+<p>Escoufier, Y. (1987). The duality diagram: a means for better
+practical applications. In <em>Development in Numerical Ecology</em>.
+Springer.</p>
+<p>Holmes, S. (2008). Multivariate data analysis: the French way. In
+<em>Probability and Statistics: Essays in Honor of David A.
+Freedman</em>. IMS.</p>
+<p>Dray, S., &amp; Dufour, A.-B. (2007). The ade4 package: implementing
+the duality diagram for ecologists. <em>Journal of Statistical
+Software</em>, 22(4).</p>
+<p>Silverman, B. W. (1996). Smoothed functional principal components
+analysis by choice of norm. <em>The Annals of Statistics</em>, 24(1),
+1–24.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
