@@ -208,7 +208,10 @@ forward and inverse factors.</p></dd>
 
 
 <dt id="arg-jitter-metric">jitter_metric<a class="anchor" aria-label="anchor" href="#arg-jitter-metric"></a></dt>
-<dd><p>Jitter used in metric orthonormalization for <code>method = "randomized"</code>, relative to the scale of the block Gram matrix. Default <code>1e-10</code>.</p></dd>
+<dd><p>Relative Gram jitter for the candidate Cholesky
+preconditioner in <code>method = "randomized"</code>. The basis is checked
+in the original metric; a failed check uses rank-revealing
+orthonormalization instead. Default <code>1e-10</code>.</p></dd>
 
 
 <dt id="arg-seed-randomized">seed_randomized<a class="anchor" aria-label="anchor" href="#arg-seed-randomized"></a></dt>

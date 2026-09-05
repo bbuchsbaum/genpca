@@ -171,8 +171,10 @@ genpca(
 
 - jitter_metric:
 
-  Jitter used in metric orthonormalization for `method = "randomized"`,
-  relative to the scale of the block Gram matrix. Default `1e-10`.
+  Relative Gram jitter for the candidate Cholesky preconditioner in
+  `method = "randomized"`. The basis is checked in the original metric;
+  a failed check uses rank-revealing orthonormalization instead. Default
+  `1e-10`.
 
 - seed_randomized:
 

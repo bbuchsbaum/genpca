@@ -42,13 +42,14 @@
 <h2 class="pkg-version" data-toc-text="0.2.0" id="genpca-020">genpca 0.2.0<a class="anchor" aria-label="anchor" href="#genpca-020"></a></h2>
 <div class="section level4">
 <h4 id="release-review-fixes-0-2-0">Release review fixes<a class="anchor" aria-label="anchor" href="#release-review-fixes-0-2-0"></a></h4>
-<ul><li>Strictly positive diagonal weights are retained in both forward and inverse metric factors. Previously a small positive weight could contribute a large singular value while its recovered loading was zero. The fix covers GPCA, covariance PCA and PLS operators, including base-matrix diagonal inputs.</li>
-<li>Both deflation implementations now separate <code>rank_rtol</code> from the iteration <code>threshold</code>. All backends also apply a common final component filter. Empty C++ deflation results return empty singular-value and variance vectors.</li>
-<li>Incomplete eigencore results raise <code>genpca_solver_nonconvergence</code>. Existing dense fallbacks handle this error; operator callers without a fallback stop instead of returning an unchecked fit.</li>
-<li>Explicit <code>"clip"</code> repairs remove negative eigenvalues even within the PSD validation tolerance and report the change, up to reconstruction roundoff.</li>
-<li>
-<code><a href="../reference/geigen_cov.html">geigen_cov()</a></code> documents its projected equation for singular metrics and the range constraint on its vectors. Commuting metrics and covariances need not give the same leading component under GMD and generalized eigenanalysis.</li>
-<li>Rank-cutoff equations render in both PDF and HTML manuals. Local diagnostic artifacts are excluded from source packages.</li>
+<ul><li><p>Randomized sketches use Gaussian draws and use a deterministic complete basis when the sketch spans a full matrix dimension. Metric orthonormalization verifies the original Gram matrix, corrects residual normalization error, and removes dependent sketch directions without inventing rank through jitter. This fixes seed- and C++-library-dependent component loss on Windows.</p></li>
+<li><p><code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> now separates the penalty effect of reciprocal rescaling (<code>loglik_rescale_delta</code>, exactly zero with <code>scale_fix = "none"</code>) from final refitting and objective reevaluation (<code>loglik_refit_delta</code>). The reported likelihood remains evaluated at the returned fit and metrics.</p></li>
+<li><p>Strictly positive diagonal weights are retained in both forward and inverse metric factors. Previously a small positive weight could contribute a large singular value while its recovered loading was zero. The fix covers GPCA, covariance PCA and PLS operators, including base-matrix diagonal inputs.</p></li>
+<li><p>Both deflation implementations now separate <code>rank_rtol</code> from the iteration <code>threshold</code>. All backends also apply a common final component filter. Empty C++ deflation results return empty singular-value and variance vectors.</p></li>
+<li><p>Incomplete eigencore results raise <code>genpca_solver_nonconvergence</code>. Existing dense fallbacks handle this error; operator callers without a fallback stop instead of returning an unchecked fit.</p></li>
+<li><p>Explicit <code>"clip"</code> repairs remove negative eigenvalues even within the PSD validation tolerance and report the change, up to reconstruction roundoff.</p></li>
+<li><p><code><a href="../reference/geigen_cov.html">geigen_cov()</a></code> documents its projected equation for singular metrics and the range constraint on its vectors. Commuting metrics and covariances need not give the same leading component under GMD and generalized eigenanalysis.</p></li>
+<li><p>Rank-cutoff equations render in both PDF and HTML manuals. Local diagnostic artifacts are excluded from source packages.</p></li>
 </ul></div>
 <div class="section level4">
 <h4 id="numerical-semantics-audit-of-0-2-0">Numerical semantics (audit of 2026-09)<a class="anchor" aria-label="anchor" href="#numerical-semantics-audit-of-0-2-0"></a></h4>

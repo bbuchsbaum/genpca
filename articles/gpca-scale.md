@@ -43,8 +43,8 @@ data.frame(method = c("eigen", "randomized"),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]),
            max_relative_error = c(0, max(abs(fit_rnd$sdev / fit_eig$sdev - 1))))
 #>       method elapsed   top_sv max_relative_error
-#> 1      eigen   0.114 19.48896         0.00000000
-#> 2 randomized   0.008 19.14753         0.01809748
+#> 1      eigen   0.113 19.48896          0.0000000
+#> 2 randomized   0.008 19.26370          0.0301751
 ```
 
 ![The randomized approximation underestimates the reference singular
@@ -55,7 +55,7 @@ The randomized approximation underestimates the reference singular
 values on this full-rank example. The table reports the largest relative
 difference.
 
-The maximum relative difference here is 1.81%. Increase `oversample`,
+The maximum relative difference here is 3.02%. Increase `oversample`,
 `n_power`, or `n_polish` when you need a more accurate approximation,
 then check the accuracy and time on a representative problem.
 

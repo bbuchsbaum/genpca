@@ -102,14 +102,16 @@ A list with elements `fit` (a `genpca` fit computed with the returned
 metrics), `A`, `M` (learned SPD metrics), `loglik` (the penalized
 log-likelihood evaluated at the returned `M`, `A` and `fit`),
 `loglik_unpenalized` (the same without the `lambda` penalty),
-`loglik_rescale_delta` (`loglik` minus the last value of `loglik_path`;
-zero for `scale_fix = "none"`, typically negative otherwise), and
-`loglik_path` (the penalized log-likelihood after each outer iteration;
-monotone non-decreasing up to numerical noise, since every block update
-exactly minimizes the shared penalized objective). Values omit additive
-constants and include the `lambda` penalty, so they are comparable
-across iterations and across runs with the same `lambda`, but not across
-different `lambda` values.
+`loglik_rescale_delta` (the change in the penalty contribution caused
+solely by reciprocal metric rescaling; exactly zero for
+`scale_fix = "none"`), `loglik_refit_delta` (the remaining change from
+the last path value to `loglik`, including final refitting and numerical
+objective reevaluation), and `loglik_path` (the penalized log-likelihood
+after each outer iteration; monotone non-decreasing up to numerical
+noise, since every block update exactly minimizes the shared penalized
+objective). Values omit additive constants and include the `lambda`
+penalty, so they are comparable across iterations and across runs with
+the same `lambda`, but not across different `lambda` values.
 
 ## Details
 

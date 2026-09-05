@@ -433,7 +433,11 @@ Six iterations are an illustration, not evidence of convergence or
 covariance recovery. Keep `lambda` positive and compare results across
 its plausible values. The default `scale_fix = "none"` retains the scale
 selected by the penalized fit; optional `"trace"` or `"det"` rescaling
-changes the penalized objective, reported in `loglik_rescale_delta`.
+changes the penalized objective, reported in `loglik_rescale_delta`. The
+separate `loglik_refit_delta` records the remaining difference between
+the last iteration’s objective and the returned objective, including the
+final refit and numerical reevaluation. With `scale_fix = "none"`, the
+rescale delta is exactly zero even when the refit delta is nonzero.
 
 ## SPD requirements and remedies
 

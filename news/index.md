@@ -4,26 +4,44 @@
 
 #### Release review fixes
 
+- Randomized sketches use Gaussian draws and use a deterministic
+  complete basis when the sketch spans a full matrix dimension. Metric
+  orthonormalization verifies the original Gram matrix, corrects
+  residual normalization error, and removes dependent sketch directions
+  without inventing rank through jitter. This fixes seed- and
+  C++-library-dependent component loss on Windows.
+
+- [`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
+  now separates the penalty effect of reciprocal rescaling
+  (`loglik_rescale_delta`, exactly zero with `scale_fix = "none"`) from
+  final refitting and objective reevaluation (`loglik_refit_delta`). The
+  reported likelihood remains evaluated at the returned fit and metrics.
+
 - Strictly positive diagonal weights are retained in both forward and
   inverse metric factors. Previously a small positive weight could
   contribute a large singular value while its recovered loading was
   zero. The fix covers GPCA, covariance PCA and PLS operators, including
   base-matrix diagonal inputs.
+
 - Both deflation implementations now separate `rank_rtol` from the
   iteration `threshold`. All backends also apply a common final
   component filter. Empty C++ deflation results return empty
   singular-value and variance vectors.
+
 - Incomplete eigencore results raise `genpca_solver_nonconvergence`.
   Existing dense fallbacks handle this error; operator callers without a
   fallback stop instead of returning an unchecked fit.
+
 - Explicit `"clip"` repairs remove negative eigenvalues even within the
   PSD validation tolerance and report the change, up to reconstruction
   roundoff.
+
 - [`geigen_cov()`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md)
   documents its projected equation for singular metrics and the range
   constraint on its vectors. Commuting metrics and covariances need not
   give the same leading component under GMD and generalized
   eigenanalysis.
+
 - Rank-cutoff equations render in both PDF and HTML manuals. Local
   diagnostic artifacts are excluded from source packages.
 

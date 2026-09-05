@@ -531,7 +531,12 @@ results across its plausible values. The default
 <code>scale_fix = "none"</code> retains the scale selected by the
 penalized fit; optional <code>"trace"</code> or <code>"det"</code>
 rescaling changes the penalized objective, reported in
-<code>loglik_rescale_delta</code>.</p>
+<code>loglik_rescale_delta</code>. The separate
+<code>loglik_refit_delta</code> records the remaining difference between
+the last iteration’s objective and the returned objective, including the
+final refit and numerical reevaluation. With
+<code>scale_fix = "none"</code>, the rescale delta is exactly zero even
+when the refit delta is nonzero.</p>
 </div>
 <div class="section level2">
 <h2 id="spd-requirements-and-remedies">SPD requirements and remedies<a class="anchor" aria-label="anchor" href="#spd-requirements-and-remedies"></a>

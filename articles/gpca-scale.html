@@ -154,8 +154,8 @@ not a benchmark.</p>
 <span>           top_sv  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span>,</span>
 <span>           max_relative_error <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">fit_rnd</span><span class="op">$</span><span class="va">sdev</span> <span class="op">/</span> <span class="va">fit_eig</span><span class="op">$</span><span class="va">sdev</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       method elapsed   top_sv max_relative_error</span></span>
-<span><span class="co">#&gt; 1      eigen   0.114 19.48896         0.00000000</span></span>
-<span><span class="co">#&gt; 2 randomized   0.008 19.14753         0.01809748</span></span></code></pre></div>
+<span><span class="co">#&gt; 1      eigen   0.113 19.48896          0.0000000</span></span>
+<span><span class="co">#&gt; 2 randomized   0.008 19.26370          0.0301751</span></span></code></pre></div>
 <div class="figure">
 <img src="gpca-scale_files/figure-html/backend-plot-1.png" class="r-plt" alt="The randomized approximation underestimates the reference singular values on this full-rank example. The table reports the largest relative difference." width="85%"><p class="caption">
 The randomized approximation underestimates the reference singular
@@ -163,7 +163,7 @@ values on this full-rank example. The table reports the largest relative
 difference.
 </p>
 </div>
-<p>The maximum relative difference here is 1.81%. Increase
+<p>The maximum relative difference here is 3.02%. Increase
 <code>oversample</code>, <code>n_power</code>, or <code>n_polish</code>
 when you need a more accurate approximation, then check the accuracy and
 time on a representative problem.</p>

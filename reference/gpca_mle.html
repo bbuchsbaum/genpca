@@ -166,9 +166,11 @@ the returned metrics), <code>A</code>, <code>M</code> (learned SPD metrics),
 <code>loglik</code> (the penalized log-likelihood evaluated at the
 returned <code>M</code>, <code>A</code> and <code>fit</code>),
 <code>loglik_unpenalized</code> (the same without the <code>lambda</code>
-penalty), <code>loglik_rescale_delta</code> (<code>loglik</code> minus the
-last value of <code>loglik_path</code>; zero for
-<code>scale_fix = "none"</code>, typically negative otherwise), and
+penalty), <code>loglik_rescale_delta</code> (the change in the penalty
+contribution caused solely by reciprocal metric rescaling; exactly
+zero for <code>scale_fix = "none"</code>), <code>loglik_refit_delta</code>
+(the remaining change from the last path value to <code>loglik</code>,
+including final refitting and numerical objective reevaluation), and
 <code>loglik_path</code> (the penalized log-likelihood after each outer
 iteration; monotone non-decreasing up to numerical noise, since
 every block update exactly minimizes the shared penalized
