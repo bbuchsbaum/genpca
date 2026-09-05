@@ -125,17 +125,17 @@ test_that("genpca_cov remedies work correctly", {
   G <- G - (abs(min_eig) + 1) * diag(p)  # Make it definitely non-PSD
 
   # Test error remedy (with geigen method since gmd doesn't use constraints_remedy)
-  expect_error(genpca_cov(C, R = G, method = "geigen", constraints_remedy = "error"))
+  expect_error(geigen_cov(C, R = G, constraints_remedy = "error"))
 
   # Test ridge remedy
-  fit_ridge <- genpca_cov(C, R = G, method = "geigen", constraints_remedy = "ridge", ncomp = 2)
+  fit_ridge <- geigen_cov(C, R = G, constraints_remedy = "ridge", ncomp = 2)
   expect_true(all(fit_ridge$d > 0))
 
   # Test clip remedy
-  fit_clip <- genpca_cov(C, R = G, method = "geigen", constraints_remedy = "clip", ncomp = 2)
+  fit_clip <- geigen_cov(C, R = G, constraints_remedy = "clip", ncomp = 2)
   expect_true(all(fit_clip$d > 0))
 
   # Test identity remedy
-  fit_identity <- genpca_cov(C, R = G, method = "geigen", constraints_remedy = "identity", ncomp = 2)
+  fit_identity <- geigen_cov(C, R = G, constraints_remedy = "identity", ncomp = 2)
   expect_true(all(fit_identity$d > 0))
 })

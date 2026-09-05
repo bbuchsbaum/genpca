@@ -24,7 +24,7 @@ kkt_residual_l1 <- function(x, S, b, lambda) {
 
 # Reference solver: long proximal-gradient (ISTA) run
 ista_reference <- function(S, b, lambda, n_iter = 5000) {
-  L <- max(abs(RSpectra::eigs_sym(S, 1, which = "LM")$values))
+  L <- max(abs(eigencore::eigs_sym(S, 1, which = "LM")$values))
   x <- rep(0, length(b))
   for (i in seq_len(n_iter)) {
     y <- x - as.numeric(S %*% x - b) / L

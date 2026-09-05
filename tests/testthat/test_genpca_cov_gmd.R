@@ -14,7 +14,7 @@ test_that("genpca_cov with method='gmd' exactly matches two-sided genpca", {
 
   fit_genpca <- genpca(X, A = NULL, M = NULL, ncomp = k,
                        preproc = multivarious::pass())
-  fit_cov_gmd <- genpca_cov(C, R = NULL, ncomp = k, method = "gmd")
+  fit_cov_gmd <- genpca_cov(C, R = NULL, ncomp = k)
 
   # Should match exactly
   expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
@@ -41,7 +41,7 @@ test_that("genpca_cov GMD matches genpca with column constraint A", {
 
   fit_genpca <- genpca(X, A = A_diag, M = NULL, ncomp = k,
                        preproc = multivarious::pass())
-  fit_cov_gmd <- genpca_cov(C, R = A_diag, ncomp = k, method = "gmd")
+  fit_cov_gmd <- genpca_cov(C, R = A_diag, ncomp = k)
 
   # Now with GMD method, these should match exactly!
   expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
@@ -75,7 +75,7 @@ test_that("genpca_cov GMD matches genpca with row constraint M", {
 
   fit_genpca <- genpca(X, A = NULL, M = M_diag, ncomp = k,
                        preproc = multivarious::pass())
-  fit_cov_gmd <- genpca_cov(C_M, R = NULL, ncomp = k, method = "gmd")
+  fit_cov_gmd <- genpca_cov(C_M, R = NULL, ncomp = k)
 
   # Should match
   expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
@@ -105,7 +105,7 @@ test_that("genpca_cov GMD matches genpca with both M and A constraints", {
 
   fit_genpca <- genpca(X, A = A_diag, M = M_diag, ncomp = k,
                        preproc = multivarious::pass())
-  fit_cov_gmd <- genpca_cov(C_M, R = A_diag, ncomp = k, method = "gmd")
+  fit_cov_gmd <- genpca_cov(C_M, R = A_diag, ncomp = k)
 
   # Should match exactly with GMD method
   expect_equal(fit_genpca$sdev, fit_cov_gmd$d, tolerance = 1e-8,
@@ -151,7 +151,7 @@ test_that("genpca_cov variance explained matches between GMD and two-sided", {
     # Run both methods
     fit_genpca <- genpca(X, A = tc$A, M = tc$M, ncomp = 5,
                          preproc = multivarious::pass())
-    fit_cov_gmd <- genpca_cov(C, R = tc$A, ncomp = 5, method = "gmd")
+    fit_cov_gmd <- genpca_cov(C, R = tc$A, ncomp = 5)
 
     # Variance explained should match
     expect_equal(fit_genpca$propv, fit_cov_gmd$propv, tolerance = 1e-8,
@@ -171,8 +171,8 @@ test_that("genpca_cov correctly identifies method='geigen' vs 'gmd' differences"
   A_diag <- runif(p, 0.5, 2)
   C <- crossprod(X)
 
-  fit_gmd <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
-  fit_geigen <- genpca_cov(C, R = A_diag, ncomp = 5, method = "geigen")
+  fit_gmd <- genpca_cov(C, R = A_diag, ncomp = 5)
+  fit_geigen <- geigen_cov(C, R = A_diag, ncomp = 5)
 
   # Methods should be recorded
   expect_equal(fit_gmd$method, "gmd")

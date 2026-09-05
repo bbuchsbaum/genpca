@@ -14,8 +14,9 @@ gplssvd_op(
   k = 2,
   center = FALSE,
   scale = FALSE,
-  svd_backend = c("RSpectra", "irlba"),
-  svd_opts = list(tol = 1e-07, maxitr = 1000)
+  svd_backend = c("eigencore", "irlba", "RSpectra"),
+  svd_opts = list(tol = 1e-07, maxitr = 1000),
+  constraints_remedy = c("error", "ridge", "clip", "identity")
 )
 }
 \arguments{
@@ -37,11 +38,19 @@ truncated to that maximum.}
 
 \item{center, scale}{Logical; pre-center/scale columns of X, Y before metrics}
 
-\item{svd_backend}{One of "RSpectra" (default) or "irlba". Ignored
+\item{svd_backend}{One of "eigencore" (default) or "irlba"; "RSpectra" is
+accepted as a deprecated alias of "eigencore". Ignored
 whenever both \code{ncol(X) <= 64} and \code{ncol(Y) <= 64}, in which case \code{S} is
 materialized densely and solved with \code{base::svd()}.}
 
-\item{svd_opts}{List of options for the backend (e.g., tol, maxitr)}
+\item{svd_opts}{List of options for the backend: \code{tol} (both backends) and
+\code{maxitr} (irlba only; the eigencore partial SVD has no iteration cap).
+An incomplete eigencore solve raises \code{genpca_solver_nonconvergence};
+try a less stringent \code{tol} if the requested accuracy cannot be reached.}
+
+\item{constraints_remedy}{What to do with a metric that is not positive
+semi-definite: \code{"error"} (default), \code{"ridge"}, \code{"clip"} or \code{"identity"};
+repairs emit a \code{genpca_metric_repaired} warning. See \code{\link[=genpca]{genpca()}}.}
 }
 \value{
 A list with elements:

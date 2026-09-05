@@ -7,7 +7,8 @@
 get_chol_lower_dense(A)
 }
 \arguments{
-\item{A}{numeric or dense Matrix (SPD). If sparse, falls back to dense.}
+\item{A}{numeric or dense Matrix (SPD). Sparse input is an error (it is
+factored sparsely elsewhere), never densified here.}
 }
 \value{
 a base numeric matrix L (lower triangular) with A = L \%*\% t(L)

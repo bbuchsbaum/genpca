@@ -1,112 +1,105 @@
+#' @title Prepare and validate constraint matrices
+#' @description Coerces `A`/`M` (NULL, weight vector, diagonal, dense or
+#' sparse matrix) to `Matrix` objects and validates them: finite entries,
+#' symmetry within roundoff (see [symmetrize_or_stop()]), and positive
+#' semi-definiteness within `tol` relative to the scale of the matrix. The
+#' requested `remedy` is applied to a metric that fails the PSD check (or has
+#' negative eigenvalues within tolerance when explicit clipping is requested),
+#' and every repair emits a warning of class `genpca_metric_repaired` carrying
+#' the [repair_metric()] report; valid PSD metrics, singular ones included,
+#' pass through under every remedy. Explicit clipping removes even negative
+#' eigenvalues within the validation tolerance. Asymmetric input is an error
+#' under every remedy.
+#' @param X data matrix (only its dimensions are used)
+#' @param A,M column/row constraints
+#' @param tol relative PSD tolerance (default `sqrt(.Machine$double.eps)`)
+#' @param remedy what to do with an indefinite metric
+#' @param verbose emit a message when a metric is replaced by the identity
+#' @return list with elements `A` and `M`
 #' @keywords internal
 #' @importFrom assertthat assert_that
-prep_constraints <- function(X, A, M, tol = 1e-6, remedy = c("error", "ridge", "clip", "identity"), verbose = FALSE) {
-  n <- nrow(X)
-  p <- ncol(X)
-
+prep_constraints <- function(X, A, M, tol = .metric_rtol_default(),
+                             remedy = c("error", "ridge", "clip", "identity"),
+                             verbose = FALSE) {
   remedy <- match.arg(remedy)
-
-  # --- Process A (Column constraints) ---
-  if (is.null(A)) {
-    A <- Matrix::Diagonal(p)
-  } else if (is.vector(A)) {
-    assert_that(length(A) == p, msg = "Length of vector A must equal ncol(X)")
-    assert_that(all(A >= -tol), msg = "Diagonal elements of A (from vector) must be non-negative.")
-    A <- Matrix::Diagonal(n = p, x = A)
-  } else {
-    # Ensure it's a Matrix object
-    if (!is(A, "Matrix")) { A <- Matrix::Matrix(A, sparse = FALSE) }
-    assert_that(nrow(A) == p, msg = paste("nrow(A) != ncol(X) -- ", nrow(A), " != ", p))
-    assert_that(ncol(A) == p, msg = paste("ncol(A) != ncol(X) -- ", ncol(A), " != ", p))
-
-    # Handle different remedy types
-    if (remedy == "error") {
-      # For "error" remedy, check symmetry first
-      if (!Matrix::isSymmetric(A)) {
-        stop("Matrix A must be symmetric")
-      }
-      # Check if already SPD without fixing
-      if (!is_spd(A, tol = tol)) {
-        stop("Matrix A must be positive semi-definite")
-      }
-    } else if (remedy == "identity") {
-      # For "identity" remedy, replace with identity if not SPD
-      if (!Matrix::isSymmetric(A) || !is_spd(A, tol = tol)) {
-        if (verbose) message("Matrix A is not SPD, replacing with identity matrix")
-        A <- Matrix::Diagonal(p)
-      }
-    } else if (remedy == "clip") {
-      A <- clip_psd(A, tol = tol)
-    } else {
-      # "ridge": Gershgorin diagonal shift
-      A <- ensure_spd(A, tol = tol)
-    }
-  }
-
-  # --- Process M (Row constraints) ---
-  if (is.null(M)) {
-    M <- Matrix::Diagonal(n)
-  } else if (is.vector(M)) {
-    assert_that(length(M) == n, msg = "Length of vector M must equal nrow(X)")
-    assert_that(all(M >= -tol), msg = "Diagonal elements of M (from vector) must be non-negative.")
-    M <- Matrix::Diagonal(n = n, x = M)
-  } else {
-    # Ensure it's a Matrix object
-    if (!is(M, "Matrix")) { M <- Matrix::Matrix(M, sparse = FALSE) }
-    assert_that(nrow(M) == n, msg = paste("nrow(M) != nrow(X) -- ", nrow(M), " != ", n))
-    assert_that(ncol(M) == n, msg = paste("ncol(M) != nrow(X) -- ", ncol(M), " != ", n))
-
-    # Handle different remedy types
-    if (remedy == "error") {
-      # For "error" remedy, check symmetry first
-      if (!Matrix::isSymmetric(M)) {
-        stop("Matrix M must be symmetric")
-      }
-      # Check if already SPD without fixing
-      if (!is_spd(M, tol = tol)) {
-        stop("Matrix M must be positive semi-definite")
-      }
-    } else if (remedy == "identity") {
-      # For "identity" remedy, replace with identity if not SPD
-      if (!Matrix::isSymmetric(M) || !is_spd(M, tol = tol)) {
-        if (verbose) message("Matrix M is not SPD, replacing with identity matrix")
-        M <- Matrix::Diagonal(n)
-      }
-    } else if (remedy == "clip") {
-      M <- clip_psd(M, tol = tol)
-    } else {
-      # "ridge": Gershgorin diagonal shift
-      M <- ensure_spd(M, tol = tol)
-    }
-  }
-
-  # Convert to standardized formats, but handle symmetric matrices properly
-  # Preserve diagonal matrices, convert others to appropriate sparse format
-  if (is(A, "ddiMatrix")) {
-    A_result <- A
-  } else if (methods::is(A, "sparseMatrix")) {
-    A_result <- A  # Already sparse, keep as is
-  } else if (is(A, "dsyMatrix") || is(A, "dpoMatrix")) {
-    # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
-    A_result <- as_dge(A)
-  } else {
-    A_result <- A  # Keep other dense formats as is
-  }
-
-  if (is(M, "ddiMatrix")) {
-    M_result <- M
-  } else if (methods::is(M, "sparseMatrix")) {
-    M_result <- M  # Already sparse, keep as is
-  } else if (is(M, "dsyMatrix") || is(M, "dpoMatrix")) {
-    # Convert symmetric dense to general dense (avoids dgCMatrix conversion issue)
-    M_result <- as_dge(M)
-  } else {
-    M_result <- M  # Keep other dense formats as is
-  }
-
-  list(A = A_result, M = M_result)
+  list(A = .prep_one_metric(A, ncol(X), "A", tol, remedy, verbose),
+       M = .prep_one_metric(M, nrow(X), "M", tol, remedy, verbose))
 }
 
+.prep_diag_metric <- function(w, dim, name, rtol, remedy, verbose, from_vector = FALSE) {
+  w <- as.numeric(w)
+  if (any(!is.finite(w))) {
+    stop("Diagonal elements of ", name, " must be finite", call. = FALSE)
+  }
+  if (remedy == "clip" && any(w < 0)) {
+    B <- repair_metric(Matrix::Diagonal(dim, x = w), method = "clip", rtol = rtol, name = name)
+    .warn_metric_repaired(attr(B, "repair_report"))
+    attr(B, "repair_report") <- NULL
+    return(B)
+  }
+  s <- max(abs(w), 0)
+  if (s > 0 && any(w < -rtol * s)) {
+    if (remedy == "error") {
+      if (from_vector) {
+        stop("Diagonal elements of ", name, " (from vector) must be non-negative (smallest = ",
+             signif(min(w), 3), ")", call. = FALSE)
+      }
+      stop("Matrix ", name, " must be positive semi-definite (negative diagonal element ",
+           signif(min(w), 3), ")", call. = FALSE)
+    }
+    if (verbose && remedy == "identity") message("Matrix ", name, " is not SPD, replacing with identity matrix")
+    B <- repair_metric(Matrix::Diagonal(dim, x = w), method = remedy, rtol = rtol, name = name)
+    .warn_metric_repaired(attr(B, "repair_report"))
+    attr(B, "repair_report") <- NULL
+    return(B)
+  } else if (any(w < 0)) {
+    message("Setting ", sum(w < 0), " tiny negative weight(s) in ", name,
+            " to zero (all within ", signif(rtol, 3), " * max weight).")
+    w[w < 0] <- 0
+  }
+  Matrix::Diagonal(n = dim, x = w)
+}
+
+.prep_one_metric <- function(W, dim, name, rtol, remedy, verbose) {
+  if (is.null(W)) return(Matrix::Diagonal(dim))
+  other <- if (name == "A") "ncol(X)" else "nrow(X)"
+  if (is.numeric(W) && is.null(dim(W))) {
+    assert_that(length(W) == dim, msg = paste0("Length of vector ", name, " must equal ", other))
+    return(.prep_diag_metric(W, dim, name, rtol, remedy, verbose, from_vector = TRUE))
+  }
+  if (!methods::is(W, "Matrix")) W <- Matrix::Matrix(W, sparse = FALSE)
+  assert_that(nrow(W) == dim, msg = paste("nrow(", name, ") != ", other, " -- ", nrow(W), " != ", dim))
+  assert_that(ncol(W) == dim, msg = paste("ncol(", name, ") != ", other, " -- ", ncol(W), " != ", dim))
+  if (Matrix::isDiagonal(W)) {
+    return(.prep_diag_metric(Matrix::diag(W), dim, name, rtol, remedy, verbose))
+  }
+  xvals <- if (methods::is(W, "sparseMatrix")) W@x else as.numeric(as.matrix(W))
+  if (length(xvals) && !all(is.finite(xvals))) {
+    stop("Matrix ", name, " contains non-finite values", call. = FALSE)
+  }
+  W <- symmetrize_or_stop(W, name = name)
+  if (remedy == "clip" || !is_psd(W, rtol = rtol)) {
+    if (remedy == "error") {
+      stop("Matrix ", name, " must be positive semi-definite", call. = FALSE)
+    }
+    if (verbose && remedy == "identity") message("Matrix ", name, " is not SPD, replacing with identity matrix")
+    W <- repair_metric(W, method = remedy, rtol = rtol, name = name)
+    if (isTRUE(attr(W, "repair_report")$changed)) .warn_metric_repaired(attr(W, "repair_report"))
+    attr(W, "repair_report") <- NULL
+  }
+  .standardize_metric(W)
+}
+
+# Diagonal and sparse stay as they are; dense symmetric classes become
+# general dense (dgeMatrix), which every downstream product accepts.
+.standardize_metric <- function(W) {
+  if (methods::is(W, "ddiMatrix") || methods::is(W, "sparseMatrix")) return(W)
+  if (methods::is(W, "dsyMatrix") || methods::is(W, "dpoMatrix")) return(as_dge(W))
+  W
+}
+
+# TRUE when a multivarious pre-processor is a single pass() step, so sparse X
+# can skip the dense fit_transform path.
 is_pass_preproc <- function(preproc) {
   steps <- NULL
   if (inherits(preproc, "prepper")) {
@@ -134,7 +127,7 @@ is_pass_preproc <- function(preproc) {
 #' \itemize{
 #'  \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
 #'  \item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
-#'  \item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RSpectra}.}
+#'  \item{\code{"spectra"}: Computes the top-k singular triplets of the metric-whitened data \eqn{F_M' X F_A} (with \eqn{M = F_M F_M'}, \eqn{A = F_A F_A'}) as an implicit operator via the \pkg{eigencore} package, without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p} when few components are requested.}
 #'  \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
 #'  \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 #' }
@@ -159,20 +152,23 @@ is_pass_preproc <- function(preproc) {
 #' @param M   Row constraint: vector (implies diagonal), dense matrix, or sparse
 #'            symmetric n x n PSD matrix. If `NULL`, defaults to identity.
 #' @param ncomp Number of components to extract. Defaults to `min(dim(X))`. Must be positive.
-#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
-#' @param constraints_remedy Character string specifying how a supplied `A`
-#'        or `M` that is not symmetric positive (semi)definite is repaired.
-#'        Default `"ridge"`. One of: \code{"error"} (reject the input with an
-#'        error), \code{"ridge"} (Gershgorin diagonal shift: add the smallest
+#' @param method Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (iterative partial SVD of the metric-whitened data via \pkg{eigencore}, \code{gmd_spectra}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).
+#' @param constraints_remedy Character string specifying what to do with a
+#'        supplied `A` or `M` that is not positive semi-definite (within a
+#'        relative tolerance of `sqrt(.Machine$double.eps)`). Default
+#'        `"error"`: reject the input. The alternatives repair it and emit a
+#'        warning of class `genpca_metric_repaired` whose `report` field
+#'        (see \code{\link{repair_metric}}) records the minimum eigenvalue
+#'        before and after, the shift applied, the rank and the condition
+#'        number: \code{"ridge"} (Gershgorin diagonal shift: add the smallest
 #'        diagonal loading that restores positive definiteness, falling back
 #'        to `Matrix::nearPD()` for small dense matrices), \code{"clip"}
 #'        (spectral clip to the PSD cone by zeroing negative eigenvalues;
 #'        this densifies the matrix and refuses sparse input larger than
 #'        2000 rows/cols, where \code{"ridge"} should be used instead), or
-#'        \code{"identity"} (replace the matrix with the identity). Note
-#'        that \code{\link{genpca_cov}} defaults to \code{"error"} instead of
-#'        \code{"ridge"}, since it expects an already-validated covariance
-#'        matrix; see its documentation for details.
+#'        \code{"identity"} (replace the matrix with the identity). An
+#'        asymmetric metric is an error under every setting. Singular PSD
+#'        metrics are valid input and are never repaired.
 #' @param preproc Pre-processing transformer object from the **multivarious** package
 #'                (default `multivarious::pass()`). Use `multivarious::center()` for centered GPCA.
 #'                See `?multivarious::prep` for options.
@@ -188,19 +184,38 @@ is_pass_preproc <- function(preproc) {
 #' @param use_cpp Logical. If `TRUE` (default) and package was compiled with C++ support,
 #'                use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
 #'                (Ignored for \code{method = "eigen"} and \code{method = "spectra"}).
-#' @param maxeig Upper bound on subspace dimension for eigen/SVD calculations, primarily for
-#'               \code{method = "eigen"}. If a constraint matrix dimension is \code{<= maxeig}
-#'               a full eigen decomposition is used. Otherwise only the leading \code{maxeig}
-#'               eigencomponents are computed via \code{RSpectra::eigs_sym}, so results may be
-#'               approximate. Default `800`.
-#' @param warn_approx Logical. If \code{TRUE} (default) a warning is emitted when an
-#'        approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.
-#' @param maxit_spectra Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default `1000`.
-#' @param tol_spectra Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default `1e-9`.
+#' @param maxeig For \code{method = "eigen"} and \code{method = "spectra"}: a
+#'               positive definite general metric is factored exactly by
+#'               Cholesky at any size, but a singular general metric (e.g. a
+#'               graph Laplacian) needs a dense eigendecomposition of the
+#'               metric, which is refused when the metric has more than
+#'               \code{maxeig} rows. The error names the alternatives
+#'               (\code{method = "deflation"}, which only multiplies by the
+#'               metric, or raising \code{maxeig}); \code{method = "auto"}
+#'               routes such cases to deflation. Results are never
+#'               approximated. Default `5000`.
+#' @param warn_approx Deprecated and ignored: \code{method = "eigen"} no
+#'        longer approximates anything.
+#' @param maxit_spectra Retained for compatibility and currently unused: the
+#'        \pkg{eigencore} partial SVD used by \code{method = "spectra"} is
+#'        controlled by \code{tol_spectra} alone.
+#' @param tol_spectra Convergence tolerance of the iterative solver when
+#'        \code{method = "spectra"}. Default `1e-9`. This governs iteration
+#'        only; rank decisions use \code{rank_rtol}.
+#' @param rank_rtol Relative cutoff for component acceptance, on the scale of
+#'        the singular values: component \eqn{j} is dropped when
+#'        `d_j <= rank_rtol * d_1`. Applied by every method
+#'        (for the eigen paths on \eqn{d_j^2}), so the number of components
+#'        returned does not change when `X` is rescaled. Default `1e-6`.
+#'        Metric validation uses a separate relative tolerance,
+#'        `sqrt(.Machine$double.eps)`, for positive semi-definiteness and
+#'        null-space detection for general metric eigendecompositions.
+#'        Every strictly positive diagonal weight is retained in both the
+#'        forward and inverse factors.
 #' @param oversample Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default `20`.
 #' @param n_power Number of power iterations for \code{method = "randomized"}. Default `1`.
 #' @param n_polish Number of optional block-polish iterations for \code{method = "randomized"}. Default `0`.
-#' @param jitter_metric Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default `1e-10`.
+#' @param jitter_metric Jitter used in metric orthonormalization for \code{method = "randomized"}, relative to the scale of the block Gram matrix. Default `1e-10`.
 #' @param seed_randomized Optional seed for \code{method = "randomized"}.
 #'        Default `1234`. This fully determines the randomized backend's
 #'        random stream: the C++ kernel seeds its own generator from this
@@ -245,8 +260,7 @@ is_pass_preproc <- function(preproc) {
 #'   `multivarious::components`, `multivarious::reconstruct`.
 #'
 #' @examples
-#' if (requireNamespace("RSpectra", quietly = TRUE) &&
-#'     requireNamespace("multivarious", quietly = TRUE)) {
+#' if (requireNamespace("multivarious", quietly = TRUE)) {
 #'   set.seed(123)
 #'   X <- matrix(stats::rnorm(200 * 100), 200, 100)
 #'   rownames(X) <- paste0("R", 1:200)
@@ -285,21 +299,21 @@ is_pass_preproc <- function(preproc) {
 #' @importFrom multivarious bi_projector fit_transform pass scores sdev components reconstruct inverse_transform ncomp
 #' @importFrom Matrix Matrix isSymmetric isDiagonal diag t forceSymmetric Diagonal crossprod tcrossprod
 #' @importFrom assertthat assert_that
-#' @importFrom RSpectra eigs_sym svds
 #' @importFrom methods as is
 #' @importFrom stats rnorm runif
 #' @export
 genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
                    method = c("eigen", "auto", "spectra", "randomized", "deflation"),
-                   constraints_remedy = c("ridge", "error", "clip", "identity"),
+                   constraints_remedy = c("error", "ridge", "clip", "identity"),
                    preproc = multivarious::pass(), # Default to pass() for safety
                    threshold = 1e-6, # For deflation
                    maxit_deflation = 500L, # For deflation
                    use_cpp = TRUE, # For deflation
-                   maxeig = 800, # For method="eigen"
-                   warn_approx = TRUE, # Warn if only an approximate eigen decomposition is used
+                   maxeig = 5000, # For method="eigen": bound on dense eigendecomposition of a singular metric
+                   warn_approx = TRUE, # Deprecated: no approximation is made any more
                    maxit_spectra = 1000, # For method="spectra"
                    tol_spectra = 1e-9,   # For method="spectra"
+                   rank_rtol = 1e-6,     # Relative singular-value cutoff (all methods)
                    oversample = 20L,     # For method="randomized"
                    n_power = 1L,         # For method="randomized"
                    n_polish = 0L,        # For method="randomized"
@@ -310,6 +324,9 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 
   method <- match.arg(method)
   constraints_remedy <- match.arg(constraints_remedy)
+  if (!missing(warn_approx)) {
+    warning("`warn_approx` is deprecated and ignored: method = 'eigen' no longer approximates.", call. = FALSE)
+  }
 
   if (is.null(ncomp)) {
       ncomp <- min(dim(X))
@@ -347,6 +364,9 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
                 is.finite(tol_polish_randomized) &&
                 tol_polish_randomized >= 0,
               msg = "tol_polish_randomized must be a single non-negative number.")
+  assert_that(is.numeric(rank_rtol) && length(rank_rtol) == 1 &&
+                is.finite(rank_rtol) && rank_rtol >= 0,
+              msg = "rank_rtol must be a single non-negative number.")
 
   # Prepare and validate constraints M and A
   if (verbose) message("Preparing constraints...")
@@ -378,7 +398,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
   # Check if C++ code is available (specific function name depends on package build)
   # Placeholder check - replace with actual check if package uses compiled code
   cpp_deflation_available <- exists("gmd_deflation_cpp", mode = "function") # Example check
-  cpp_spectra_available <- exists("gmd_fast_cpp", mode = "function") # Example check
+  cpp_spectra_available <- exists("gmd_spectra", mode = "function")
   cpp_randomized_available <- exists("gmd_randomized_cpp_dn", mode = "function")
 
   selected_method <- method
@@ -401,7 +421,15 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
         (!diagonal_constraints && min_dim >= 1000L && k_ratio <= 0.10) ||
         (sparse_constraints && min_dim >= 100L && k_ratio <= 0.25)
       )
-      selected_method <- if (use_randomized) {
+      # A singular general metric on the small side needs a dense
+      # eigendecomposition under both "eigen" and "spectra"; above maxeig only
+      # deflation can proceed (it multiplies by the metric, never factors it).
+      small_metric <- if (p <= n) A else M
+      needs_dense_eigen <- !diagonal_constraints && min_dim > maxeig &&
+        !Matrix::isDiagonal(small_metric) && !is_pd(small_metric)
+      selected_method <- if (needs_dense_eigen) {
+        "deflation"
+      } else if (use_randomized) {
         "randomized"
       } else if (use_spectra) {
         "spectra"
@@ -426,7 +454,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
       use_cpp <- FALSE # Force R version if C++ not found
   }
   if (selected_method == "spectra" && !cpp_spectra_available) {
-      stop("method='spectra' requires the C++ function 'gmd_fast_cpp', which was not found. Ensure the package was compiled correctly with Rcpp/RcppArmadillo support and that RSpectra is installed.")
+      stop("method='spectra' requires the internal solver 'gmd_spectra', which was not found.")
   }
 
   # --- Core Decomposition --- #
@@ -440,7 +468,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     if (n < p) {
         if (use_cpp) {
           svdfit <- gmd_deflation_cpp_dispatch(Matrix::t(Xp), A_cpp, M_cpp, ncomp,
-                                               thr = threshold,
+                                               thr = threshold, rank_rtol = rank_rtol,
                                                maxit = maxit_deflation,
                                                verbose = verbose)
           if (is.matrix(svdfit$d)) {
@@ -452,7 +480,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
           if (is.null(svdfit$k)) svdfit$k <- length(svdfit$d)
         } else {
           svdfit <- gmd_deflationR(Matrix::t(Xp), A, M, ncomp,
-                                   thr = threshold,
+                                   thr = threshold, rank_rtol = rank_rtol,
                                    maxit = maxit_deflation,
                                    verbose = verbose)
         }
@@ -461,7 +489,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     } else {
         if (use_cpp) {
           svdfit <- gmd_deflation_cpp_dispatch(Xp, M_cpp, A_cpp, ncomp,
-                                               thr = threshold,
+                                               thr = threshold, rank_rtol = rank_rtol,
                                                maxit = maxit_deflation,
                                                verbose = verbose)
           if (is.matrix(svdfit$d)) {
@@ -472,7 +500,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
           if (is.null(svdfit$k)) svdfit$k <- length(svdfit$d)
         } else {
           svdfit <- gmd_deflationR(Xp, M, A, ncomp,
-                                   thr = threshold,
+                                   thr = threshold, rank_rtol = rank_rtol,
                                    maxit = maxit_deflation,
                                    verbose = verbose)
         }
@@ -481,7 +509,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
     if (is.null(svdfit$propv) || is.null(svdfit$cumv)) {
        if (verbose) message(" Calculating variance explained for deflation method...")
        total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
-       if (total_variance > 1e-8) {
+       if (is.finite(total_variance) && total_variance > 0) {
           svdfit$propv <- svdfit$d^2 / total_variance
           svdfit$cumv <- cumsum(svdfit$propv)
        } else {
@@ -497,28 +525,30 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
         # Dual formulation works on the n x n problem directly: eigendecompose
         # M^{1/2} (X A X') M^{1/2} instead of the p x p primal target.
         svdfit <- gmdLA(Xp, M, A, k = ncomp, n_orig = n, p_orig = p,
-                        maxeig = maxeig, use_dual = TRUE,
+                        maxeig = maxeig, rank_rtol = rank_rtol, use_dual = TRUE,
                         warn_approx = warn_approx, verbose = verbose)
     } else {
         svdfit <- gmdLA(Xp, M, A, k = ncomp, n_orig = n, p_orig = p,
-                        maxeig = maxeig, use_dual = FALSE,
+                        maxeig = maxeig, rank_rtol = rank_rtol, use_dual = FALSE,
                         warn_approx = warn_approx, verbose = verbose)
     }
 
   } else if (selected_method == "spectra") { # Matrix-free C++/Spectra approach
-      if (verbose) message(paste0("Using matrix-free Spectra C++ code to extract ", ncomp, " components..."))
+      if (verbose) message(paste0("Using the iterative whitened-operator SVD (eigencore) to extract ", ncomp, " components..."))
       # Ensure Xp is dense matrix for the C++ function
       Xp_dense <- as.matrix(Xp)
       if (any(!is.finite(Xp_dense))) stop("Input matrix X (after preproc) contains non-finite values.")
 
       # Call the C++ function
-      spectra_res <- tryCatch(gmd_fast_cpp(Xp_dense, M, A, k = ncomp, tol = tol_spectra, maxit = maxit_spectra),
-                              error = function(e) {stop("Call to gmd_fast_cpp failed: ", e$message)})
+      spectra_res <- tryCatch(gmd_spectra(Xp_dense, M, A, k = ncomp, tol = tol_spectra,
+                                          maxit = maxit_spectra, rank_rtol = rank_rtol,
+                                          dense_maxn = maxeig),
+                              error = function(e) {stop("Call to gmd_spectra failed: ", e$message)})
 
       # Calculate variance explained
       if (verbose) message(" Calculating variance explained for Spectra method...")
       total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
-      if (total_variance < 1e-8) {
+      if (!is.finite(total_variance) || total_variance <= 0) {
           propv <- rep(0, spectra_res$k)
           warning("Total generalized variance is near zero.")
       } else {
@@ -565,7 +595,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
           n_power = n_power,
           n_polish = n_polish,
           jitter = jitter_metric,
-          tol = tol_spectra,
+          tol = rank_rtol,
           polish_tol = tol_polish_randomized,
           seed = seed_randomized
         ),
@@ -574,7 +604,7 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 
       if (verbose) message(" Calculating variance explained for randomized method...")
       total_variance <- sum((M %*% Xp) * (Xp %*% A)) # tr(Xp' M Xp A) without forming p x p
-      if (total_variance < 1e-8) {
+      if (!is.finite(total_variance) || total_variance <= 0) {
         propv <- rep(0, rand_res$k)
         warning("Total generalized variance is near zero.")
       } else {
@@ -593,6 +623,17 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
   } else {
       stop("Internal error: Unknown method specified.") # Should not happen due to match.arg
   }
+
+  # Enforce the public component cutoff at the common boundary, including
+  # every vector and variance summary returned by a backend.
+  keep <- .keep_components(svdfit$d, rank_rtol)
+  for (nm in c("u", "v", "ou", "ov")) {
+    if (!is.null(svdfit[[nm]])) svdfit[[nm]] <- svdfit[[nm]][, keep, drop = FALSE]
+  }
+  svdfit$d <- svdfit$d[keep]
+  svdfit$propv <- svdfit$propv[keep]
+  svdfit$cumv <- cumsum(svdfit$propv)
+  svdfit$k <- length(svdfit$d)
 
   # Check how many components were actually found
   k_found <- svdfit$k # gmdLA and gmd_deflationR/cpp should return 'k'
@@ -722,13 +763,20 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 #' (a MAP estimate). Because every block update is an exact minimizer of this
 #' one objective, \code{loglik_path} is monotone non-decreasing up to
 #' numerical noise. The penalty also resolves the \eqn{c\,\Sigma_r,
-#' \Sigma_c/c} scale indeterminacy during iteration; \code{scale_fix} is
-#' applied once at exit as a \emph{joint} reciprocal rescale (row covariance
-#' normalized, factor absorbed into the column covariance), which leaves the
-#' likelihood unchanged. The algorithm stops when the relative change in the
-#' penalized log-likelihood falls below \code{tol} or \code{max_iter} is
-#' reached. Increase \code{lambda} or reduce \code{ncomp} if iterations
-#' become unstable.
+#' \Sigma_c/c} scale indeterminacy, so the converged metrics are the
+#' penalized optimum and no rescaling is needed (\code{scale_fix = "none"},
+#' the default). \code{scale_fix = "trace"} or \code{"det"} additionally
+#' applies a joint reciprocal rescale at exit (row covariance normalized,
+#' factor absorbed into the column covariance). The unpenalized
+#' matrix-normal likelihood is invariant to that rescale, but the penalty
+#' \eqn{p\lambda\,\mathrm{tr}(M) + n\lambda\,\mathrm{tr}(A)} is not, so
+#' the rescaled metrics are no longer the penalized optimum; the returned
+#' \code{loglik} is always evaluated at the returned metrics and
+#' \code{loglik_rescale_delta} reports how far the rescale moved it. The
+#' algorithm stops when the relative change in the penalized log-likelihood
+#' falls below \code{tol} or \code{max_iter} is reached. Increase
+#' \code{lambda} or reduce \code{ncomp} if iterations become unstable. The
+#' objective is not identifiable with \code{lambda = 0}.
 #'
 #' @param X Numeric matrix (n x p).
 #' @param ncomp Rank to extract at each GPCA step.
@@ -739,23 +787,32 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 #'        row/column scale split during iteration. Must be non-negative;
 #'        with \code{lambda = 0} the objective loses strict convexity in the
 #'        scale direction and covariances may become singular.
-#' @param scale_fix How to canonicalize the \code{c * Sigma_r, Sigma_c / c}
-#'        indeterminacy at exit. One of \code{"trace"} (default: row
-#'        covariance scaled to mean diagonal 1), \code{"det"} (row covariance
-#'        scaled to determinant 1), or \code{"none"}. Applied as a joint
-#'        reciprocal rescale, so the fitted covariance \eqn{\Sigma_r \otimes
-#'        \Sigma_c} and the likelihood are unchanged.
+#' @param scale_fix Optional post-hoc reparameterization of the
+#'        \code{c * Sigma_r, Sigma_c / c} split at exit. One of \code{"none"}
+#'        (default: keep the penalized optimum), \code{"trace"} (row
+#'        covariance scaled to mean diagonal 1) or \code{"det"} (row
+#'        covariance scaled to determinant 1). Applied as a joint reciprocal
+#'        rescale, so the fitted covariance \eqn{\Sigma_r \otimes \Sigma_c}
+#'        and the unpenalized likelihood are unchanged, but the penalized
+#'        objective generally decreases; see Details.
 #' @param tol Relative tolerance on successive penalized log-likelihood change
 #'        (default 1e-4) for early stopping.
 #' @param method GPCA method passed to \code{genpca} (defaults to "eigen").
-#' @param constraints_remedy Passed to \code{genpca}; defaults to "ridge".
+#' @param constraints_remedy Passed to \code{genpca}; defaults to "error".
+#'        The learned metrics are inverses of positive definite matrices, so
+#'        no repair fires in practice.
 #' @param preproc Pre-processing transformer; defaults to \code{multivarious::pass()}.
 #' @param verbose Logical; if TRUE, prints iteration diagnostics.
 #' @param ... Additional arguments forwarded to \code{genpca}.
 #'
 #' @return A list with elements \code{fit} (a \code{genpca} fit computed with
-#'         the returned canonicalized metrics), \code{A}, \code{M} (learned
-#'         SPD metrics), \code{loglik} (final penalized log-likelihood), and
+#'         the returned metrics), \code{A}, \code{M} (learned SPD metrics),
+#'         \code{loglik} (the penalized log-likelihood evaluated at the
+#'         returned \code{M}, \code{A} and \code{fit}),
+#'         \code{loglik_unpenalized} (the same without the \code{lambda}
+#'         penalty), \code{loglik_rescale_delta} (\code{loglik} minus the
+#'         last value of \code{loglik_path}; zero for
+#'         \code{scale_fix = "none"}, typically negative otherwise), and
 #'         \code{loglik_path} (the penalized log-likelihood after each outer
 #'         iteration; monotone non-decreasing up to numerical noise, since
 #'         every block update exactly minimizes the shared penalized
@@ -784,10 +841,10 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 gpca_mle <- function(X, ncomp = min(dim(X)),
                      max_iter = 20,
                      lambda = 1e-3,
-                     scale_fix = c("trace", "det", "none"),
+                     scale_fix = c("none", "trace", "det"),
                      tol = 1e-4,
                      method = "eigen",
-                     constraints_remedy = "ridge",
+                     constraints_remedy = "error",
                      preproc = multivarious::pass(),
                      verbose = FALSE,
                      ...) {
@@ -796,6 +853,10 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
   n <- nrow(X)
   p <- ncol(X)
   stopifnot(is.numeric(lambda), length(lambda) == 1, lambda >= 0)
+  if (lambda == 0) {
+    warning("gpca_mle: with lambda = 0 the objective is not identifiable in the scale ",
+            "of (M, A) and the covariance updates may become singular.", call. = FALSE)
+  }
 
   # initialise metrics as identity
   A <- Matrix::Diagonal(p)
@@ -838,11 +899,11 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
 
     # Sequential (flip-flop) covariance updates: Sigma_c uses the NEW M.
     Sigma_r <- (E %*% A %*% Matrix::t(E)) / p + lambda * Matrix::Diagonal(n)
-    Sigma_r <- ensure_spd(Sigma_r)  # numerical safeguard; no-op when already SPD
+    Sigma_r <- .mle_symmetric_pd(Sigma_r)
     M <- tryCatch(Matrix::solve(Sigma_r), error = function(e) stop("Failed to invert Sigma_r: ", e$message))
 
     Sigma_c <- (Matrix::t(E) %*% M %*% E) / n + lambda * Matrix::Diagonal(p)
-    Sigma_c <- ensure_spd(Sigma_c)
+    Sigma_c <- .mle_symmetric_pd(Sigma_c)
     A <- tryCatch(Matrix::solve(Sigma_c), error = function(e) stop("Failed to invert Sigma_c: ", e$message))
 
     logdet_r <- as.numeric(Matrix::determinant(Sigma_r, logarithm = TRUE)$modulus)
@@ -862,11 +923,13 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
     last_ll <- ll
   }
 
-  # Resolve the scale indeterminacy ONCE, at exit, as a joint reciprocal
-  # rescale (c*Sigma_r, Sigma_c/c): this leaves the matrix-normal likelihood
-  # unchanged (unlike normalizing each factor independently, which alters the
-  # fitted covariance). The row covariance is normalized; the factor is
-  # absorbed into the column covariance.
+  # Optional post-hoc reparameterization (c*Sigma_r, Sigma_c/c): the
+  # unpenalized matrix-normal likelihood is invariant to it, but the ridge
+  # penalty p*lambda*tr(M) + n*lambda*tr(A) is NOT, so the returned metrics
+  # are then no longer the penalized optimum. The returned `loglik` is
+  # therefore always recomputed at the metrics actually returned, and the
+  # size of the move is reported in `loglik_rescale_delta`.
+  loglik_at_exit <- tail(loglik_path, 1)
   if (scale_fix != "none") {
     s <- if (scale_fix == "trace") {
       sum(Matrix::diag(Sigma_r)) / n
@@ -890,150 +953,134 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
                 verbose = FALSE,
                 ...)
 
+  # Objective at the returned (M, A, fit); identical to the last path value
+  # when scale_fix = "none" up to the refit's own roundoff.
+  E_final <- X - multivarious::reconstruct(fit)
+  Sigma_r_final <- Matrix::solve(M)
+  Sigma_c_final <- Matrix::solve(A)
+  logdet_r_final <- as.numeric(Matrix::determinant(Sigma_r_final, logarithm = TRUE)$modulus)
+  logdet_c_final <- as.numeric(Matrix::determinant(Sigma_c_final, logarithm = TRUE)$modulus)
+  loglik_final <- pen_loglik(E_final, M, A, logdet_r_final, logdet_c_final)
+  pen_final <- p * lambda * sum(Matrix::diag(M)) + n * lambda * sum(Matrix::diag(A))
+
   list(fit = fit,
        A = A,
        M = M,
-       loglik = tail(loglik_path, 1),
+       loglik = loglik_final,
+       loglik_unpenalized = loglik_final + 0.5 * pen_final,
+       loglik_rescale_delta = loglik_final - loglik_at_exit,
        loglik_path = loglik_path)
 }
 
 
 
+# The block covariance updates in gpca_mle() are positive definite by
+# construction when lambda > 0 (Gram matrix plus lambda * I); their only
+# defect is the roundoff asymmetry of the matrix products, which
+# prep_constraints() would reject. Average the triangles and repair only when
+# the matrix is genuinely not positive definite (lambda = 0). A tolerant
+# ensure_spd() must NOT be used here: its relative PD margin fires once the
+# covariance scale exceeds ~1e6 * lambda and would replace the learned metric
+# by a near-identity.
+.mle_symmetric_pd <- function(S) {
+  S <- Matrix::forceSymmetric((S + Matrix::t(S)) / 2)
+  if (is_pd(S, rtol = 0)) S else ensure_spd(S, tol = .metric_rtol_default())
+}
+
 #' @noRd
 #' @importFrom Matrix Diagonal t crossprod tcrossprod diag solve isDiagonal Matrix
-#' @importFrom RSpectra eigs_sym
 #' @importFrom methods as is
-# gmdLA caches the eigen decomposition of the constraint matrices by
-# storing it as an attribute on the matrix. compute_sqrtm() returns this
-# modified matrix so callers can reassign it (e.g. R <- sqrtm_res$matrix)
-# to reuse the cached decomposition in subsequent calls.
+# gmdLA caches the factorization of the small-side metric as an attribute on
+# the matrix and returns the annotated matrix so callers can reassign it
+# (e.g. R <- R_fac$matrix) and reuse the factor in subsequent calls.
 gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
-                  maxeig = 800, tol = 1e-8, use_dual = FALSE,
+                  maxeig = 5000, rank_rtol = 1e-6,
+                  metric_rtol = .metric_rtol_default(), use_dual = FALSE,
                   warn_approx = TRUE, verbose = FALSE) {
 
-  # Caching key based on object ID might be fragile. Attribute caching is used.
   cache_attr_name <- "eigen_decomp_cache"
-  eigen_tol <- tol # Tolerance for filtering eigenvalues
+  # Rank decisions are relative: metric eigenvalues below metric_rtol times
+  # the largest are null space; target eigenvalues below rank_rtol^2 times
+  # the largest are dropped.
 
-  # Helper to compute M^(1/2) and M^(-1/2) or retrieve from cache. The
-  # eigen decomposition is cached on the matrix via an attribute so that
-  # repeated calls avoid recomputation. The updated matrix with this
-  # attribute is returned alongside the decomposition.
-  compute_sqrtm <- function(M, cache_attr, mat_name) {
-    if (!is.null(attr(M, cache_attr))) {
+  # Factor the small-side metric once: A = F F' (Cholesky when positive
+  # definite, eigen factor on the range otherwise; see .metric_factor). The
+  # target F' (X'QX) F is similar to (X'QX) R and V = F^{-T} Z is
+  # R-orthonormal, so nothing is ever truncated. `maxeig` only bounds the
+  # dense eigendecomposition needed for a singular general metric.
+  metric_factor_cached <- function(M, cache_attr, mat_name) {
+    cached <- attr(M, cache_attr)
+    if (!is.null(cached)) {
       if (verbose) message(paste(" Using cached decomposition for matrix", mat_name))
-      decomp <- attr(M, cache_attr)
-    } else {
-      if (verbose) message(paste(" Computing eigen decomposition for matrix", mat_name))
-      if (Matrix::isDiagonal(M)) {
-        m_diag <- Matrix::diag(M)
-        if (any(m_diag < -eigen_tol)) stop(paste(mat_name, "(diagonal) must be PSD (eigenvalues >= -tol)."))
-        m_diag_sqrt <- sqrt(pmax(m_diag, 0)) # Ensure non-negative before sqrt
-        m_diag_invsqrt <- ifelse(m_diag > eigen_tol, 1 / m_diag_sqrt, 0) # Avoid division by zero
-        decomp <- list(values = m_diag, vectors = NULL,
-                       sqrtm = Matrix::Diagonal(x = m_diag_sqrt),
-                       invsqrtm = Matrix::Diagonal(x = m_diag_invsqrt))
+      fac <- if (!is.null(cached$apply_t)) {
+        cached
       } else {
-        # Ensure M is symmetric sparse for eigs_sym or dense for eigen
-        M_sym <- if (!Matrix::isSymmetric(M)) Matrix::forceSymmetric(M) else M
-        if (!is(M_sym, "sparseMatrix")) M_sym <- Matrix::Matrix(M_sym, sparse = TRUE)
-        if (is(M_sym, "sparseMatrix") && !is(M_sym, "dgCMatrix")) {
-          # RSpectra::eigs_sym dispatches reliably on general CSC sparse matrices.
-          M_sym <- methods::as(methods::as(M_sym, "generalMatrix"), "CsparseMatrix")
-        }
-
-        decomp_raw <- tryCatch({
-            if (nrow(M_sym) <= maxeig) {
-                if (verbose) message(paste(" (", mat_name, "<= maxeig, using base::eigen)"))
-                base::eigen(as.matrix(M_sym), symmetric = TRUE)
-            } else {
-                safe_k <- min(maxeig, nrow(M_sym) - 1)
-                if (safe_k < 1) safe_k <- 1
-                if (warn_approx)
-                    warning(mat_name, " dimension ", nrow(M_sym),
-                            " exceeds maxeig=", maxeig,
-                            "; using RSpectra::eigs_sym(k=", safe_k,
-                            ") -- result is approximate")
-                if (verbose) message(paste(" (", mat_name,
-                                          " > maxeig, using RSpectra::eigs_sym with k=", safe_k, ")"))
-                RSpectra::eigs_sym(M_sym, k = safe_k, which = "LM")
-            }
-          },
-          error = function(e) {stop(paste("Eigen decomposition failed for", mat_name, ":", e$message))}
-        )
-
-        valid_idx <- which(decomp_raw$values > eigen_tol)
-        if (length(valid_idx) == 0) stop(paste(mat_name, "has no positive eigenvalues > tol."))
-
-        vals <- decomp_raw$values[valid_idx]
-        vecs <- decomp_raw$vectors[, valid_idx, drop = FALSE]
-        k_actual_decomp <- length(vals)
-        if (verbose) message(paste("  (Found ", k_actual_decomp, " eigenvalues > tol for ", mat_name, ")"))
-
-        vals_sqrt <- sqrt(vals)
-        vals_invsqrt <- 1 / vals_sqrt
-
-        # Compute sqrtm and invsqrtm using found components
-        vecs_mat <- Matrix::Matrix(vecs)
-        sqrtm <- vecs_mat %*% Matrix::Diagonal(x = vals_sqrt) %*% Matrix::t(vecs_mat)
-        invsqrtm <- vecs_mat %*% Matrix::Diagonal(x = vals_invsqrt) %*% Matrix::t(vecs_mat)
-
-        decomp <- list(values = vals, vectors = vecs,
-                       sqrtm = sqrtm, invsqrtm = invsqrtm)
+        # legacy cache entries: symmetric square root and its pseudo-inverse
+        sq <- cached$sqrtm
+        isq <- cached$invsqrtm
+        list(kind = "legacy", ncol = ncol(sq), mat = sq,
+             apply = function(V) sq %*% V,
+             apply_t = function(U) sq %*% U,
+             solve_t = function(Z) isq %*% Z)
       }
-      attr(M, cache_attr) <- decomp # Cache the computed decomposition
+    } else {
+      if (verbose) message(paste(" Computing factorization for matrix", mat_name))
+      fac <- .metric_factor(M, metric_rtol = metric_rtol, cache = TRUE,
+                            dense_maxn = maxeig, name = mat_name)
+      attr(M, cache_attr) <- fac
     }
-    # Return matrix with cached decomposition for reuse
-    decomp$matrix <- M
-    return(decomp)
+    fac$matrix <- M
+    fac
   }
 
-  # Top-k eigenpairs of a symmetric target matrix. RSpectra::eigs_sym requires
-  # k < dim, so full-rank requests (and tiny problems, where dense is exact and
-  # cheap) fall back to base::eigen.
+  # Top-k eigenpairs of a symmetric PSD target matrix. Full-rank requests (and
+  # tiny problems, where dense is exact and cheap) use base::eigen.
   top_eigs <- function(target_mat, k_req, label) {
     dim_t <- nrow(target_mat)
-    if (k_req >= dim_t - 1L || dim_t <= 100L) {
-      es <- eigen(as.matrix(target_mat), symmetric = TRUE)
+    if (k_req >= dim_t - 1L || dim_t <= 500L) {
+      es <- eigen(target_mat, symmetric = TRUE)
       keep <- seq_len(min(k_req, dim_t))
       list(values = es$values[keep], vectors = es$vectors[, keep, drop = FALSE])
     } else {
-      tryCatch(RSpectra::eigs_sym(target_mat, k = k_req, which = "LM"),
+      tryCatch(.top_eigs_sym(target_mat, k_req, "LA", tol = 1e-10),
                error = function(e) stop("Eigen decomp failed in gmdLA (", label, "): ", e$message))
     }
+  }
+
+  select_valid <- function(eig_res, label) {
+    valid_idx <- which(eig_res$values > 0 &
+                         eig_res$values > rank_rtol^2 * max(eig_res$values, 0))
+    if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (", label, ").")
+    list(values = eig_res$values[valid_idx],
+         vectors = eig_res$vectors[, valid_idx, drop = FALSE])
   }
 
   # --- Main Logic --- #
   if (!use_dual) { # Primal: n_orig >= p_orig
       if (verbose) message(" gmdLA: Using primal approach (n >= p)")
-      R_decomp <- compute_sqrtm(R, paste0(cache_attr_name, "_R"), "R")
-      R <- R_decomp$matrix
-      Rtilde <- R_decomp$sqrtm
-      Rtilde.inv <- R_decomp$invsqrtm
+      Rf <- metric_factor_cached(R, paste0(cache_attr_name, "_R"), "R")
+      R <- Rf$matrix
 
       if (verbose) message("  Calculating X'QX...")
       XQX <- Matrix::crossprod(X, Q) %*% X # p x p matrix
 
-      if (verbose) message("  Calculating R(1/2) X'QX R(1/2)...")
-      target_mat <- Rtilde %*% XQX %*% Rtilde # p x p symmetric
+      if (verbose) message("  Calculating F' X'QX F...")
+      target_mat <- as.matrix(Rf$apply_t(XQX %*% Rf$mat))
+      target_mat <- 0.5 * (target_mat + t(target_mat))
 
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
-      k_request <- min(k, p_orig)
+      k_request <- min(k, p_orig, nrow(target_mat))
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (primal)")
-      eig_res <- top_eigs(target_mat, k_request, "primal")
-
-      valid_idx <- which(eig_res$values > eigen_tol)
-      if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (primal).")
-
-      eig_vals <- eig_res$values[valid_idx]
-      eig_vecs <- eig_res$vectors[, valid_idx, drop = FALSE]
+      eig_res <- select_valid(top_eigs(target_mat, k_request, "primal"), "primal")
+      eig_vals <- eig_res$values
+      eig_vecs <- eig_res$vectors
       k_found <- length(eig_vals)
       if (verbose) message(paste("  (Found ", k_found, " eigenvalues > tol)"))
 
       dgmd <- sqrt(eig_vals)
 
-      if (verbose) message("  Calculating ov (V = R^(-1/2) * eigenvectors)...")
-      vgmd <- Rtilde.inv %*% eig_vecs # ov (p x k_found)
+      if (verbose) message("  Calculating ov (V = F^{-T} * eigenvectors)...")
+      vgmd <- as.matrix(Rf$solve_t(eig_vecs)) # ov (p x k_found)
 
       if (verbose) message("  Calculating ou (U)...")
       # ugmd_i = X R vgmd_i / ||vgmd_i||_{RnR}, with RnR = R (X'QX) R.
@@ -1042,7 +1089,7 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       W <- R %*% vgmd                                   # p x k_found
       norms_sq <- as.numeric(Matrix::colSums(W * (XQX %*% W)))
       ugmd <- matrix(0.0, n_orig, k_found)
-      ok <- is.finite(norms_sq) & (norms_sq > tol^2)
+      ok <- is.finite(norms_sq) & (norms_sq > rank_rtol^2 * eig_vals[1])
       if (any(!ok)) {
           warning("Near-zero norm encountered during ugmd normalization for component(s) ",
                   paste(which(!ok), collapse = ", "))
@@ -1054,50 +1101,47 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
       total_variance <- sum(XQX * R)                    # tr(X'QX R), reuses XQX
   } else { # Dual: n_orig < p_orig
       if (verbose) message(" gmdLA: Using dual approach (n < p)")
-      Q_decomp <- compute_sqrtm(Q, paste0(cache_attr_name, "_Q"), "Q")
-      Q <- Q_decomp$matrix
-      Qtilde <- Q_decomp$sqrtm
-      Qtilde.inv <- Q_decomp$invsqrtm
+      Qf <- metric_factor_cached(Q, paste0(cache_attr_name, "_Q"), "Q")
+      Q <- Qf$matrix
 
       if (verbose) message("  Calculating X R X'...")
       XRXt <- X %*% R %*% Matrix::t(X) # n x n matrix
 
-      if (verbose) message("  Calculating Q(1/2) X R X' Q(1/2)...")
-      target_mat <- Qtilde %*% XRXt %*% Qtilde # n x n symmetric
+      if (verbose) message("  Calculating F' X R X' F...")
+      target_mat <- as.matrix(Qf$apply_t(XRXt %*% Qf$mat))
+      target_mat <- 0.5 * (target_mat + t(target_mat))
 
       if (verbose) message("  Performing eigen decomposition on target matrix (dim: ", nrow(target_mat), ")...")
-      k_request <- min(k, n_orig)
+      k_request <- min(k, n_orig, nrow(target_mat))
       if (k_request < 1) stop("k_request must be >= 1 in gmdLA (dual)")
-      eig_res <- top_eigs(target_mat, k_request, "dual")
-
-      valid_idx <- which(eig_res$values > eigen_tol)
-      if (length(valid_idx) == 0) stop("No positive eigenvalues found in gmdLA (dual).")
-
-      eig_vals <- eig_res$values[valid_idx]
-      eig_vecs <- eig_res$vectors[, valid_idx, drop = FALSE]
+      eig_res <- select_valid(top_eigs(target_mat, k_request, "dual"), "dual")
+      eig_vals <- eig_res$values
+      eig_vecs <- eig_res$vectors
       k_found <- length(eig_vals)
       if (verbose) message(paste("  (Found ", k_found, " eigenvalues > tol)"))
 
       dgmd <- sqrt(eig_vals)
 
-      if (verbose) message("  Calculating ou (U = Q^(-1/2) * eigenvectors)...")
-      ugmd <- Qtilde.inv %*% eig_vecs # ou (n x k_found)
+      if (verbose) message("  Calculating ou (U = F^{-T} * eigenvectors)...")
+      ugmd <- as.matrix(Qf$solve_t(eig_vecs)) # ou (n x k_found)
 
       if (verbose) message("  Calculating ov (V = X' Q U D^{-1})...")
       # The GMD factors satisfy vgmd = X' Q ugmd D^{-1} (row metric included).
       Xt_ugmd <- Matrix::crossprod(X, Q %*% ugmd) # p x k_found
-      vgmd_unnorm <- sweep(Xt_ugmd, 2, dgmd, `/`) # p x k_found
+      vgmd_unnorm <- sweep(as.matrix(Xt_ugmd), 2, dgmd, `/`) # p x k_found
 
       # Renormalize in the R metric (numerical no-op in exact arithmetic)
-      norms_sq <- as.numeric(Matrix::colSums(vgmd_unnorm * (R %*% vgmd_unnorm)))
+      # vgmd_unnorm already has unit R-norm in exact arithmetic (X'Q u_i = d_i v_i),
+      # so this guard is dimensionless: only a genuinely degenerate column fails it.
+      norms_sq <- as.numeric(Matrix::colSums(vgmd_unnorm * as.matrix(R %*% vgmd_unnorm)))
       vgmd <- matrix(0.0, p_orig, k_found)
-      ok <- is.finite(norms_sq) & (norms_sq > tol^2)
+      ok <- is.finite(norms_sq) & (norms_sq > rank_rtol^2)
       if (any(!ok)) {
           warning("Near-zero norm encountered during vgmd normalization for component(s) ",
                   paste(which(!ok), collapse = ", "))
       }
       if (any(ok)) {
-          vgmd[, ok] <- sweep(as.matrix(vgmd_unnorm[, ok, drop = FALSE]), 2,
+          vgmd[, ok] <- sweep(vgmd_unnorm[, ok, drop = FALSE], 2,
                               sqrt(norms_sq[ok]), `/`)
       }
       total_variance <- sum(Q * XRXt)             # tr(X'QX R) = tr(Q X R X'), reuses XRXt
@@ -1105,12 +1149,10 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
 
   # Calculate explained variance
   if (verbose) message(" Calculating explained variance...")
-  # total_variance = tr(X' Q X R), computed in each branch from the Gram matrix
-  # already in scope (no p x p / n x n products are re-formed here).
   total_variance <- as.numeric(total_variance)
   if (!is.finite(total_variance)) total_variance <- NA_real_
 
-  if (is.na(total_variance) || total_variance < tol) {
+  if (is.na(total_variance) || total_variance <= 0) {
       propv <- rep(0, k_found)
       warning("Total generalized variance is near zero or could not be computed.")
   } else {
@@ -1128,33 +1170,27 @@ gmdLA <- function(X, Q, R, k = min(n_orig, p_orig), n_orig, p_orig,
     d = dgmd,       # singular values (k_found)
     k = k_found,    # Number of components found
     cumv = cumv,    # Cumulative variance explained
-    propv = propv   # Proportion variance explained
+    propv = propv   # Proportion of variance explained
   )
 }
-
-
-
-
 #' @keywords internal
 gmd_deflation_cpp_dispatch <- function(X, Q, R, k, thr = 1e-7, maxit = 500L,
-                                       verbose = FALSE) {
+                                       verbose = FALSE, rank_rtol = 1e-6) {
   if (methods::is(X, "sparseMatrix")) {
     if (exists("gmd_deflation_cpp_sp", mode = "function")) {
       res <- gmd_deflation_cpp_sp(as_dgc(X), as_dgc(Q), as_dgc(R), k,
-                                  thr = thr, maxit = maxit, verbose = verbose)
+                                  thr = thr, maxit = maxit, verbose = verbose, rank_rtol = rank_rtol)
       return(.emit_deflation_warnings(res))
     }
     warning("Sparse C++ deflation backend is unavailable; falling back to R deflation to avoid densifying X.")
-    return(gmd_deflationR(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose))
+    return(gmd_deflationR(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose, rank_rtol = rank_rtol))
   }
 
-  res <- gmd_deflation_cpp(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose)
+  res <- gmd_deflation_cpp(X, Q, R, k, thr = thr, maxit = maxit, verbose = verbose, rank_rtol = rank_rtol)
   .emit_deflation_warnings(res)
 }
 
-# The C++ deflation kernels buffer their warning messages instead of calling
-# Rf_warning() (which longjmps past C++ destructors under options(warn = 2)).
-# Emit them here, from R.
+
 .emit_deflation_warnings <- function(res) {
   if (!is.null(res$warnings) && length(res$warnings)) {
     for (w in res$warnings) warning(w, call. = FALSE)
@@ -1163,10 +1199,12 @@ gmd_deflation_cpp_dispatch <- function(X, Q, R, k, thr = 1e-7, maxit = 500L,
   res
 }
 
+
 #' @noRd
 #' @importFrom Matrix diag crossprod t
 #' @importFrom stats rnorm
-gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE) {
+gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE,
+                            rank_rtol = 1e-6) {
 
   n <- nrow(X)
   p <- ncol(X)
@@ -1196,7 +1234,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   }
   # Norm/singular-value cutoffs are relative to the scale of X in the (Q, R)
   # metric, so results are invariant to rescaling X.
-  norm_floor_sq <- (thr * scale_ref)^2
+  norm_floor_sq <- (.Machine$double.eps * scale_ref)^2
 
   k_found <- 0
 
@@ -1239,7 +1277,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
       # Update u: u_hat = X_residual R v; normalize u = u_hat / sqrt(u_hat' Q u_hat)
       uhat <- residual_mv(R %*% v, k_found)
       u_norm_sq <- as.numeric(Matrix::crossprod(uhat, Q) %*% uhat)
-      if (u_norm_sq < norm_floor_sq) { # Check for near zero norm
+      if (!is.finite(u_norm_sq) || u_norm_sq <= norm_floor_sq) { # Check for near zero norm
           if (verbose) message("  u norm near zero, stopping power iteration for component ", i)
           break
       }
@@ -1248,7 +1286,7 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
       # Update v: v_hat = X_residual' Q u; normalize v = v_hat / sqrt(v_hat' R v_hat)
       vhat <- residual_t_mv(Q %*% u, k_found)
       v_norm_sq <- as.numeric(Matrix::crossprod(vhat, R) %*% vhat)
-       if (v_norm_sq < norm_floor_sq) { # Check for near zero norm
+       if (!is.finite(v_norm_sq) || v_norm_sq <= norm_floor_sq) { # Check for near zero norm
           if (verbose) message("  v norm near zero, stopping power iteration for component ", i)
           break
       }
@@ -1276,9 +1314,9 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
     current_d <- as.numeric(d_i)
 
     # Check for degenerate component: relative to the largest singular value
-    # extracted so far (or to ||X||_{Q,R} for the first component)
-    d_ref <- if (k_found > 0) abs(dgmd[1]) else scale_ref
-    if (abs(current_d) < thr * d_ref) {
+    # extracted so far; the first component establishes that scale.
+    d_ref <- if (k_found > 0) abs(dgmd[1]) else abs(current_d)
+    if (!is.finite(current_d) || current_d <= 0 || current_d <= rank_rtol * d_ref) {
         warning("Component ", i, " is degenerate (singular value near zero: ", signif(current_d, 3), "). Stopping deflation.")
         break # Exit outer for loop
     }
@@ -1297,10 +1335,10 @@ gmd_deflationR <- function(X, Q, R, k, thr = 1e-6, maxit = 500L, verbose = FALSE
   if (k_found < k) {
       warning("Deflation stopped early. Found ", k_found, " components instead of requested ", k, ".")
       # Trim result arrays
-      dgmd <- dgmd[1:k_found]
-      ugmd <- ugmd[, 1:k_found, drop = FALSE]
-      vgmd <- vgmd[, 1:k_found, drop = FALSE]
-      propv <- propv[1:k_found]
+      dgmd <- dgmd[seq_len(k_found)]
+      ugmd <- ugmd[, seq_len(k_found), drop = FALSE]
+      vgmd <- vgmd[, seq_len(k_found), drop = FALSE]
+      propv <- propv[seq_len(k_found)]
   }
 
   if (k_found == 0) {

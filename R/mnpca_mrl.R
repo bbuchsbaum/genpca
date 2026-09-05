@@ -630,7 +630,7 @@ mnpca_mrl <- function(Y,
   p <- ncol(Y)
   sv <- tryCatch({
     if (min(n, p) > ncomp + 1L) {
-      RSpectra::svds(Y, k = ncomp, nu = ncomp, nv = ncomp)
+      .top_svd(Y, ncomp, nu = ncomp, nv = ncomp)
     } else {
       base::svd(Y, nu = ncomp, nv = ncomp)
     }

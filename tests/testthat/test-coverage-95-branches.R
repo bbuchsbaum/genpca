@@ -210,10 +210,15 @@ test_that("MN-PCA validation and graphical-lasso branches are covered", {
   )
 })
 
-test_that("covariance GPCA covers force-symmetry and zero-metric branches", {
+test_that("covariance GPCA rejects asymmetric C and covers zero-metric branches", {
   C_nonsym <- matrix(c(2, 0.2, 0, 1), 2)
+  expect_error(
+    genpca:::genpca_cov_gmd(C_nonsym, R = diag(2), ncomp = 1),
+    "symmetric"
+  )
+  C_near <- matrix(c(2, 0.2, 0.2 + 1e-14, 1), 2)
   expect_equal(
-    genpca:::genpca_cov_gmd(C_nonsym, R = diag(2), ncomp = 1)$k,
+    genpca:::genpca_cov_gmd(C_near, R = diag(2), ncomp = 1)$k,
     1L
   )
   expect_error(
@@ -230,7 +235,7 @@ test_that("covariance GPCA covers force-symmetry and zero-metric branches", {
   )
 
   C_tiny_negative <- diag(c(1, -1e-7))
-  expect_message(
+  expect_warning(
     genpca:::genpca_cov_geigen(
       C_tiny_negative,
       R = diag(2),
@@ -238,7 +243,7 @@ test_that("covariance GPCA covers force-symmetry and zero-metric branches", {
       constraints_remedy = "ridge",
       verbose = TRUE
     ),
-    "Clipping tiny"
+    "non-PSD"
   )
   expect_error(
     genpca:::genpca_cov_geigen(diag(2), R = 1, ncomp = 1),
@@ -246,13 +251,13 @@ test_that("covariance GPCA covers force-symmetry and zero-metric branches", {
   )
   expect_error(
     genpca:::genpca_cov_geigen(diag(2), R = c(1, -1), ncomp = 1),
-    "nonnegative"
+    "non-negative"
   )
 
   R_nonsym <- matrix(c(2, 0.1, 0, 1), 2)
-  expect_equal(
-    genpca:::genpca_cov_geigen(C_nonsym, R = R_nonsym, ncomp = 1)$k,
-    1L
+  expect_error(
+    genpca:::genpca_cov_geigen(C_near, R = R_nonsym, ncomp = 1),
+    "symmetric"
   )
   expect_error(
     genpca:::genpca_cov_geigen(diag(2), R = c(0, 0), ncomp = 1),
@@ -329,7 +334,7 @@ test_that("GPCA and GPLSSVD operator fallbacks are covered", {
       n_orig = nrow(X),
       p_orig = 2
     ),
-    "no positive eigenvalues"
+    "must be PSD|positive semi-definite|no positive eigenvalues"
   )
   expect_error(
     genpca:::gmdLA(
@@ -611,11 +616,11 @@ test_that("final narrow coverage branches are exercised", {
   R_zeroish <- matrix(c(0, 1e-12, 1e-12, 0), 2)
   expect_error(
     genpca:::genpca_cov_gmd(diag(2), R = R_zeroish, ncomp = 1),
-    "zero"
+    "zero|positive semi-definite"
   )
   expect_error(
     genpca:::genpca_cov_geigen(diag(2), R = R_zeroish, ncomp = 1),
-    "zero"
+    "zero|PSD|positive semi-definite"
   )
   expect_equal(
     genpca:::genpca_cov_geigen(diag(2), R = diag(2), ncomp = NULL)$k,
@@ -642,7 +647,7 @@ test_that("final narrow coverage branches are exercised", {
       method = "spectra",
       verbose = TRUE
     ),
-    "matrix-free Spectra"
+    "whitened-operator SVD"
   )
 
   fit <- genpca::rpls(

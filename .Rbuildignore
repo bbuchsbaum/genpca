@@ -26,3 +26,6 @@ experimental/
 ^Rprof\.out$
 ^vignettes/(genpca|gpca-metrics|gpca-scale|gplssvd-reference|gpca-basics)\.html$
 ^tests/testthat/.*\.patch$
+^vignettes/Rplots\.pdf$
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$

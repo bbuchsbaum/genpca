@@ -10,15 +10,16 @@ genpca(
   M = NULL,
   ncomp = NULL,
   method = c("eigen", "auto", "spectra", "randomized", "deflation"),
-  constraints_remedy = c("ridge", "error", "clip", "identity"),
+  constraints_remedy = c("error", "ridge", "clip", "identity"),
   preproc = multivarious::pass(),
   threshold = 1e-06,
   maxit_deflation = 500L,
   use_cpp = TRUE,
-  maxeig = 800,
+  maxeig = 5000,
   warn_approx = TRUE,
   maxit_spectra = 1000,
   tol_spectra = 1e-09,
+  rank_rtol = 1e-06,
   oversample = 20L,
   n_power = 1L,
   n_polish = 0L,
@@ -39,21 +40,24 @@ symmetric n x n PSD matrix. If \code{NULL}, defaults to identity.}
 
 \item{ncomp}{Number of components to extract. Defaults to \code{min(dim(X))}. Must be positive.}
 
-\item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (uses matrix-free C++/Spectra implementation \code{gmd_fast_cpp}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
+\item{method}{Character string specifying the computation method. One of \code{"eigen"} (default, uses \code{gmdLA}), \code{"auto"} (heuristic choice among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"}), \code{"spectra"} (iterative partial SVD of the metric-whitened data via \pkg{eigencore}, \code{gmd_spectra}), \code{"randomized"} (approximate randomized block solver \code{gmd_randomized}), or \code{"deflation"} (uses \code{gmd_deflationR} or \code{gmd_deflation_cpp}).}
 
-\item{constraints_remedy}{Character string specifying how a supplied \code{A}
-or \code{M} that is not symmetric positive (semi)definite is repaired.
-Default \code{"ridge"}. One of: \code{"error"} (reject the input with an
-error), \code{"ridge"} (Gershgorin diagonal shift: add the smallest
+\item{constraints_remedy}{Character string specifying what to do with a
+supplied \code{A} or \code{M} that is not positive semi-definite (within a
+relative tolerance of \code{sqrt(.Machine$double.eps)}). Default
+\code{"error"}: reject the input. The alternatives repair it and emit a
+warning of class \code{genpca_metric_repaired} whose \code{report} field
+(see \code{\link{repair_metric}}) records the minimum eigenvalue
+before and after, the shift applied, the rank and the condition
+number: \code{"ridge"} (Gershgorin diagonal shift: add the smallest
 diagonal loading that restores positive definiteness, falling back
 to \code{Matrix::nearPD()} for small dense matrices), \code{"clip"}
 (spectral clip to the PSD cone by zeroing negative eigenvalues;
 this densifies the matrix and refuses sparse input larger than
 2000 rows/cols, where \code{"ridge"} should be used instead), or
-\code{"identity"} (replace the matrix with the identity). Note
-that \code{\link{genpca_cov}} defaults to \code{"error"} instead of
-\code{"ridge"}, since it expects an already-validated covariance
-matrix; see its documentation for details.}
+\code{"identity"} (replace the matrix with the identity). An
+asymmetric metric is an error under every setting. Singular PSD
+metrics are valid input and are never repaired.}
 
 \item{preproc}{Pre-processing transformer object from the \strong{multivarious} package
 (default \code{multivarious::pass()}). Use \code{multivarious::center()} for centered GPCA.
@@ -74,18 +78,38 @@ difference, so the resulting singular-vector accuracy scales like
 use faster C++ implementation for \code{method = "deflation"}. Fallback to R otherwise.
 (Ignored for \code{method = "eigen"} and \code{method = "spectra"}).}
 
-\item{maxeig}{Upper bound on subspace dimension for eigen/SVD calculations, primarily for
-\code{method = "eigen"}. If a constraint matrix dimension is \code{<= maxeig}
-a full eigen decomposition is used. Otherwise only the leading \code{maxeig}
-eigencomponents are computed via \code{RSpectra::eigs_sym}, so results may be
-approximate. Default \code{800}.}
+\item{maxeig}{For \code{method = "eigen"} and \code{method = "spectra"}: a
+positive definite general metric is factored exactly by
+Cholesky at any size, but a singular general metric (e.g. a
+graph Laplacian) needs a dense eigendecomposition of the
+metric, which is refused when the metric has more than
+\code{maxeig} rows. The error names the alternatives
+(\code{method = "deflation"}, which only multiplies by the
+metric, or raising \code{maxeig}); \code{method = "auto"}
+routes such cases to deflation. Results are never
+approximated. Default \code{5000}.}
 
-\item{warn_approx}{Logical. If \code{TRUE} (default) a warning is emitted when an
-approximate eigen decomposition is used because the dimension exceeds \code{maxeig}.}
+\item{warn_approx}{Deprecated and ignored: \code{method = "eigen"} no
+longer approximates anything.}
 
-\item{maxit_spectra}{Maximum iterations for the Spectra iterative solver when \code{method = "spectra"}. Default \code{1000}.}
+\item{maxit_spectra}{Retained for compatibility and currently unused: the
+\pkg{eigencore} partial SVD used by \code{method = "spectra"} is
+controlled by \code{tol_spectra} alone.}
 
-\item{tol_spectra}{Tolerance for the Spectra iterative solver when \code{method = "spectra"}. Default \code{1e-9}.}
+\item{tol_spectra}{Convergence tolerance of the iterative solver when
+\code{method = "spectra"}. Default \code{1e-9}. This governs iteration
+only; rank decisions use \code{rank_rtol}.}
+
+\item{rank_rtol}{Relative cutoff for component acceptance, on the scale of
+the singular values: component \eqn{j} is dropped when
+\code{d_j <= rank_rtol * d_1}. Applied by every method
+(for the eigen paths on \eqn{d_j^2}), so the number of components
+returned does not change when \code{X} is rescaled. Default \code{1e-6}.
+Metric validation uses a separate relative tolerance,
+\code{sqrt(.Machine$double.eps)}, for positive semi-definiteness and
+null-space detection for general metric eigendecompositions.
+Every strictly positive diagonal weight is retained in both the
+forward and inverse factors.}
 
 \item{oversample}{Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default \code{20}.}
 
@@ -93,7 +117,7 @@ approximate eigen decomposition is used because the dimension exceeds \code{maxe
 
 \item{n_polish}{Number of optional block-polish iterations for \code{method = "randomized"}. Default \code{0}.}
 
-\item{jitter_metric}{Small jitter used in metric orthonormalization for \code{method = "randomized"}. Default \code{1e-10}.}
+\item{jitter_metric}{Jitter used in metric orthonormalization for \code{method = "randomized"}, relative to the scale of the block Gram matrix. Default \code{1e-10}.}
 
 \item{seed_randomized}{Optional seed for \code{method = "randomized"}.
 Default \code{1234}. This fully determines the randomized backend's
@@ -146,7 +170,7 @@ Five methods are available via the \code{method} argument:
 \itemize{
 \item{\code{"eigen"} (Default): Uses a one-shot eigen decomposition strategy based on \code{gmdLA}. It explicitly forms and decomposes a \eqn{p \times p} or \eqn{n \times n} matrix (depending on \code{n} vs \code{p}).}
 \item{\code{"auto"}: Chooses among \code{"eigen"}, \code{"spectra"}, and \code{"randomized"} using heuristics on shape, rank ratio (\code{ncomp / min(n,p)}), and constraint structure.}
-\item{\code{"spectra"}: Uses a matrix-free iterative approach via the \pkg{RSpectra} package to solve the same eigen problem as \code{"eigen"} but without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p}. Requires C++ compiler and \pkg{RSpectra}.}
+\item{\code{"spectra"}: Computes the top-k singular triplets of the metric-whitened data \eqn{F_M' X F_A} (with \eqn{M = F_M F_M'}, \eqn{A = F_A F_A'}) as an implicit operator via the \pkg{eigencore} package, without forming the large intermediate matrix. Generally faster and uses less memory for large \code{n} or \code{p} when few components are requested.}
 \item{\code{"randomized"}: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.}
 \item{\code{"deflation"}: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than \code{"eigen"} for very large dense problems where \code{ncomp} is small.}
 }
@@ -169,8 +193,7 @@ performs GPCA directly on C with column constraint R (equivalent to A).
 }
 
 \examples{
-if (requireNamespace("RSpectra", quietly = TRUE) &&
-    requireNamespace("multivarious", quietly = TRUE)) {
+if (requireNamespace("multivarious", quietly = TRUE)) {
   set.seed(123)
   X <- matrix(stats::rnorm(200 * 100), 200, 100)
   rownames(X) <- paste0("R", 1:200)

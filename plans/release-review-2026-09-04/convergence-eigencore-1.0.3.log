@@ -1,0 +1,38 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+tol= 1e-12
+$nconv
+[1] 2
+
+$converged
+[1] TRUE
+
+$d
+[1] 229.3255 212.7749
+
+gplssvd warnings=  d= 229.3255 212.7749
+tol= 1e-16
+$nconv
+[1] 0
+
+$converged
+[1] FALSE
+
+$d
+[1] 229.3255 212.7749
+
+gplssvd warnings=  d= 229.3255 212.7749
+tol= 1e-20
+$nconv
+[1] 0
+
+$converged
+[1] FALSE
+
+$d
+[1] 229.3255 212.7749
+
+gplssvd warnings=  d= 229.3255 212.7749

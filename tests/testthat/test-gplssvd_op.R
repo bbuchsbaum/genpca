@@ -153,10 +153,9 @@ Y0 <- matrix(rnorm(N * J), N, J)
 
 # ---- 1) Identity constraints (canonical PLS / PLS-SVD) --------------------
 
-for (backend in c("RSpectra", "irlba")) {
+for (backend in c("eigencore", "irlba")) {
   testthat::test_that(paste("Identity metrics match full SVD (backend =", backend, ")"), {
-    if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
-    if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
+    if (backend == "irlba") testthat::skip_if_not_installed("irlba")
     k <- 3
     ref <- dense_gplssvd_ref(X0, Y0, MX = NULL, MY = NULL, WX = NULL, WY = NULL,
                              k = k, center = TRUE, scale = TRUE)
@@ -190,12 +189,11 @@ for (backend in c("RSpectra", "irlba")) {
 
 # ---- 2) Diagonal row weights on both X and Y --------------------------------
 
-for (backend in c("RSpectra", "irlba")) {
+for (backend in c("eigencore", "irlba")) {
   testthat::test_that(paste("Diagonal row weights match full SVD (backend =", backend, ")"), {
-    if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
-    if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
+    if (backend == "irlba") testthat::skip_if_not_installed("irlba")
     k <- 3
-    set.seed(if (backend == "RSpectra") 201 else 202)
+    set.seed(if (backend == "eigencore") 201 else 202)
     w_row_X <- runif(N)
     w_row_X <- w_row_X / sum(w_row_X)
     w_row_Y <- runif(N)
@@ -232,13 +230,12 @@ for (backend in c("RSpectra", "irlba")) {
 
 # ---- 3) Full SPD metrics (sparse and dense) on rows and columns --------------
 
-for (backend in c("RSpectra", "irlba")) {
+for (backend in c("eigencore", "irlba")) {
   testthat::test_that(paste("Full SPD metrics match full SVD (backend =", backend, ")"), {
-    if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
-    if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
+    if (backend == "irlba") testthat::skip_if_not_installed("irlba")
     k <- 3
 
-    set.seed(if (backend == "RSpectra") 301 else 302)
+    set.seed(if (backend == "eigencore") 301 else 302)
     MX <- make_spd(N, dense = FALSE) # sparse SPD
     MY <- make_spd(N, dense = TRUE)  # dense SPD
     WX <- make_spd(I, dense = TRUE)
@@ -275,10 +272,9 @@ for (backend in c("RSpectra", "irlba")) {
 
 # ---- 4) Sanity: k smaller than rank, and with scaling only on X --------------
 
-for (backend in c("RSpectra", "irlba")) {
+for (backend in c("eigencore", "irlba")) {
   testthat::test_that(paste("Partial rank & mixed preprocessing (backend =", backend, ")"), {
-    if (backend == "RSpectra") testthat::skip_if_not_installed("RSpectra")
-    if (backend == "irlba")    testthat::skip_if_not_installed("irlba")
+    if (backend == "irlba") testthat::skip_if_not_installed("irlba")
     k <- 2
     ref <- dense_gplssvd_ref(X0, Y0, MX = NULL, MY = NULL, WX = NULL, WY = NULL,
                              k = k, center = TRUE, scale = FALSE)

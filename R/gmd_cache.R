@@ -41,12 +41,20 @@
 }
 
 #' @title Get (and cache) a *lower* Cholesky factor for a dense SPD matrix
-#' @param A numeric or dense Matrix (SPD). If sparse, falls back to dense.
+#' @param A numeric or dense Matrix (SPD). Sparse input is an error (it is
+#'   factored sparsely elsewhere), never densified here.
 #' @return a base numeric matrix L (lower triangular) with A = L %*% t(L)
 #' @keywords internal
 get_chol_lower_dense <- function(A) {
   if (!inherits(A, "Matrix")) A <- Matrix::Matrix(A, sparse = FALSE)
-  if (methods::is(A, "sparseMatrix")) A <- methods::as(A, "denseMatrix")
+  # Matrix() returns a diagonalMatrix (formally sparse) for diagonal input;
+  # that is cheap to densify. Genuinely sparse metrics are factored by
+  # Matrix::Cholesky() in .metric_factor() and must not be densified here.
+  if (methods::is(A, "diagonalMatrix")) {
+    A <- Matrix::Matrix(as.matrix(A), sparse = FALSE, doDiag = FALSE)
+  } else if (methods::is(A, "sparseMatrix")) {
+    stop("get_chol_lower_dense() expects a dense matrix; sparse metrics are factored by Matrix::Cholesky() in .metric_factor()", call. = FALSE)
+  }
   key <- paste0("L_", .digest_dense_matrix(A))
   if (exists(key, envir = .gmd_cache, inherits = FALSE)) {
     # Update access time for LRU tracking

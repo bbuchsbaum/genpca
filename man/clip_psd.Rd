@@ -4,22 +4,26 @@
 \alias{clip_psd}
 \title{Clip a symmetric matrix to the PSD cone}
 \usage{
-clip_psd(M, tol = 1e-06, dense_maxn = 2000L)
+clip_psd(M, tol = NULL, dense_maxn = 2000L, name = "M")
 }
 \arguments{
 \item{M}{numeric matrix or Matrix::Matrix}
 
-\item{tol}{tolerance passed to \code{\link[=is_spd]{is_spd()}} for the fast-path check}
+\item{tol}{unused; kept for call compatibility}
 
 \item{dense_maxn}{refuse sparse input larger than this (clip densifies)}
+
+\item{name}{label used in error messages}
 }
 \value{
-a dense Matrix, symmetric PSD
+a symmetric Matrix, PSD
 }
 \description{
 Spectral clip: eigen-decompose and set negative eigenvalues to
 zero. Unlike \code{\link[=ensure_spd]{ensure_spd()}} (a diagonal ridge shift), this preserves the
-non-negative part of the spectrum exactly. Requires a dense
+non-negative part of the spectrum exactly. The output has no negative
+eigenvalue beyond reconstruction roundoff: the only fast path is an exact
+(unshifted) Cholesky success, which proves positive definiteness. Requires a dense
 eigendecomposition, so large sparse matrices are refused.
 }
 \keyword{internal}

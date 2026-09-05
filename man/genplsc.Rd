@@ -14,8 +14,9 @@ genplsc(
   ncomp = 2,
   preproc_x = multivarious::pass(),
   preproc_y = multivarious::pass(),
-  svd_backend = c("RSpectra", "irlba"),
+  svd_backend = c("eigencore", "irlba", "RSpectra"),
   svd_opts = list(tol = 1e-07, maxitr = 1000),
+  constraints_remedy = c("error", "ridge", "clip", "identity"),
   verbose = FALSE
 )
 }
@@ -37,13 +38,19 @@ genplsc(
 \item{preproc_x, preproc_y}{Optional \code{multivarious} preprocessors (e.g., \code{center()}).
 Defaults to \code{multivarious::pass()} (no-op).}
 
-\item{svd_backend}{Character, one of \code{"RSpectra"} (default) or \code{"irlba"} for
+\item{svd_backend}{Character, one of \code{"eigencore"} (default) or \code{"irlba"} for
 the iterative SVD. This choice only matters for larger problems: whenever
 both \code{X} and \code{Y} have at most 64 columns after preprocessing, the
 operator materializes \code{S} densely and computes a direct \code{svd()},
 ignoring \code{svd_backend} entirely (see \code{gplssvd_op()}).}
 
-\item{svd_opts}{List of options passed to the SVD backend, e.g., \code{tol}, \code{maxitr}.}
+\item{svd_opts}{List of options: \code{tol} for both backends and \code{maxitr} for
+irlba only. An incomplete eigencore solve raises an error of class
+\code{genpca_solver_nonconvergence}; no unchecked fit is returned.}
+
+\item{constraints_remedy}{What to do with a metric that is not positive
+semi-definite: \code{"error"} (default), \code{"ridge"}, \code{"clip"} or \code{"identity"};
+repairs emit a \code{genpca_metric_repaired} warning. See \code{\link[=genpca]{genpca()}}.}
 
 \item{verbose}{Logical; print brief progress messages.}
 }

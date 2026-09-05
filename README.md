@@ -20,14 +20,14 @@ GPCA extends standard PCA by incorporating row and column metrics (M and A) that
 - **Covariance-based GPCA** (`genpca_cov`): Direct analysis of pre-computed covariance matrices
 - **Multiple computational backends**:
   - `eigen`: Direct eigendecomposition for small-to-medium problems
-  - `spectra`: Matrix-free C++ implementation for large/sparse data
+  - `spectra`: Iterative partial SVD of the metric-whitened data (via eigencore) for large problems
   - `randomized`: Block-sketch approximation for wide low-rank settings
   - `deflation`: Sequential extraction for memory-constrained scenarios
 
 ### Advanced Methods
 - **Generalized PLS/PLS-SVD** (`genpls`/`genplsc`): Two-block analysis with metrics
 - **Operator-level computations** (`gplssvd_op`): Efficient PLS without materializing whitened matrices
-- **Constraint handling**: Automatic validation and repair of metric matrices (PSD enforcement)
+- **Constraint handling**: Strict, scale-relative validation of metric matrices (symmetry and positive semi-definiteness); repairs are explicit and reported (`repair_metric()`, `constraints_remedy`)
 
 ### Related Decompositions
 - **Sparse functional PCA** (`sfpca`): Rank-1 components with sparsity and spatial smoothness penalties, e.g. `sfpca(X, K = 2, spat_cds = coords)`. See `?sfpca`.
@@ -49,7 +49,7 @@ explicitly to let a heuristic pick among `"eigen"`, `"spectra"`, and
 | Method | Best for | Pros | Cons |
 |---|---|---|---|
 | `eigen` | Small/medium problems, exact reference runs | Most stable reference behavior | Builds larger intermediate matrices; for very large sparse constraints may rely on truncated eigensolve (`maxeig`) and become slower/approximate |
-| `spectra` | Large diagonal/sparse-friendly problems | Matrix-free iterative solve; lower memory | Accuracy/performance can depend on conditioning and iteration behavior |
+| `spectra` | Large problems with few components | Iterative partial SVD of the whitened operator (eigencore); lower memory | Both metrics are factored once (Cholesky or sparse Cholesky); a large dense general metric costs one factorization |
 | `randomized` | Wide (`p >> n`), sparse-metric, low-rank workloads | Often fastest in wide settings; block GEMM/SpMM path | Approximate by design; tune `oversample`, `n_power`, `n_polish` |
 | `deflation` | Few components with limited memory | Low memory, component-by-component extraction | Can converge slowly; C++ path currently expects sparse metrics |
 | `auto` | Default production usage | Chooses among `eigen`/`spectra`/`randomized` heuristically | Heuristics may not be optimal for every hardware/data regime |
@@ -64,7 +64,7 @@ devtools::install_github("bbuchsbaum/genpca")
 You’ll also want these runtime dependencies installed:
 
 ```r
-install.packages(c("Matrix", "RSpectra", "multivarious"))
+install.packages(c("Matrix", "eigencore", "multivarious"))
 # Optional for some utilities / tests
 install.packages(c("irlba", "knitr", "rmarkdown"))
 ```
@@ -177,7 +177,7 @@ browseVignettes("genpca")
 
 ## Testing and guarantees
 
-- Eigen vs Spectra: unit tests assert tight agreement on modest problems (sdev within 1e‑6, scores within 1e‑5 up to sign).
+- Eigen vs spectra (eigencore): unit tests assert tight agreement on modest problems (sdev within 1e‑6, scores within 1e‑5 up to sign).
 - Deflation vs Eigen: additional tests (n≈60, p≈40, k=8) assert:
   - sdev within 1e‑4,
   - subspace agreement via principal angles,

@@ -1,0 +1,4 @@
+CC = /usr/bin/clang -arch arm64
+CXX = /usr/bin/clang++ -arch arm64 -std=gnu++17
+CXX17 = /usr/bin/clang++ -arch arm64
+FLIBS = -L/opt/homebrew/opt/gcc/lib/gcc/current -lgfortran -lquadmath

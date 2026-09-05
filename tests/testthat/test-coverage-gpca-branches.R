@@ -122,7 +122,7 @@ test_that("gmdLA covers diagonal errors, non-diagonal primal and dual paths, app
   R_bad <- Matrix::Diagonal(5, x = c(1, 1, 1, 1, -1))
   expect_error(
     genpca:::gmdLA(X, Q, R_bad, k = 2, n_orig = 8, p_orig = 5, use_dual = FALSE),
-    "must be PSD"
+    "must be PSD|non-negative"
   )
 
   make_spd <- function(m) {
@@ -153,25 +153,38 @@ test_that("gmdLA covers diagonal errors, non-diagonal primal and dual paths, app
   )
   expect_equal(fit_dual$k, 2L)
 
+  # A positive definite metric larger than maxeig is factored exactly
+  # (Cholesky), never truncated: the result matches the unrestricted call.
   X_big <- matrix(rnorm(130 * 105), 130, 105)
   R_big_raw <- matrix(rnorm(105 * 6), 105, 6)
   R_big <- Matrix::Matrix(crossprod(t(R_big_raw)) + diag(105), sparse = FALSE)
-  expect_warning(
-    fit_approx <- genpca:::gmdLA(
-      X_big,
-      Matrix::Diagonal(130),
-      R_big,
-      k = 2,
-      n_orig = 130,
-      p_orig = 105,
-      maxeig = 20,
-      use_dual = FALSE,
-      warn_approx = TRUE,
-      verbose = TRUE
-    ),
-    "using RSpectra"
+  fit_exact <- genpca:::gmdLA(
+    X_big, Matrix::Diagonal(130), R_big,
+    k = 2, n_orig = 130, p_orig = 105, maxeig = Inf, use_dual = FALSE
   )
-  expect_equal(fit_approx$k, 2L)
+  expect_silent(
+    fit_guard <- genpca:::gmdLA(
+      X_big, Matrix::Diagonal(130), R_big,
+      k = 2, n_orig = 130, p_orig = 105, maxeig = 20, use_dual = FALSE
+    )
+  )
+  expect_equal(fit_guard$k, 2L)
+  expect_equal(fit_guard$d, fit_exact$d, tolerance = 1e-8)
+  # A singular general metric above maxeig needs a dense eigendecomposition
+  # and is refused rather than approximated.
+  R_sing <- Matrix::Matrix(crossprod(t(R_big_raw)), sparse = FALSE)
+  expect_error(
+    genpca:::gmdLA(
+      X_big, Matrix::Diagonal(130), R_sing,
+      k = 2, n_orig = 130, p_orig = 105, maxeig = 20, use_dual = FALSE
+    ),
+    "maxeig"
+  )
+  fit_sing <- genpca:::gmdLA(
+    X_big, Matrix::Diagonal(130), R_sing,
+    k = 2, n_orig = 130, p_orig = 105, maxeig = Inf, use_dual = FALSE
+  )
+  expect_equal(fit_sing$k, 2L)
 
   expect_error(
     genpca:::gmdLA(
@@ -214,56 +227,59 @@ test_that("genpca_cov covers GMD and generalized-eigen covariance branches", {
 
   expect_error(genpca::genpca_cov(C[1:5, ], ncomp = 2), "p == ncol")
   expect_error(genpca::genpca_cov(C, R = c(1, 1), ncomp = 2), "length")
-  expect_error(genpca::genpca_cov(C, R = c(1, -2, rep(1, 4)), ncomp = 2), "Negative")
+  expect_error(genpca::genpca_cov(C, R = c(1, -2, rep(1, 4)), ncomp = 2), "non-negative")
 
-  fit_gmd <- genpca::genpca_cov(C, R = R_nonsym, ncomp = 3, method = "gmd", verbose = TRUE)
+  # Asymmetric metrics are an input error, not silently symmetrized.
+  expect_error(genpca::genpca_cov(C, R = R_nonsym, ncomp = 3), "symmetric")
+  fit_gmd <- genpca::genpca_cov(C, R = R_general, ncomp = 3, verbose = TRUE)
   expect_equal(fit_gmd$method, "gmd")
   expect_equal(fit_gmd$k, 3L)
-  expect_equal(as.matrix(crossprod(fit_gmd$v, Matrix::forceSymmetric(R_nonsym) %*% fit_gmd$v)),
+  expect_equal(as.matrix(crossprod(fit_gmd$v, R_general %*% fit_gmd$v)),
                diag(3), tolerance = 1e-6)
 
   C_big <- diag(seq(120, 1, length.out = 120))
-  fit_big <- genpca::genpca_cov(C_big, R = NULL, ncomp = 2, method = "gmd")
+  fit_big <- genpca::genpca_cov(C_big, R = NULL, ncomp = 2)
   expect_equal(fit_big$k, 2L)
 
   expect_warning(
-    fit_warn <- genpca::genpca_cov(
+    fit_warn <- genpca::geigen_cov(
       matrix(c(1, 0, 0, -1), 2, 2),
       R = NULL,
-      ncomp = 1,
-      method = "geigen"
+      ncomp = 1
     ),
     "non-PSD"
+  )
+  expect_warning(
+    genpca::genpca_cov(C, R = NULL, ncomp = 1, method = "geigen"),
+    "deprecated"
   )
   expect_equal(fit_warn$method, "geigen")
 
   R_bad_diag <- Matrix::Diagonal(6, x = c(1, -0.5, rep(1, 4)))
   expect_error(
-    genpca::genpca_cov(C, R = R_bad_diag, ncomp = 2, method = "geigen", constraints_remedy = "error"),
-    "PSD"
+    genpca::geigen_cov(C, R = R_bad_diag, ncomp = 2, constraints_remedy = "error"),
+    "positive semi-definite|PSD"
   )
-  fit_ridge <- genpca::genpca_cov(C, R = R_bad_diag, ncomp = 2, method = "geigen", constraints_remedy = "ridge", verbose = TRUE)
-  fit_clip <- genpca::genpca_cov(C, R = R_bad_diag, ncomp = 2, method = "geigen", constraints_remedy = "clip", verbose = TRUE)
-  fit_identity <- genpca::genpca_cov(C, R = R_bad_diag, ncomp = 2, method = "geigen", constraints_remedy = "identity", verbose = TRUE)
+  fit_ridge <- genpca::geigen_cov(C, R = R_bad_diag, ncomp = 2, constraints_remedy = "ridge", verbose = TRUE)
+  fit_clip <- genpca::geigen_cov(C, R = R_bad_diag, ncomp = 2, constraints_remedy = "clip", verbose = TRUE)
+  fit_identity <- genpca::geigen_cov(C, R = R_bad_diag, ncomp = 2, constraints_remedy = "identity", verbose = TRUE)
   expect_equal(fit_ridge$k, 2L)
   expect_equal(fit_clip$k, 2L)
   expect_equal(fit_identity$k, 2L)
 
   R_indef <- matrix(c(1, 2, 2, 1), 2, 2)
   C2 <- diag(2)
-  fit_general_clip <- genpca::genpca_cov(
+  fit_general_clip <- genpca::geigen_cov(
     C2,
     R = R_indef,
     ncomp = 1,
-    method = "geigen",
     constraints_remedy = "clip",
     verbose = TRUE
   )
-  fit_general_identity <- genpca::genpca_cov(
+  fit_general_identity <- genpca::geigen_cov(
     C2,
     R = R_indef,
     ncomp = 1,
-    method = "geigen",
     constraints_remedy = "identity",
     verbose = TRUE
   )

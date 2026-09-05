@@ -9,10 +9,10 @@ gpca_mle(
   ncomp = min(dim(X)),
   max_iter = 20,
   lambda = 0.001,
-  scale_fix = c("trace", "det", "none"),
+  scale_fix = c("none", "trace", "det"),
   tol = 1e-04,
   method = "eigen",
-  constraints_remedy = "ridge",
+  constraints_remedy = "error",
   preproc = multivarious::pass(),
   verbose = FALSE,
   ...
@@ -32,19 +32,23 @@ row/column scale split during iteration. Must be non-negative;
 with \code{lambda = 0} the objective loses strict convexity in the
 scale direction and covariances may become singular.}
 
-\item{scale_fix}{How to canonicalize the \code{c * Sigma_r, Sigma_c / c}
-indeterminacy at exit. One of \code{"trace"} (default: row
-covariance scaled to mean diagonal 1), \code{"det"} (row covariance
-scaled to determinant 1), or \code{"none"}. Applied as a joint
-reciprocal rescale, so the fitted covariance \eqn{\Sigma_r \otimes
-       \Sigma_c} and the likelihood are unchanged.}
+\item{scale_fix}{Optional post-hoc reparameterization of the
+\code{c * Sigma_r, Sigma_c / c} split at exit. One of \code{"none"}
+(default: keep the penalized optimum), \code{"trace"} (row
+covariance scaled to mean diagonal 1) or \code{"det"} (row
+covariance scaled to determinant 1). Applied as a joint reciprocal
+rescale, so the fitted covariance \eqn{\Sigma_r \otimes \Sigma_c}
+and the unpenalized likelihood are unchanged, but the penalized
+objective generally decreases; see Details.}
 
 \item{tol}{Relative tolerance on successive penalized log-likelihood change
 (default 1e-4) for early stopping.}
 
 \item{method}{GPCA method passed to \code{genpca} (defaults to "eigen").}
 
-\item{constraints_remedy}{Passed to \code{genpca}; defaults to "ridge".}
+\item{constraints_remedy}{Passed to \code{genpca}; defaults to "error".
+The learned metrics are inverses of positive definite matrices, so
+no repair fires in practice.}
 
 \item{preproc}{Pre-processing transformer; defaults to \code{multivarious::pass()}.}
 
@@ -54,8 +58,13 @@ reciprocal rescale, so the fitted covariance \eqn{\Sigma_r \otimes
 }
 \value{
 A list with elements \code{fit} (a \code{genpca} fit computed with
-the returned canonicalized metrics), \code{A}, \code{M} (learned
-SPD metrics), \code{loglik} (final penalized log-likelihood), and
+the returned metrics), \code{A}, \code{M} (learned SPD metrics),
+\code{loglik} (the penalized log-likelihood evaluated at the
+returned \code{M}, \code{A} and \code{fit}),
+\code{loglik_unpenalized} (the same without the \code{lambda}
+penalty), \code{loglik_rescale_delta} (\code{loglik} minus the
+last value of \code{loglik_path}; zero for
+\code{scale_fix = "none"}, typically negative otherwise), and
 \code{loglik_path} (the penalized log-likelihood after each outer
 iteration; monotone non-decreasing up to numerical noise, since
 every block update exactly minimizes the shared penalized
@@ -87,13 +96,20 @@ an inverse-Wishart-style ridge penalty
 (a MAP estimate). Because every block update is an exact minimizer of this
 one objective, \code{loglik_path} is monotone non-decreasing up to
 numerical noise. The penalty also resolves the \eqn{c\,\Sigma_r,
-\Sigma_c/c} scale indeterminacy during iteration; \code{scale_fix} is
-applied once at exit as a \emph{joint} reciprocal rescale (row covariance
-normalized, factor absorbed into the column covariance), which leaves the
-likelihood unchanged. The algorithm stops when the relative change in the
-penalized log-likelihood falls below \code{tol} or \code{max_iter} is
-reached. Increase \code{lambda} or reduce \code{ncomp} if iterations
-become unstable.
+\Sigma_c/c} scale indeterminacy, so the converged metrics are the
+penalized optimum and no rescaling is needed (\code{scale_fix = "none"},
+the default). \code{scale_fix = "trace"} or \code{"det"} additionally
+applies a joint reciprocal rescale at exit (row covariance normalized,
+factor absorbed into the column covariance). The unpenalized
+matrix-normal likelihood is invariant to that rescale, but the penalty
+\eqn{p\lambda\,\mathrm{tr}(M) + n\lambda\,\mathrm{tr}(A)} is not, so
+the rescaled metrics are no longer the penalized optimum; the returned
+\code{loglik} is always evaluated at the returned metrics and
+\code{loglik_rescale_delta} reports how far the rescale moved it. The
+algorithm stops when the relative change in the penalized log-likelihood
+falls below \code{tol} or \code{max_iter} is reached. Increase
+\code{lambda} or reduce \code{ncomp} if iterations become unstable. The
+objective is not identifiable with \code{lambda = 0}.
 }
 \examples{
 if (requireNamespace("multivarious", quietly = TRUE)) {

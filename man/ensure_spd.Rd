@@ -4,20 +4,25 @@
 \alias{ensure_spd}
 \title{Ensure SPD (sparse-friendly)}
 \usage{
-ensure_spd(M, tol = 1e-06, nearpd_maxn = 2000L)
+ensure_spd(M, tol = 1e-06, nearpd_maxn = 2000L, name = "M")
 }
 \arguments{
 \item{M}{numeric matrix or Matrix::Matrix}
 
-\item{tol}{jitter tolerance (default 1e-8)}
+\item{tol}{relative positive-definiteness margin (default 1e-6)}
 
 \item{nearpd_maxn}{only use nearPD when n <= nearpd_maxn and matrix is dense}
+
+\item{name}{label used in error messages}
 }
 \value{
 a Matrix object (sparse stays sparse when possible)
 }
 \description{
-Force a symmetric matrix to be symmetric positive definite (SPD).
-Uses a Gershgorin-based diagonal shift; falls back to nearPD for small dense matrices.
+Force a symmetric matrix to be symmetric positive definite:
+the result satisfies \code{is_pd(., rtol = tol)}. Already-PD input is returned
+unchanged; otherwise a Gershgorin-based diagonal shift is applied, with a
+\code{Matrix::nearPD()} fallback for small dense matrices and an escalating
+jitter as a last resort.
 }
 \keyword{internal}

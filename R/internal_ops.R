@@ -4,10 +4,14 @@
 #' metric-aware linear operators for GPLSSVD/PLS-SVD without duplicating logic.
 #'
 #' @details
-#' - `.metric_operators(W, n_expected)` accepts a symmetric positive (semi)definite
-#'   matrix or a diagonal specification and returns a list of closures that apply
-#'   `W`, `W^{1/2}`, and `W^{-1/2}` to vectors/matrices. Identity and diagonal
-#'   cases use fast paths; general SPD uses an eigen-based symmetric square root.
+#' - `.metric_operators(W, n_expected, remedy, name)` accepts a symmetric
+#'   positive (semi)definite matrix or a diagonal specification and returns a
+#'   list of closures that apply `W`, `W^{1/2}`, and `W^{-1/2}` to
+#'   vectors/matrices. Identity and diagonal cases use fast paths; general PSD
+#'   uses an eigen-based symmetric square root (pseudo-inverse on the null
+#'   space). Input is validated; an indefinite weight is an error unless
+#'   `remedy` asks for a repair, which is reported with a
+#'   `genpca_metric_repaired` warning (see [repair_metric()]).
 #'   The list also carries `kind` (one of `"identity"`, `"diag"`, `"general"`)
 #'   and `mult_sqrt_right(x)` computing `x %*% W^{1/2}`, so callers can pick
 #'   sparsity-preserving strategies.
@@ -26,7 +30,20 @@
 # Build metric operators for a symmetric (PS) matrix W:
 # returns closures: mult (W %*% x), mult_sqrt (W^{1/2} x), mult_invsqrt (W^{-1/2} x),
 # mult_sqrt_right (x %*% W^{1/2}), plus a `kind` tag.
-.metric_operators <- function(W, n_expected = NULL) {
+.metric_operators <- function(W, n_expected = NULL,
+                              remedy = c("error", "ridge", "clip", "identity"),
+                              name = "weight matrix") {
+  remedy <- match.arg(remedy)
+  rtol <- .metric_rtol_default()
+  repair <- function(M) {
+    if (remedy == "error") {
+      stop(name, " must be symmetric positive semi-definite", call. = FALSE)
+    }
+    B <- repair_metric(M, method = remedy, rtol = rtol, name = name)
+    if (isTRUE(attr(B, "repair_report")$changed)) .warn_metric_repaired(attr(B, "repair_report"))
+    attr(B, "repair_report") <- NULL
+    B
+  }
   # Identity
   if (is.null(W)) {
     id <- function(x) x
@@ -46,7 +63,7 @@
            " but length ", n_expected, " is required")
     }
     d <- as.numeric(W)
-  } else if (inherits(W, "diagonalMatrix")) {
+  } else if ((is.matrix(W) || inherits(W, "Matrix")) && Matrix::isDiagonal(W)) {
     if (!is.null(n_expected) && nrow(W) != n_expected) {
       stop("weight matrix is ", nrow(W), " x ", ncol(W),
            " but dimension ", n_expected, " is required")
@@ -59,9 +76,14 @@
   # Diagonal fast path: `v * x` recycles column-wise, i.e. row scaling for
   # matrices (dense or sparse) and plain elementwise for vectors.
   if (!is.null(d)) {
-    d[d < 0] <- 0
+    if (any(!is.finite(d))) stop("Diagonal elements of ", name, " must be finite", call. = FALSE)
+    if ((remedy == "clip" && any(d < 0)) ||
+        (length(d) && max(abs(d)) > 0 && any(d < -rtol * max(abs(d))))) {
+      d <- as.numeric(Matrix::diag(repair(Matrix::Diagonal(length(d), x = d))))
+    }
+    d <- .clamp_weights(d, name = name)
     ds <- sqrt(d)
-    invds <- ifelse(ds > 0, 1 / ds, 0)
+    invds <- ifelse(d > 0, 1 / ds, 0)
     return(list(
       kind = "diag",
       mult = function(x) d * x,
@@ -79,16 +101,20 @@
     stop("weight matrix is ", nrow(W), " x ", ncol(W),
          " but dimension ", n_expected, " is required")
   }
-  W <- if (inherits(W, "Matrix")) W else Matrix::Matrix(W, sparse = FALSE)
-  W <- Matrix::forceSymmetric(W, uplo = "U")
-  if (exists("ensure_spd", mode = "function")) W <- ensure_spd(W)
+  # Validate, never repair: asymmetry beyond roundoff and indefiniteness
+  # are input errors here (callers that offer a remedy apply it first).
+  W <- symmetrize_or_stop(W, name = name)
+  if (remedy == "clip" || !is_psd(W, rtol = rtol)) W <- repair(W)
   Wd <- as.matrix(W)
   es <- eigen(Wd, symmetric = TRUE)
   lam <- pmax(es$values, 0)
+  # Eigenvalues within metric_rtol of the largest are the null space: W^{1/2}
+  # and the pseudo-inverse W^{-1/2} both vanish there.
+  cut <- .metric_rtol_default() * max(lam, 0)
   # dgeMatrix products call BLAS directly (no base-R NaN scan per product)
   Q <- Matrix::Matrix(es$vectors, sparse = FALSE)
-  sqrt_lam <- sqrt(lam)
-  invsqrt_lam <- ifelse(lam > 0, 1 / sqrt_lam, 0)
+  sqrt_lam <- ifelse(lam > cut, sqrt(lam), 0)
+  invsqrt_lam <- ifelse(lam > cut, 1 / sqrt(lam), 0)
   apply_factored <- function(x, scal) {
     alpha <- scal * Matrix::crossprod(Q, x) # row scaling, no k x k diag matmul
     Q %*% alpha

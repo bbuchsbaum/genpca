@@ -4,7 +4,14 @@
 \alias{genpca_cov_gmd}
 \title{GMD-based covariance GPCA (internal)}
 \usage{
-genpca_cov_gmd(C, R = NULL, ncomp = NULL, tol = 1e-08, verbose = FALSE)
+genpca_cov_gmd(
+  C,
+  R = NULL,
+  ncomp = NULL,
+  rank_rtol = 1e-06,
+  metric_rtol = .metric_rtol_default(),
+  verbose = FALSE
+)
 }
 \description{
 Implements Allen et al.'s GMD approach for covariance matrices.

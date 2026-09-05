@@ -28,8 +28,9 @@ genplsc <- function(X, Y,
                     ncomp = 2,
                     preproc_x = multivarious::pass(),
                     preproc_y = multivarious::pass(),
-                    svd_backend = c("RSpectra", "irlba"),
+                    svd_backend = c("eigencore", "irlba", "RSpectra"),
                     svd_opts = list(tol = 1e-7, maxitr = 1000),
+                    constraints_remedy = c("error", "ridge", "clip", "identity"),
                     verbose = FALSE) {
   genpls(X = X, Y = Y,
          Ax = Ax, Ay = Ay,
@@ -39,5 +40,6 @@ genplsc <- function(X, Y,
          preproc_y = preproc_y,
          svd_backend = svd_backend,
          svd_opts = svd_opts,
+         constraints_remedy = constraints_remedy,
          verbose = verbose)
 }

@@ -75,7 +75,7 @@ testthat::test_that("C++ deflation dispatch keeps sparse X sparse", {
 
   testthat::local_mocked_bindings(
     gmd_deflation_cpp_sp = function(X, Q, R, k, thr = 1e-7,
-                                    maxit = 500L, verbose = FALSE) {
+                                    maxit = 500L, verbose = FALSE, rank_rtol = 1e-6) {
       saw_sparse <<- methods::is(X, "sparseMatrix")
       list(d = numeric(0), v = matrix(0, ncol(X), 0),
            u = matrix(0, nrow(X), 0), k = 0,

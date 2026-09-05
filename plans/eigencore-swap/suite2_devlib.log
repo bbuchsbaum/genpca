@@ -1,0 +1,191 @@
+deflation_empty: W
+gmd_deflationR empty case: WWWWW......WWWWWW.....
+genpca_cov_equivalence: .........................................................
+genpca_cov_gmd: .......................................
+genpca_cov: ........................
+gep_subspace: ......
+gpca: W
+genpca: ..WW...WWW.W.WW.W.....WW.WW.....WWW.WWWW...........MSE no constraint: 0.2154146
+MSE adjacency:     0.2154525
+.W
+gmd_fast_cpp direct tests: ..W.W.W...W.W.W...W.W.W...W.W.W.....W.W.W........W.W..W
+genpca – advanced properties: .W..W....
+prep_constraints: W
+prep_constraints and construct_spatial_penalty utils: .............
+reconstruct_zero_comp: W
+reconstruct with zero components: ..
+rpls_additional: ..
+rpls: ........................
+sfpca_bi_projector: .........................................
+sfpca_bic: .............................
+sfpca_cd: ................................................
+sfpca_deflation: ...........................
+sfpca: .............
+cca-vs-genpls: ..
+coverage-95-branches: ....................................................................................12.............
+coverage-gpca-branches: ..........................W3.........................
+deflation-cpp-dense-metrics: ....
+deflation-vs-eigen: ..........
+dual-path-correctness: W
+dual-path (n < p) correctness with non-identity metrics: ......................
+ensure-spd: ......
+genpls-vs-op: ..............
+gmd-fast-dispatch: .............................
+gpca_mle: .........
+gplssvd_op: S................................................................................................................................................
+gplssvd-op-large: ........................................
+internal-coverage: .....................................................................................................
+method-differential: ..........
+mnpca_mrl: ..................
+mnpca_synthetic-structures: ............
+phase3-hardening: ...........................................................................
+randomized-backend: .........
+
+══ Skipped ═════════════════════════════════════════════════════════════════════
+1. setup: Matrix available ('test-gplssvd_op.R:4:1') - Reason: empty test
+
+══ Warnings ════════════════════════════════════════════════════════════════════
+1. (code run outside of `test_that()`) ('test_deflation_empty.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+2. (code run outside of `test_that()`) ('test_deflation_empty.R:4:1') - package 'multivarious' was built under R version 4.5.2
+
+3. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Total generalized variance is not positive or could not be computed.
+
+4. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Power iteration did not converge for component 1 within 500 iterations.
+
+5. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Stopping deflation due to non-convergence of power iteration.
+
+6. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Deflation stopped early. Found 0 components instead of requested 3.
+
+7. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Total generalized variance is not positive or could not be computed.
+
+8. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Power iteration did not converge for component 1 within 500 iterations.
+
+9. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Stopping deflation due to non-convergence of power iteration.
+
+10. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Deflation stopped early. Found 0 components instead of requested 3.
+
+11. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Found only 0 valid components, less than requested ncomp=3
+
+12. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - No valid components found.
+
+13. (code run outside of `test_that()`) ('test_gpca.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+14. pca and genpca have same results with identity matrix for row and column constraints ('test_gpca.R:12:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+15. pca and genpca have same results with identity matrix for row and column constraints ('test_gpca.R:12:3') - Found only 9 valid components, less than requested ncomp=10
+
+16. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:25:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+17. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:25:3') - Found only 9 valid components, less than requested ncomp=10
+
+18. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:30:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+19. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:31:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+20. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:37:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+21. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:37:3') - Found only 9 valid components, less than requested ncomp=10
+
+22. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:42:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+23. gen_pca with dense column and row constraints works ('test_gpca.R:76:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+24. gen_pca with dense column and row constraints works ('test_gpca.R:76:3') - Found only 9 valid components, less than requested ncomp=10
+
+25. gen_pca with sparse column and row constraints works ('test_gpca.R:86:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+26. gen_pca with sparse column and row constraints works ('test_gpca.R:86:3') - Found only 9 valid components, less than requested ncomp=10
+
+27. can reconstruct a genpca model with component selection ('test_gpca.R:102:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+28. can reconstruct a genpca model with component selection ('test_gpca.R:102:3') - Found only 9 valid components, less than requested ncomp=10
+
+29. can reconstruct a genpca model with component selection ('test_gpca.R:104:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+30. can reconstruct a genpca model with component selection ('test_gpca.R:106:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+31. can reconstruct a genpca model with component selection ('test_gpca.R:106:3') - Found only 9 valid components, less than requested ncomp=10
+
+32. can project a row vector ('test_gpca.R:119:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+33. can project a row vector ('test_gpca.R:119:3') - Found only 9 valid components, less than requested ncomp=10
+
+34. (code run outside of `test_that()`) ('test_gpca.R:308:1') - `context()` was deprecated in the 3rd edition.
+
+35. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:357:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+36. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:359:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+37. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:363:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+38. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:387:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+39. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:389:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+40. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:393:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+41. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:418:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+42. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:420:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+43. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:424:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+44. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:448:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+45. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:450:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+46. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:454:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+47. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:479:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+48. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:481:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+49. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:485:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+50. gmd_fast_cpp matches genpca spectra for identity constraints ('test_gpca.R:539:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+51. gmd_fast_cpp matches genpca spectra for identity constraints ('test_gpca.R:541:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+52. (code run outside of `test_that()`) ('test_gpca.R:574:1') - `context()` was deprecated in the 3rd edition.
+
+53. Spectra method matches eigen method on modest problems ('test_gpca.R:592:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+54. Spectra method matches eigen method on modest problems ('test_gpca.R:601:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+55. (code run outside of `test_that()`) ('test_prep_constraints.R:4:1') - `context()` was deprecated in the 3rd edition.
+
+56. (code run outside of `test_that()`) ('test_reconstruct_zero_comp.R:5:1') - `context()` was deprecated in the 3rd edition.
+
+57. gmdLA covers diagonal errors, non-diagonal primal and dual paths, approximations, and zero variance warnings ('test-coverage-gpca-branches.R:159:3') - R dimension 105 exceeds maxeig=20; using .ec_eigs_sym(k=20) -- result is approximate
+
+58. (code run outside of `test_that()`) ('test-dual-path-correctness.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-coverage-95-branches.R:558:3'): remaining GPCA, RPLS, GenPL
+Expected `paste(zero_rpls_messages, collapse = "\n")` to match regexp "all zero|Degenerate".
+Actual text:
+x |
+
+── 2. Failure ('test-coverage-95-branches.R:570:3'): remaining GPCA, RPLS, GenPL
+Expected `paste(sparse_rpls_messages, collapse = "\n")` to match regexp "all zero".
+Actual text:
+x |
+
+── 3. Failure ('test-coverage-gpca-branches.R:159:3'): gmdLA covers diagonal err
+Expected `... <- NULL` to throw a warning.
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Warning message:
+package ‘testthat’ was built under R version 4.5.2
+
+devlib TOTALS: tests 183  failed 3  errors 0  skipped 1  warnings 50
+                          file
+   test-coverage-95-branches.R
+ test-coverage-gpca-branches.R
+                                                                                                         test
+                                   remaining GPCA, RPLS, GenPLS, and transfer validation branches are covered
+ gmdLA covers diagonal errors, non-diagonal primal and dual paths, approximations, and zero variance warnings
+ failed error
+      2 FALSE
+      1 FALSE

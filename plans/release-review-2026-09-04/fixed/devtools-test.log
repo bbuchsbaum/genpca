@@ -1,0 +1,1093 @@
+i Testing genpca
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+v | F W  S  OK | Context
+
+/ |          0 | audit-2026-09
+- |          1 | audit-2026-09
+\ |          2 | audit-2026-09
+\ |         10 | audit-2026-09
+| |         19 | audit-2026-09
+\ |         30 | audit-2026-09
+| |         43 | audit-2026-09
+\ |         62 | audit-2026-09
+| |         79 | audit-2026-09
+/ |         96 | audit-2026-09
+| |        111 | audit-2026-09
+| |        115 | audit-2026-09
+| |        127 | audit-2026-09
+- |        133 | audit-2026-09
+| |        139 | audit-2026-09
+\ |        142 | audit-2026-09
+- |        145 | audit-2026-09
+| |        151 | audit-2026-09
+| |        163 | audit-2026-09
+- |        169 | audit-2026-09
+\ |        170 | audit-2026-09
+- |        173 | audit-2026-09
+v |        175 | audit-2026-09 [3.3s]
+
+/ |          0 | cca-vs-genpls
+- |          1 | cca-vs-genpls
+v |          2 | cca-vs-genpls
+
+/ |          0 | coverage-95-branches
+| |          3 | coverage-95-branches
+\ |          6 | coverage-95-branches
+- |         17 | coverage-95-branches
+- |         25 | coverage-95-branches
+\ |         26 | coverage-95-branches
+\ |         34 | coverage-95-branches
+\ |         38 | coverage-95-branches
+\ |         42 | coverage-95-branches
+| |         47 | coverage-95-branches                                           Solving generalized eigenproblem C v = lambda R v...
+
+\ |         50 | coverage-95-branches                                           Preparing constraints...
+Applying pre-processing...
+Using one-shot eigen decomposition (gmdLA) to extract 1 components...
+ gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 4)...
+  (Found  1  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+Constructing final object...
+GPCA finished.
+
+\ |         58 | coverage-95-branches                                            gmdLA: Using primal approach (n >= p)
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 4)...
+  (Found  1  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+ Deflation component 1
+  u norm near zero, stopping power iteration for component 1
+
+- |         65 | coverage-95-branches
+\ |         66 | coverage-95-branches
+/ |         72 | coverage-95-branches
+- |         73 | coverage-95-branches
+- |         77 | coverage-95-branches                                           Preparing constraints...
+Applying pre-processing...
+ Deflation component 1
+
+/ |         80 | coverage-95-branches                                           Preparing constraints...
+Applying pre-processing...
+ Deflation component 1
+
+| |         87 | coverage-95-branches                                           Computing top-1 GPLSSVD components via operator (eigencore) ...
+
+\ |         90 | coverage-95-branches
+/ |         92 | coverage-95-branches                                           Preparing constraints...
+Applying pre-processing...
+ Calculating variance explained for Spectra method...
+Constructing final object...
+GPCA finished.
+
+| |         99 | coverage-95-branches
+/ |        100 | coverage-95-branches
+v |        100 | coverage-95-branches [3.0s]
+
+/ |          0 | coverage-gpca-branches                                         Matrix M is not SPD, replacing with identity matrix
+Preparing constraints...
+Applying pre-processing...
+Using one-shot eigen decomposition (gmdLA) to extract 2 components...
+ gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+Constructing final object...
+
+- |   2     11 | coverage-gpca-branches                                         Preparing constraints...
+Applying pre-processing...
+Using randomized block solver to extract 2 components (oversample=2, n_power=1, n_polish=1, tol_polish=1e-04).
+ Calculating variance explained for randomized method...
+Constructing final object...
+GPCA finished.
+ gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+
+| |   2     25 | coverage-gpca-branches                                          gmdLA: Using dual approach (n < p)
+ Computing factorization for matrix Q
+  Calculating X R X'...
+  Calculating F' X R X' F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ou (U = F^{-T} * eigenvectors)...
+  Calculating ov (V = X' Q U D^{-1})...
+ Calculating explained variance...
+
+| |   2     33 | coverage-gpca-branches                                         Computing eigen factorization of R...
+Computing R^{1/2} C R^{1/2}...
+Computing eigendecomposition...
+Mapping back: V = R^{-1/2} Z...
+
+/ |   2     42 | coverage-gpca-branches                                         Solving generalized eigenproblem C v = lambda R v...
+Solving generalized eigenproblem C v = lambda R v...
+Matrix R is not SPD, replacing with identity matrix
+Solving generalized eigenproblem C v = lambda R v...
+
+- |   5     48 | coverage-gpca-branches                                         Solving generalized eigenproblem C v = lambda R v...
+Matrix R is not SPD, replacing with identity matrix
+Solving generalized eigenproblem C v = lambda R v...
+
+v |   7     57 | coverage-gpca-branches
+--------------------------------------------------------------------------------
+Warning ('test-coverage-gpca-branches.R:14:3'): prep_constraints covers matrix validation, identity remedy, and preprocessor detection
+Matrix A is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+     x
+  1. +-testthat::expect_message(...) at test-coverage-gpca-branches.R:14:3
+  2. | \-testthat:::expect_condition_matching_(...)
+  3. |   \-testthat:::quasi_capture(...)
+  4. |     +-testthat (local) .capture(...)
+  5. |     | \-base::withCallingHandlers(...)
+  6. |     \-rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  7. \-genpca:::prep_constraints(...)
+  8.   \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+  9.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 10.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test-coverage-gpca-branches.R:14:3'): prep_constraints covers matrix validation, identity remedy, and preprocessor detection
+Matrix M is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+     x
+  1. +-testthat::expect_message(...) at test-coverage-gpca-branches.R:14:3
+  2. | \-testthat:::expect_condition_matching_(...)
+  3. |   \-testthat:::quasi_capture(...)
+  4. |     +-testthat (local) .capture(...)
+  5. |     | \-base::withCallingHandlers(...)
+  6. |     \-rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  7. \-genpca:::prep_constraints(...)
+  8.   \-genpca:::.prep_one_metric(M, nrow(X), "M", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+  9.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 10.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test-coverage-gpca-branches.R:263:3'): genpca_cov covers GMD and generalized-eigen covariance branches
+Matrix R is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 0.55). Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test-coverage-gpca-branches.R:263:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 5.         \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test-coverage-gpca-branches.R:264:3'): genpca_cov covers GMD and generalized-eigen covariance branches
+Matrix R is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test-coverage-gpca-branches.R:264:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 5.         \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:36:5
+
+Warning ('test-coverage-gpca-branches.R:265:3'): genpca_cov covers GMD and generalized-eigen covariance branches
+Matrix R is not positive semi-definite (min eigenvalue -0.5); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test-coverage-gpca-branches.R:265:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 5.         \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test-coverage-gpca-branches.R:272:3'): genpca_cov covers GMD and generalized-eigen covariance branches
+Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test-coverage-gpca-branches.R:272:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+
+Warning ('test-coverage-gpca-branches.R:279:3'): genpca_cov covers GMD and generalized-eigen covariance branches
+Matrix R is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test-coverage-gpca-branches.R:279:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+--------------------------------------------------------------------------------
+
+/ |          0 | deflation-cpp-dense-metrics
+- |          1 | deflation-cpp-dense-metrics
+v |          4 | deflation-cpp-dense-metrics [2.3s]
+
+/ |          0 | deflation-vs-eigen
+- |          1 | deflation-vs-eigen
+- |          9 | deflation-vs-eigen
+v |         10 | deflation-vs-eigen [3.3s]
+
+/ |          0 | dual-path-correctness
+v |   1      0 | dual-path-correctness
+--------------------------------------------------------------------------------
+Warning ('test-dual-path-correctness.R:1:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("dual-path (n < p) correctness with non-identity metrics") at test-dual-path-correctness.R:1:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | dual-path (n < p) correctness with non-identity metrics
+Attaching package: 'multivarious'
+
+The following object is masked from 'package:testthat':
+
+    pass
+
+The following objects are masked from 'package:stats':
+
+    residuals, screeplot
+
+The following objects are masked from 'package:base':
+
+    transform, truncate
+
+
+\ |   1      5 | dual-path (n < p) correctness with non-identity metrics
+\ |   1      9 | dual-path (n < p) correctness with non-identity metrics
+v |   1     22 | dual-path (n < p) correctness with non-identity metrics
+--------------------------------------------------------------------------------
+Warning ('test-dual-path-correctness.R:4:1'): (code run outside of `test_that()`)
+package 'multivarious' was built under R version 4.5.2
+Backtrace:
+    x
+ 1. \-base::library(multivarious) at test-dual-path-correctness.R:4:1
+ 2.   \-base (local) testRversion(pkgInfo, package, pkgpath)
+--------------------------------------------------------------------------------
+
+/ |          0 | ensure-spd
+v |          6 | ensure-spd
+
+/ |          0 | genpls-vs-op
+v |         14 | genpls-vs-op
+
+/ |          0 | gmd-fast-dispatch                                              'as(<ddiMatrix>, "dgCMatrix")' is deprecated.
+Use 'as(as(., "generalMatrix"), "CsparseMatrix")' instead.
+See help("Deprecated") and help("Matrix-deprecated").
+
+\ |         10 | gmd-fast-dispatch
+- |         17 | gmd-fast-dispatch
+/ |         24 | gmd-fast-dispatch
+\ |         26 | gmd-fast-dispatch
+| |         27 | gmd-fast-dispatch
+v |         29 | gmd-fast-dispatch [1.7s]
+
+/ |          0 | gpca_mle
+/ |          8 | gpca_mle
+\ |         10 | gpca_mle
+\ |         14 | gpca_mle
+v |         17 | gpca_mle
+
+/ |          0 | gplssvd-op-large
+| |          7 | gplssvd-op-large
+| |         11 | gplssvd-op-large
+- |         13 | gplssvd-op-large
+/ |         16 | gplssvd-op-large
+- |         25 | gplssvd-op-large
+\ |         38 | gplssvd-op-large
+v |         40 | gplssvd-op-large
+
+/ |          0 | gplssvd_op
+\ |      1  29 | gplssvd_op
+\ |      1  73 | gplssvd_op
+| |      1 118 | gplssvd_op
+v |      1 144 | gplssvd_op
+
+/ |          0 | internal-coverage
+\ |         18 | internal-coverage
+- |         41 | internal-coverage
+/ |         64 | internal-coverage
+/ |         84 | internal-coverage
+Extracting component 1/2 [penalty=l1, lambda=0.05]
+
+Extracting component 2/2 [penalty=l1, lambda=0.1]
+
+Extracting component 1/2 [penalty=l1, lambda=0.1]
+v_k => all zero, stopping.
+
+Extracting component 1/2 [penalty=l1, lambda=1e+06]
+v_k => all zero, stopping.
+
+v |        101 | internal-coverage
+
+/ |          0 | method-differential
+| |         11 | method-differential
+v |         11 | method-differential
+
+/ |          0 | mnpca_mrl
+- |          1 | mnpca_mrl
+| |         15 | mnpca_mrl
+v |         18 | mnpca_mrl
+
+/ |          0 | mnpca_synthetic-structures
+| |          7 | mnpca_synthetic-structures
+\ |         10 | mnpca_synthetic-structures
+v |         12 | mnpca_synthetic-structures [2.0s]
+
+/ |          0 | phase3-hardening
+/ |          8 | phase3-hardening
+/ |         16 | phase3-hardening
+/ |         28 | phase3-hardening
+/ |         32 | phase3-hardening
+- |         53 | phase3-hardening
+- |   2     63 | phase3-hardening
+v |   2     76 | phase3-hardening
+--------------------------------------------------------------------------------
+Warning ('test-phase3-hardening.R:213:3'): constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum
+Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::genpca(...) at test-phase3-hardening.R:213:3
+ 2.   \-genpca:::prep_constraints(...) at genpca/R/gpca.R:373:3
+ 3.     \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+
+Warning ('test-phase3-hardening.R:215:3'): constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum
+Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 14.2). Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::genpca(...) at test-phase3-hardening.R:215:3
+ 2.   \-genpca:::prep_constraints(...) at genpca/R/gpca.R:373:3
+ 3.     \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+--------------------------------------------------------------------------------
+
+/ |          0 | randomized-backend
+v |          9 | randomized-backend
+
+/ |          0 | release-review-regressions
+| |         15 | release-review-regressions
+- |         37 | release-review-regressions
+\ |         62 | release-review-regressions
+- |         81 | release-review-regressions
+- |        101 | release-review-regressions
+v |        101 | release-review-regressions
+
+/ |          0 | repair-metric
+| |         19 | repair-metric
+v |         20 | repair-metric
+
+/ |          0 | solver-backend
+- |          9 | solver-backend
+\ |         14 | solver-backend
+- |         21 | solver-backend
+v |         21 | solver-backend
+
+/ |          0 | deflation_empty
+v |   1      0 | deflation_empty
+--------------------------------------------------------------------------------
+Warning ('test_deflation_empty.R:1:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("gmd_deflationR empty case") at test_deflation_empty.R:1:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | gmd_deflationR empty case
+v |   10     11 | gmd_deflationR empty case
+--------------------------------------------------------------------------------
+Warning ('test_deflation_empty.R:12:3'): gmd_deflationR returns zero-sized matrices when no components found
+Total generalized variance is not positive or could not be computed.
+Backtrace:
+    x
+ 1. \-genpca:::gmd_deflationR(X, Q, R, k = 3, verbose = FALSE) at test_deflation_empty.R:12:3
+
+Warning ('test_deflation_empty.R:12:3'): gmd_deflationR returns zero-sized matrices when no components found
+Power iteration did not converge for component 1 within 500 iterations.
+Backtrace:
+    x
+ 1. \-genpca:::gmd_deflationR(X, Q, R, k = 3, verbose = FALSE) at test_deflation_empty.R:12:3
+
+Warning ('test_deflation_empty.R:12:3'): gmd_deflationR returns zero-sized matrices when no components found
+Stopping deflation due to non-convergence of power iteration.
+Backtrace:
+    x
+ 1. \-genpca:::gmd_deflationR(X, Q, R, k = 3, verbose = FALSE) at test_deflation_empty.R:12:3
+
+Warning ('test_deflation_empty.R:12:3'): gmd_deflationR returns zero-sized matrices when no components found
+Deflation stopped early. Found 0 components instead of requested 3.
+Backtrace:
+    x
+ 1. \-genpca:::gmd_deflationR(X, Q, R, k = 3, verbose = FALSE) at test_deflation_empty.R:12:3
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+Total generalized variance is not positive or could not be computed.
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+ 2.   \-genpca:::gmd_deflationR(...) at genpca/R/gpca.R:502:11
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+Power iteration did not converge for component 1 within 500 iterations.
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+ 2.   \-genpca:::gmd_deflationR(...) at genpca/R/gpca.R:502:11
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+Stopping deflation due to non-convergence of power iteration.
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+ 2.   \-genpca:::gmd_deflationR(...) at genpca/R/gpca.R:502:11
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+Deflation stopped early. Found 0 components instead of requested 3.
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+ 2.   \-genpca:::gmd_deflationR(...) at genpca/R/gpca.R:502:11
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+Found only 0 valid components, less than requested ncomp=3
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+
+Warning ('test_deflation_empty.R:24:3'): genpca handles zero-rank input consistently
+No valid components found.
+Backtrace:
+    x
+ 1. \-genpca::genpca(X, ncomp = 3, method = "deflation", use_cpp = FALSE) at test_deflation_empty.R:24:3
+--------------------------------------------------------------------------------
+
+/ |          0 | genpca_cov
+\ |         18 | genpca_cov
+v |   3     24 | genpca_cov
+--------------------------------------------------------------------------------
+Warning ('test_genpca_cov.R:131:3'): genpca_cov remedies work correctly
+Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "ridge" (diagonal shift 6.9). Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(C, R = G, constraints_remedy = "ridge", ncomp = 2) at test_genpca_cov.R:131:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+
+Warning ('test_genpca_cov.R:135:3'): genpca_cov remedies work correctly
+Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(C, R = G, constraints_remedy = "clip", ncomp = 2) at test_genpca_cov.R:135:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+
+Warning ('test_genpca_cov.R:139:3'): genpca_cov remedies work correctly
+Matrix R is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+    x
+ 1. \-genpca::geigen_cov(...) at test_genpca_cov.R:139:3
+ 2.   \-genpca:::genpca_cov_geigen(...) at genpca/R/gpca_cov.R:177:3
+ 3.     \-genpca:::.prep_one_metric(...) at genpca/R/gpca_cov.R:317:3
+ 4.       \-genpca:::.warn_metric_repaired(attr(W, "repair_report")) at genpca/R/gpca.R:87:5
+--------------------------------------------------------------------------------
+
+/ |          0 | genpca_cov_equivalence
+- |         21 | genpca_cov_equivalence
+- |         45 | genpca_cov_equivalence
+v |         57 | genpca_cov_equivalence
+
+/ |          0 | genpca_cov_gmd
+/ |         20 | genpca_cov_gmd
+| |         35 | genpca_cov_gmd
+v |         39 | genpca_cov_gmd
+
+/ |          0 | gep_subspace
+v |          6 | gep_subspace
+
+/ |          0 | gpca
+v |   1      0 | gpca
+--------------------------------------------------------------------------------
+Warning ('test_gpca.R:1:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("genpca") at test_gpca.R:1:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | genpca
+/ |   6      6 | genpca
+- |   9     12 | genpca                                                         sigma is 3.00269080945555
+sigma is 3.40988208633537
+
+\ |   12     14 | genpca
+- |   20     25 | genpca
+\ |   20     26 | genpca
+\ |   20     30 | genpca                                                        MSE no constraint: 0.2154146
+MSE adjacency:     0.2154525
+
+v |   21     34 | genpca [2.5s]
+--------------------------------------------------------------------------------
+Warning ('test_gpca.R:12:3'): pca and genpca have same results with identity matrix for row and column constraints
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, preproc = multivarious::center()) at test_gpca.R:12:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:12:3'): pca and genpca have same results with identity matrix for row and column constraints
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, preproc = multivarious::center()) at test_gpca.R:12:3
+
+Warning ('test_gpca.R:25:3'): gen_pca with column variances is equivalent to a scaled pca
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = wts, preproc = multivarious::center()) at test_gpca.R:25:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:25:3'): gen_pca with column variances is equivalent to a scaled pca
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = wts, preproc = multivarious::center()) at test_gpca.R:25:3
+
+Warning ('test_gpca.R:30:3'): gen_pca with column variances is equivalent to a scaled pca
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:30:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:31:3'): gen_pca with column variances is equivalent to a scaled pca
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:31:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:37:3'): gen_pca with use_cpp with column variances is equivalent to a scaled pca
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(...) at test_gpca.R:37:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:37:3'): gen_pca with use_cpp with column variances is equivalent to a scaled pca
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(...) at test_gpca.R:37:3
+
+Warning ('test_gpca.R:42:3'): gen_pca with use_cpp with column variances is equivalent to a scaled pca
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:42:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:76:3'): gen_pca with dense column and row constraints works
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M, preproc = multivarious::center()) at test_gpca.R:76:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:76:3'): gen_pca with dense column and row constraints works
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M, preproc = multivarious::center()) at test_gpca.R:76:3
+
+Warning ('test_gpca.R:87:3'): gen_pca with sparse column and row constraints works
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. +-testthat::expect_warning(...) at test_gpca.R:87:3
+ 2. | \-testthat:::expect_condition_matching_(...)
+ 3. |   \-testthat:::quasi_capture(...)
+ 4. |     +-testthat (local) .capture(...)
+ 5. |     | \-base::withCallingHandlers(...)
+ 6. |     \-rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 7. \-genpca::genpca(...)
+ 8.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:87:3'): gen_pca with sparse column and row constraints works
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. +-testthat::expect_warning(...) at test_gpca.R:87:3
+ 2. | \-testthat:::expect_condition_matching_(...)
+ 3. |   \-testthat:::quasi_capture(...)
+ 4. |     +-testthat (local) .capture(...)
+ 5. |     | \-base::withCallingHandlers(...)
+ 6. |     \-rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 7. \-genpca::genpca(...)
+
+Warning ('test_gpca.R:107:3'): can reconstruct a genpca model with component selection
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, preproc = multivarious::center()) at test_gpca.R:107:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:107:3'): can reconstruct a genpca model with component selection
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, preproc = multivarious::center()) at test_gpca.R:107:3
+
+Warning ('test_gpca.R:109:3'): can reconstruct a genpca model with component selection
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(as.matrix(recon1), mat_10_10, check.attributes = FALSE) at test_gpca.R:109:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:111:3'): can reconstruct a genpca model with component selection
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M, ncomp = 10, preproc = multivarious::center()) at test_gpca.R:111:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:111:3'): can reconstruct a genpca model with component selection
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M, ncomp = 10, preproc = multivarious::center()) at test_gpca.R:111:3
+
+Warning ('test_gpca.R:124:3'): can project a row vector
+gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M) at test_gpca.R:124:3
+ 2.   \-genpca:::gmdLA(...) at genpca/R/gpca.R:531:9
+
+Warning ('test_gpca.R:124:3'): can project a row vector
+Found only 9 valid components, less than requested ncomp=10
+Backtrace:
+    x
+ 1. \-genpca::genpca(mat_10_10, A = A, M = M) at test_gpca.R:124:3
+
+Warning ('test_gpca.R:319:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("gmd_fast_cpp direct tests") at test_gpca.R:319:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | gmd_fast_cpp direct tests
+- |   6     11 | gmd_fast_cpp direct tests
+/ |   12     24 | gmd_fast_cpp direct tests
+\ |   17     37 | gmd_fast_cpp direct tests
+v |   18     37 | gmd_fast_cpp direct tests
+--------------------------------------------------------------------------------
+Warning ('test_gpca.R:368:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:368:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:370:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:370:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:374:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:374:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:398:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:398:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:400:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:400:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:404:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:404:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:429:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:429:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:431:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:431:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:435:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:435:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:459:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:459:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:461:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:461:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:465:3'): gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:465:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:490:3'): gmd_fast_cpp handles k=1 correctly
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:490:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:492:3'): gmd_fast_cpp handles k=1 correctly
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:492:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:496:3'): gmd_fast_cpp handles k=1 correctly
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:496:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:550:3'): gmd_fast_cpp matches genpca spectra for identity constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:550:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:552:3'): gmd_fast_cpp matches genpca spectra for identity constraints
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:552:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:585:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("genpca <U+2013> advanced properties") at test_gpca.R:585:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | genpca <U+2013> advanced properties
+v |   2      7 | genpca <U+2013> advanced properties
+--------------------------------------------------------------------------------
+Warning ('test_gpca.R:602:3'): Spectra method matches eigen method on modest problems
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:602:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+
+Warning ('test_gpca.R:611:3'): Spectra method matches eigen method on modest problems
+`check.attributes` is deprecated; please use `ignore_attr` instead
+Backtrace:
+    x
+ 1. \-testthat::expect_equal(...) at test_gpca.R:611:3
+ 2.   \-testthat:::expect_waldo_equal_(msg, act, exp, info, ..., tolerance = tolerance)
+ 3.     \-testthat:::waldo_compare(...)
+ 4.       \-waldo::compare(x, y, ..., x_arg = x_arg, y_arg = y_arg)
+ 5.         \-waldo:::compare_opts(...)
+ 6.           \-waldo:::old_opts(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | prep_constraints
+v |   1      0 | prep_constraints
+--------------------------------------------------------------------------------
+Warning ('test_prep_constraints.R:4:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("prep_constraints and construct_spatial_penalty utils") at test_prep_constraints.R:4:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | prep_constraints and construct_spatial_penalty utils
+v |   5     13 | prep_constraints and construct_spatial_penalty utils
+--------------------------------------------------------------------------------
+Warning ('test_prep_constraints.R:21:3'): prep_constraints ridge remedy produces PSD matrix
+Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 0.55). Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca:::prep_constraints(X, A_bad, NULL, remedy = "ridge") at test_prep_constraints.R:21:3
+ 2.   \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 3.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 4.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test_prep_constraints.R:33:3'): prep_constraints clip remedy produces PSD matrices
+Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca:::prep_constraints(X, A_bad, M_bad, remedy = "clip") at test_prep_constraints.R:33:3
+ 2.   \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 3.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 4.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:36:5
+
+Warning ('test_prep_constraints.R:33:3'): prep_constraints clip remedy produces PSD matrices
+Matrix M is not positive semi-definite (min eigenvalue -0.2); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+Backtrace:
+    x
+ 1. \-genpca:::prep_constraints(X, A_bad, M_bad, remedy = "clip") at test_prep_constraints.R:33:3
+ 2.   \-genpca:::.prep_one_metric(M, nrow(X), "M", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 3.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 4.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:36:5
+
+Warning ('test_prep_constraints.R:48:3'): prep_constraints identity remedy returns identity matrices
+Matrix A is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+    x
+ 1. \-genpca:::prep_constraints(X, A_bad, M_bad, remedy = "identity") at test_prep_constraints.R:48:3
+ 2.   \-genpca:::.prep_one_metric(A, ncol(X), "A", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 3.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 4.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+
+Warning ('test_prep_constraints.R:48:3'): prep_constraints identity remedy returns identity matrices
+Matrix M is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+Backtrace:
+    x
+ 1. \-genpca:::prep_constraints(X, A_bad, M_bad, remedy = "identity") at test_prep_constraints.R:48:3
+ 2.   \-genpca:::.prep_one_metric(M, nrow(X), "M", tol, remedy, verbose) at genpca/R/gpca.R:25:3
+ 3.     \-genpca:::.prep_diag_metric(...) at genpca/R/gpca.R:74:5
+ 4.       \-genpca:::.warn_metric_repaired(attr(B, "repair_report")) at genpca/R/gpca.R:52:5
+--------------------------------------------------------------------------------
+
+/ |          0 | reconstruct_zero_comp
+v |   1      0 | reconstruct_zero_comp
+--------------------------------------------------------------------------------
+Warning ('test_reconstruct_zero_comp.R:5:1'): (code run outside of `test_that()`)
+`context()` was deprecated in the 3rd edition.
+Backtrace:
+    x
+ 1. \-testthat::context("reconstruct with zero components") at test_reconstruct_zero_comp.R:5:1
+ 2.   \-testthat:::edition_deprecate(3, "context()")
+ 3.     \-cli::cli_warn(...)
+--------------------------------------------------------------------------------
+
+/ |          0 | reconstruct with zero components
+v |          2 | reconstruct with zero components
+
+/ |          0 | rpls
+v |         24 | rpls
+
+/ |          0 | rpls_additional
+v |          2 | rpls_additional
+
+/ |          0 | sfpca
+\ |          6 | sfpca
+v |         13 | sfpca
+
+/ |          0 | sfpca_bi_projector
+- |          9 | sfpca_bi_projector
+/ |         16 | sfpca_bi_projector
+| |         31 | sfpca_bi_projector
+| |         39 | sfpca_bi_projector
+v |         41 | sfpca_bi_projector
+
+/ |          0 | sfpca_bic
+/ |         16 | sfpca_bic
+- |         29 | sfpca_bic
+v |         29 | sfpca_bic
+
+/ |          0 | sfpca_cd
+| |          7 | sfpca_cd
+\ |         10 | sfpca_cd
+| |         11 | sfpca_cd
+/ |         12 | sfpca_cd
+- |         13 | sfpca_cd
+\ |         14 | sfpca_cd
+| |         15 | sfpca_cd
+/ |         16 | sfpca_cd
+- |         17 | sfpca_cd
+\ |         18 | sfpca_cd
+| |         19 | sfpca_cd
+/ |         20 | sfpca_cd
+- |         21 | sfpca_cd
+\ |         22 | sfpca_cd
+| |         23 | sfpca_cd
+/ |         24 | sfpca_cd
+- |         25 | sfpca_cd
+\ |         26 | sfpca_cd
+| |         27 | sfpca_cd
+/ |         28 | sfpca_cd
+- |         29 | sfpca_cd
+\ |         30 | sfpca_cd
+| |         31 | sfpca_cd
+/ |         32 | sfpca_cd
+- |         33 | sfpca_cd
+\ |         34 | sfpca_cd
+| |         35 | sfpca_cd
+/ |         36 | sfpca_cd
+- |         37 | sfpca_cd
+\ |         38 | sfpca_cd
+| |         39 | sfpca_cd
+v |         48 | sfpca_cd [6.2s]
+
+/ |          0 | sfpca_deflation
+\ |         14 | sfpca_deflation
+/ |         20 | sfpca_deflation
+| |         23 | sfpca_deflation
+v |         27 | sfpca_deflation [1.2s]
+
+== Results =====================================================================
+Duration: 35.2 s
+
+-- Skipped tests (1) -----------------------------------------------------------
+* empty test (1): 'test-gplssvd_op.R:4:1'
+
+[ FAIL 0 | WARN 74 | SKIP 1 | PASS 1403 ]
+Warning message:
+package 'testthat' was built under R version 4.5.2

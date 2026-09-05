@@ -1,0 +1,20 @@
+lib <- Sys.getenv("EC_LIB"); .libPaths(c(lib, .libPaths()))
+suppressPackageStartupMessages({library(Matrix); library(eigencore)})
+med <- function(expr, n = 3) { e <- substitute(expr); pf <- parent.frame(); median(vapply(seq_len(n), function(i) { t0 <- proc.time()[[3]]; eval(e, pf); proc.time()[[3]] - t0 }, 0)) }
+meth <- function(fit) { l <- grep("method:", capture.output(print(fit)), value = TRUE); trimws(sub(".*method:", "", l[1])) }
+set.seed(1)
+Sd <- crossprod(matrix(rnorm(1600 * 1500), 1600)) / 1600
+nn <- 20000; Sp <- rsparsematrix(nn, nn, density = 5e-4); Sp <- as(as(forceSymmetric(Sp + Diagonal(nn)), "generalMatrix"), "CsparseMatrix")
+Xb <- matrix(rnorm(5000 * 300), 5000)
+Xe <- matrix(rnorm(3000 * 400), 3000); Ye <- matrix(rnorm(3000 * 300), 3000)
+n <- 4000; p <- 600; Xg <- matrix(rnorm(n * p), n); Rg <- crossprod(matrix(rnorm(p * p), p)) / p + diag(p) * 0.1; Qg <- runif(n, 0.5, 2)
+LR <- t(chol(Rg)); sq <- sqrt(Qg)
+opg <- linear_operator(c(n, p), function(X, alpha = 1, beta = 0, Y = NULL) sq * (Xg %*% (LR %*% X)), function(X, alpha = 1, beta = 0, Y = NULL) crossprod(LR, crossprod(Xg, sq * X)))
+opp <- linear_operator(c(400, 300), function(X, alpha = 1, beta = 0, Y = NULL) crossprod(Xe, Ye %*% X), function(X, alpha = 1, beta = 0, Y = NULL) crossprod(Ye, Xe %*% X))
+cat(sprintf("### eigencore %s (%s)\n", as.character(packageVersion("eigencore")), lib))
+cat(sprintf("dense eig 1500 k=10 | RSpectra %.3f | eigencore %.3f | uncert %.3f | %s\n", med(RSpectra::eigs_sym(Sd, 10, "LA")), med(eig_partial(Sd, 10)), med(eig_partial(Sd, 10, certify = FALSE)), meth(eig_partial(Sd, 10))))
+cat(sprintf("sparse eig 20000 k=10 | RSpectra %.3f | eigencore %.3f | %s\n", med(RSpectra::eigs_sym(Sp, 10, "LM")), med(eig_partial(Sp, 10, target = largest_magnitude())), meth(eig_partial(Sp, 10, target = largest_magnitude()))))
+cat(sprintf("svds 5000x300 k=10 | RSpectra %.3f | eigencore %.3f | %s\n", med(RSpectra::svds(Xb, 10)), med(svd_partial(Xb, 10)), meth(svd_partial(Xb, 10))))
+cat(sprintf("op svds 400x300 k=5 | RSpectra %.3f | eigencore %.3f | %s\n", med(RSpectra::svds(function(x, args) crossprod(Xe, Ye %*% x), 5, Atrans = function(x, args) crossprod(Ye, Xe %*% x), dim = c(400, 300))), med(svd_partial(opp, 5)), meth(svd_partial(opp, 5))))
+suppressMessages(pkgload::load_all("~/code/genpca", quiet = TRUE))
+cat(sprintf("GMD 4000x600 k=10 | C++ Spectra %.3f | eigencore op %.3f | %s\n", med(genpca(Xg, A = Rg, M = Qg, ncomp = 10, method = "spectra", preproc = multivarious::pass())), med(svd_partial(opg, 10)), meth(svd_partial(opg, 10))))

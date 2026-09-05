@@ -25,3 +25,21 @@ test_that("gpca_mle produces a finite likelihood path", {
   expect_gt(length(res$loglik_path), 1)
   expect_true(all(is.finite(res$loglik_path)))
 })
+
+test_that("gpca_mle path stays monotone at large covariance scale (no tolerant ridge on Sigma)", {
+  # Regression: the covariance updates Sigma_r = E A E'/p + lambda I have
+  # minimum eigenvalue lambda; a relative PD margin used to shift them by a
+  # multiple of their largest diagonal once max(diag) > 1e6 * lambda.
+  set.seed(2)
+  X <- matrix(rnorm(180), 30, 6)
+  for (Xs in list(X, 100 * X)) {
+    res <- gpca_mle(Xs, ncomp = 2, max_iter = 8)
+    path <- res$loglik_path
+    slack <- 1e-8 * pmax(abs(path[-length(path)]), 1)
+    expect_true(all(diff(path) >= -slack))
+    expect_true(genpca:::is_pd(res$M, rtol = 0))
+    expect_true(genpca:::is_pd(res$A, rtol = 0))
+    # no rescale: only the refit's roundoff, relative to the objective's size
+    expect_lt(abs(res$loglik_rescale_delta), 1e-8 * max(1, abs(res$loglik)))
+  }
+})

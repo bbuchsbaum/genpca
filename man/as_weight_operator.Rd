@@ -7,7 +7,7 @@
 as_weight_operator(W, transpose = FALSE, sqrt = FALSE, inverse = FALSE)
 }
 \arguments{
-\item{W}{A weight matrix (SPD) or NULL for identity}
+\item{W}{A weight matrix (symmetric PSD) or NULL for identity}
 
 \item{transpose}{Logical, whether to transpose W before applying}
 

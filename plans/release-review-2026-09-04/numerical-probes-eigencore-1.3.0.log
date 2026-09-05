@@ -1,0 +1,27 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+EIGENCORE 1.3.0
+
+RANK CUTOFF
+eigen cpp= TRUE d= 10
+spectra cpp= TRUE d= 10
+randomized cpp= TRUE d= 10
+deflation cpp= TRUE d= 10 1 0.1
+deflation cpp= FALSE d= 10 1 0.1
+
+SMALL POSITIVE METRIC DIRECTION
+eigen d= 10 ov= 0 0 ou= 0 0 VAV= 0
+project-score error= 0
+spectra d= 10 ov= 0 0 ou= 0 1 VAV= 0
+project-score error= 0
+randomized d= 10 ov= -5.800785e-20 1e+05 ou= -5.800785e-19 1 VAV= 1
+project-score error= 9.999965e-10
+deflation d= 10 ov= -1.875194e-07 -1e+05 ou= -1.875194e-06 -1 VAV= 1
+project-score error= 1.856442e-05
+cov d= 10 v= 0 0 VAV= 0
+
+MLE DELTA WITHOUT RESCALE
+delta= 4.547474e-13 loglik= 403.2634 path= 403.2634

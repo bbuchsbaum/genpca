@@ -3,7 +3,7 @@
 #' Returns a closure that applies a weight matrix W or its transformations
 #' (square root, inverse, or combinations thereof) to vectors/matrices.
 #'
-#' @param W A weight matrix (SPD) or NULL for identity
+#' @param W A weight matrix (symmetric PSD) or NULL for identity
 #' @param transpose Logical, whether to transpose W before applying
 #' @param sqrt Logical, whether to use square root of W
 #' @param inverse Logical, whether to use inverse of W
@@ -20,16 +20,16 @@ as_weight_operator <- function(W, transpose = FALSE, sqrt = FALSE, inverse = FAL
   # For diagonal matrices, we can optimize: d_op * x recycles column-wise,
   # which is row scaling for matrices and plain elementwise for vectors.
   if (Matrix::isDiagonal(W)) {
-    d <- diag(W)
+    d <- .clamp_weights(diag(W), name = "W")
     # Pseudo-inverse convention for PSD weights with zero entries: map the
     # null-space coordinates to 0 rather than Inf (matches .metric_operators).
-    inv0 <- function(z) ifelse(z > 0, 1 / z, 0)
+    keep <- d > 0
     d_op <- if (sqrt && inverse) {
-      inv0(sqrt(d))        # W^{-1/2}
+      ifelse(keep, 1 / sqrt(d), 0)   # W^{-1/2}
     } else if (sqrt && !inverse) {
-      sqrt(d)              # W^{1/2}
+      sqrt(d)                        # W^{1/2}
     } else if (!sqrt && inverse) {
-      inv0(d)              # W^{-1}
+      ifelse(keep, 1 / d, 0)         # W^{-1}
     } else {
       d                    # W
     }

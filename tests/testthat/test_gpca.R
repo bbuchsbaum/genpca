@@ -83,7 +83,12 @@ test_that("gen_pca with sparse column and row constraints works", {
   Matrix::diag(A) <- 1
   M <- adjoin::adjacency(adjoin::graph_weights(t(mat_10_10), k = 3))
   Matrix::diag(M) <- 1.5
-  res1 <- genpca(mat_10_10, A = A, M = M, preproc = multivarious::center())
+  # the adjacency-based row metric is indefinite: opt into the ridge repair
+  expect_warning(
+    res1 <- genpca(mat_10_10, A = A, M = M, preproc = multivarious::center(),
+                   constraints_remedy = "ridge"),
+    class = "genpca_metric_repaired"
+  )
 
   k <- multivarious::ncomp(res1)
   expect_gt(k, 0)
@@ -148,9 +153,15 @@ test_that("can run genpca with sparse weighting matrix", {
   M <- adjoin::temporal_adjacency(1:nr)
   expect_true(methods::is(M, "sparseMatrix"))
 
-  res1 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE), M = M,
-                 preproc = multivarious::center(), ncomp = 5, method = "deflation")
-  res2 <- genpca(X, A = A, M = M, preproc = multivarious::center(), ncomp = 5)
+  # temporal_adjacency() is indefinite: opt into the ridge repair explicitly
+  expect_warning(
+    res1 <- genpca(X, A = Matrix::Matrix(A, sparse = TRUE), M = M,
+                   preproc = multivarious::center(), ncomp = 5, method = "deflation",
+                   constraints_remedy = "ridge"),
+    class = "genpca_metric_repaired"
+  )
+  res2 <- suppressWarnings(genpca(X, A = A, M = M, preproc = multivarious::center(), ncomp = 5,
+                                  constraints_remedy = "ridge"))
 
   expect_equal(multivarious::ncomp(res1), 5L)
   expect_equal(multivarious::ncomp(res2), 5L)
@@ -580,7 +591,6 @@ Xwide  <- matrix(rnorm(40 * 120), 40, 120)    # n < p       (spectra: left‑sid
 ## -------------------------------------------------------------------------------
 test_that("Spectra method matches eigen method on modest problems", {
 
-  skip_if_not_installed("RSpectra")
 
   ## 1) n >= p   (right‑side operator)
   fit_eig  <- genpca(Xsmall, ncomp = 10, method = "eigen",

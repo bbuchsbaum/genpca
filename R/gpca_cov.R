@@ -1,41 +1,43 @@
-#' Generalized PCA on a covariance matrix
+#' Generalized PCA on a covariance matrix (GMD form)
 #'
-#' Performs Generalized PCA directly on a pre-computed covariance matrix C with a single
-#' variable-side constraint/metric R. This is useful when you already have C = X'MX
-#' or when X is too large to store but C is manageable. Supports two methods:
-#' "gmd" (Allen et al.'s GMD approach, default) which exactly matches the two-sided
-#' \code{\link{genpca}}, and "geigen" (generalized eigenvalue approach) which solves
-#' C v = lambda R v.
+#' Performs Generalized PCA directly on a pre-computed covariance matrix
+#' `C = X'MX` with a single variable-side metric `R`, following Allen et
+#' al.'s GMD: the eigendecomposition of \eqn{R^{1/2} C R^{1/2}} mapped back
+#' with \eqn{V = R^{-1/2} Z}, so that \eqn{V'RV = I}. With `C = X'MX` and
+#' `R = A` this matches \code{\link{genpca}(X, M = M, A = A)} exactly. This is
+#' useful when you already have `C` or when `X` is too large to store but `C`
+#' is manageable.
 #'
-#' @param C A p x p symmetric positive semi-definite covariance matrix.
-#'   Typically C = X'MX where X is the data matrix and M is a row metric.
+#' The generalized eigenproblem \eqn{C v = \lambda R v} is a different
+#' estimator (it maximises \eqn{v'Cv} subject to \eqn{v'Rv = 1}, which is
+#' generally gives different components from the GMD) and lives in its own
+#' function, \code{\link{geigen_cov}}. `method = "geigen"` is accepted here
+#' for one release and forwards to it with a deprecation warning.
+#'
+#' @param C A p x p symmetric positive semi-definite covariance matrix,
+#'   typically `C = X'MX`. Asymmetry beyond roundoff and indefiniteness
+#'   beyond `metric_rtol` are errors.
 #' @param R Variable-side constraint/metric. Can be:
 #'   \itemize{
-#'     \item{NULL: Identity matrix (standard PCA on C)}
-#'     \item{A numeric vector of length p: Interpreted as diagonal weights (must be non-negative)}
-#'     \item{A p x p symmetric PSD matrix: General metric/smoothing/structure penalties}
+#'     \item NULL: identity matrix (standard PCA on C)
+#'     \item a numeric vector of length p: diagonal weights (must be non-negative)
+#'     \item a p x p symmetric PSD matrix: general metric/smoothing/structure penalties
 #'   }
 #' @param ncomp Number of components to return. Default is all positive eigenvalues.
-#' @param method Character string specifying the method. One of:
-#'   \itemize{
-#'     \item{"gmd" (default): Allen et al.'s GMD approach via eigen decomposition of \eqn{R^{1/2} C R^{1/2}}}
-#'     \item{"geigen": Generalized eigenvalue approach solving C v = lambda R v}
-#'   }
-#' @param constraints_remedy How to handle slightly non-PSD inputs (used only
-#'   by the \code{"geigen"} method; \code{"gmd"} always clips negative
-#'   eigenvalues of \code{R} internally, see Details). Default
-#'   \code{"error"} -- note this differs from \code{\link{genpca}}, whose
-#'   default is \code{"ridge"}; \code{genpca_cov()} expects an
-#'   already-validated covariance matrix \code{C} and metric \code{R}, so it
-#'   errs on the side of rejecting bad input rather than silently repairing
-#'   it. One of:
-#'   \itemize{
-#'     \item{"error": Stop with an error if constraints are not PSD}
-#'     \item{"ridge": Add a small ridge to the diagonal to make PSD}
-#'     \item{"clip": Clip negative eigenvalues to zero}
-#'     \item{"identity": Replace with identity matrix}
-#'   }
-#' @param tol Numerical tolerance for PSD checks and filtering small eigenvalues. Default 1e-8.
+#' @param method Deprecated. `"gmd"` (default) is this function; `"geigen"`
+#'   forwards to \code{\link{geigen_cov}} with a warning.
+#' @param constraints_remedy Deprecated here (GMD requires PSD input and stops
+#'   otherwise); forwarded to \code{\link{geigen_cov}} when
+#'   `method = "geigen"`.
+#' @param rank_rtol Relative cutoff for component acceptance on the
+#'   singular-value scale (components with `d_j <= rank_rtol * d_1`
+#'   are dropped). Default 1e-6.
+#' @param metric_rtol Relative tolerance for validating \code{C} and
+#'   \code{R} and for detecting the numerical null space in an
+#'   eigendecomposition of a general \code{R}. Every strictly positive
+#'   diagonal weight is retained without a rank approximation. Default
+#'   \code{sqrt(.Machine$double.eps)}.
+#' @param tol Deprecated; use \code{rank_rtol} and \code{metric_rtol}.
 #' @param verbose Logical. If TRUE, print progress messages. Default FALSE.
 #'
 #' @return A plain list (\strong{not} a \pkg{multivarious}
@@ -45,90 +47,45 @@
 #'     \item{d}{Singular values (square root of eigenvalues lambda)}
 #'     \item{lambda}{Eigenvalues (variances under the R-metric)}
 #'     \item{k}{Number of components returned}
-#'     \item{propv}{Proportion of variance explained by each component}
+#'     \item{propv}{Proportion of variance explained by each component
+#'       (total variance is \eqn{\mathrm{tr}(CR)}, Allen et al. Corollary 5)}
 #'     \item{cumv}{Cumulative proportion of variance explained}
 #'     \item{R_rank}{Rank of the constraint matrix R}
-#'     \item{method}{The method used ("gmd" or "geigen")}
+#'     \item{method}{`"gmd"`}
 #'   }
 #'   Because this is a plain list rather than a \code{bi_projector}, the
 #'   \code{multivarious} generics \code{scores()}, \code{components()}, and
 #'   \code{reconstruct()} do not apply to it; index \code{$v}/\code{$d}
 #'   directly, or use \code{\link{genpca}} when you need the full projector
-#'   interface (out-of-sample \code{project()}, \code{reconstruct()}, etc.)
-#'   on a data matrix rather than a pre-computed covariance matrix.
-#'
-#' @details
-#' \strong{Method Selection Guide:}
-#'
-#' Use \code{method = "gmd"} when:
-#' \itemize{
-#'   \item You need exact equivalence with \code{\link{genpca}(X, M, A)}
-#'   \item You're following Allen et al.'s GMD framework
-#'   \item You want consistent results with the two-sided decomposition
-#' }
-#'
-#' Use \code{method = "geigen"} when:
-#' \itemize{
-#'   \item You specifically need the generalized eigenvalue formulation
-#'   \item You're working with legacy code that expects this approach
-#'   \item Computational efficiency is critical and R is well-conditioned
-#' }
-#'
-#' \strong{Method "gmd" (default):}
-#'
-#' This method implements Allen et al.'s GMD approach and exactly matches the
-#' two-sided genpca when C = X'MX. It computes the eigendecomposition of
-#' \eqn{R^{1/2} C R^{1/2}} and maps back with \eqn{V = R^{-1/2} Z}, ensuring V'RV = I.
-#' The total variance is tr(CR) as in Allen's GPCA (Corollary 5).
-#'
-#' \strong{Method "geigen":}
-#'
-#' This method solves the generalized eigenproblem C v = lambda R v directly.
-#' While mathematically valid, it solves a different optimization than Allen's
-#' GMD and will not, in general, match the two-sided genpca unless R = I or
-#' special commutation conditions hold.
-#'
-#' For exact equivalence with genpca(X, M, A), use method="gmd" with C = X'MX and R = A.
+#'   interface on a data matrix rather than a pre-computed covariance matrix.
 #'
 #' @examples
-#' # Example 1: Standard PCA on covariance (no constraint)
+#' # Standard PCA on a covariance (no constraint)
 #' C <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
 #' fit0 <- genpca_cov(C, R=NULL, ncomp=3)
 #' print(fit0$d[1:3])       # first 3 singular values
 #' print(fit0$propv[1:3])   # variance explained by first 3 components
 #'
-#' # Example 2: Demonstrating equivalence with genpca
+#' # Equivalence with genpca()
 #' set.seed(123)
 #' X <- matrix(rnorm(50 * 10), 50, 10)
 #' M_diag <- runif(50, 0.5, 1.5)  # row weights
 #' A_diag <- runif(10, 0.5, 2)    # column weights
-#'
-#' # Two-sided GPCA
 #' fit_gpca <- genpca(X, M = M_diag, A = A_diag, ncomp = 5,
 #'                    preproc = multivarious::pass())
-#'
-#' # Equivalent covariance-based GPCA
 #' C <- crossprod(X, diag(M_diag) %*% X)  # C = X'MX
-#' fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
-#'
-#' # These should match exactly
+#' fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5)
 #' all.equal(fit_gpca$sdev, fit_cov$d, tolerance = 1e-10)
 #'
-#' # Example 3: Variable weights via a diagonal metric (using iris covariance)
+#' # Variable weights via a diagonal metric (iris covariance, 4 variables)
 #' C_iris <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
-#' w <- c(1, 1, 0.5, 2)  # emphasize Sepal.Width less, Petal.Width more
-#' fitW <- genpca_cov(C_iris, R = w, ncomp=3, method="gmd")
+#' w <- c(1, 1, 0.5, 2)
+#' fitW <- genpca_cov(C_iris, R = w, ncomp=3)
 #' print(fitW$d[1:3])
 #'
-#' # Example 4: Compare GMD and generalized eigenvalue approaches
-#' fit_gmd <- genpca_cov(C_iris, R = w, ncomp=2, method="gmd")
-#' fit_geigen <- genpca_cov(C_iris, R = w, ncomp=2, method="geigen")
-#' # These will generally differ unless R = I
-#' print(paste("GMD singular values:", paste(round(fit_gmd$d, 3), collapse=", ")))
-#' print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=", ")))
-#'
-#' @seealso \code{\link{genpca}} for the standard two-sided GPCA on data matrices,
-#'   \code{\link{genpls}} for generalized partial least squares
+#' @seealso \code{\link{geigen_cov}} for the generalized eigenproblem
+#'   \eqn{C v = \lambda R v}, \code{\link{genpca}} for the two-sided GPCA on
+#'   data matrices, \code{\link{genpls}} for generalized partial least squares
 #'
 #' @references
 #' Allen, G. I., Grosenick, L., & Taylor, J. (2014).
@@ -137,21 +94,87 @@
 #'
 #' @export
 #' @importFrom Matrix Matrix isSymmetric forceSymmetric Diagonal t diag crossprod
-#' @importFrom RSpectra eigs_sym
 genpca_cov <- function(C, R = NULL, ncomp = NULL,
                        method = c("gmd", "geigen"),
                        constraints_remedy = c("error", "ridge", "clip", "identity"),
-                       tol = 1e-8, verbose = FALSE) {
+                       rank_rtol = 1e-6, metric_rtol = .metric_rtol_default(),
+                       tol = NULL, verbose = FALSE) {
 
   method <- match.arg(method)
+  if (!is.null(tol)) {
+    warning("`tol` is deprecated in genpca_cov(); use `rank_rtol` and `metric_rtol`.", call. = FALSE)
+  }
+  remedy_supplied <- !missing(constraints_remedy)
   constraints_remedy <- match.arg(constraints_remedy)
 
-  # Dispatch to appropriate implementation
-  if (method == "gmd") {
-    genpca_cov_gmd(C, R, ncomp, tol, verbose)
-  } else {
-    genpca_cov_geigen(C, R, ncomp, constraints_remedy, tol, verbose)
+  if (method == "geigen") {
+    warning("genpca_cov(method = \"geigen\") is deprecated; call geigen_cov() directly.", call. = FALSE)
+    return(geigen_cov(C, R, ncomp, constraints_remedy = constraints_remedy,
+                      rank_rtol = rank_rtol, metric_rtol = metric_rtol, verbose = verbose))
   }
+  if (remedy_supplied && constraints_remedy != "error") {
+    warning("`constraints_remedy` is ignored by genpca_cov(): the GMD form requires PSD input. ",
+            "Repair the metric explicitly with repair_metric(), or use geigen_cov().", call. = FALSE)
+  }
+  genpca_cov_gmd(C, R, ncomp, rank_rtol, metric_rtol, verbose)
+}
+
+#' Generalized eigenproblem on a covariance matrix
+#'
+#' Maximises \eqn{v'Cv} subject to \eqn{v'Rv = 1} and the additional
+#' constraint that \eqn{v} lies in the retained range of `R`. Successive
+#' components are \eqn{R}-orthogonal. If \eqn{P} is the orthogonal projector
+#' onto that range, the returned vectors satisfy
+#' \eqn{P C v = \lambda R v} and \eqn{V'RV = I}. For a full-rank `R` this is
+#' the usual equation \eqn{C v = \lambda R v}. It also holds for a singular
+#' `R` when `C` maps its retained range into itself. Otherwise the component
+#' of \eqn{C v} outside the retained range need not vanish.
+#'
+#' This is a different estimator from the GMD of \code{\link{genpca_cov}},
+#' which uses \eqn{R^{1/2} C R^{1/2}}. If `C` and `R` commute, their common
+#' eigenvectors can be ordered differently: the GMD weights variances by
+#' metric eigenvalues, whereas this estimator divides by them. With
+#' `R = c * I`, the directions and their ordering agree, but the eigenvalue
+#' scales differ unless `c = 1`.
+#'
+#' `C` is validated for symmetry but may be indefinite (the generalized
+#' eigenproblem is still defined); a warning is issued when its minimum
+#' eigenvalue is below `-metric_rtol * scale`. `R` must be positive
+#' semi-definite; an indefinite `R` is subject to `constraints_remedy`.
+#'
+#' @inheritParams genpca_cov
+#' @param C A p x p symmetric matrix. Asymmetry beyond roundoff is an error;
+#'   an indefinite `C` is allowed (the problem is still defined) and only
+#'   produces a warning.
+#' @param constraints_remedy What to do with an indefinite `R`: `"error"`
+#'   (default), `"ridge"`, `"clip"` or `"identity"`; a repair emits a
+#'   `genpca_metric_repaired` warning. See \code{\link{genpca}}.
+#' @return A plain list with the same components as \code{\link{genpca_cov}}
+#'   (`v`, `d`, `lambda`, `k`, `propv`, `cumv`, `R_rank`) and
+#'   `method = "geigen"`. `propv` is relative to
+#'   \eqn{\mathrm{tr}(R^{-1/2} C R^{-1/2})} on the range of `R`.
+#' @examples
+#' C <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
+#' w <- c(1, 1, 0.5, 2)
+#' fit_gmd <- genpca_cov(C, R = w, ncomp = 2)
+#' fit_geigen <- geigen_cov(C, R = w, ncomp = 2)
+#' # different estimators: the singular values generally differ
+#' rbind(gmd = fit_gmd$d, geigen = fit_geigen$d)
+#'
+#' # With singular R, the equation is projected onto its retained range
+#' C <- matrix(c(2, 1, 1, 2), 2)
+#' R <- diag(c(1, 0))
+#' fit <- geigen_cov(C, R, ncomp = 1)
+#' P <- diag(c(1, 0))
+#' P %*% C %*% fit$v - (R %*% fit$v) * fit$lambda
+#' @seealso \code{\link{genpca_cov}}
+#' @export
+geigen_cov <- function(C, R = NULL, ncomp = NULL,
+                       constraints_remedy = c("error", "ridge", "clip", "identity"),
+                       rank_rtol = 1e-6, metric_rtol = .metric_rtol_default(),
+                       verbose = FALSE) {
+  constraints_remedy <- match.arg(constraints_remedy)
+  genpca_cov_geigen(C, R, ncomp, constraints_remedy, rank_rtol, metric_rtol, verbose)
 }
 
 #' GMD-based covariance GPCA (internal)
@@ -161,25 +184,29 @@ genpca_cov <- function(C, R = NULL, ncomp = NULL,
 #'
 #' @keywords internal
 #' @importFrom Matrix Matrix isSymmetric forceSymmetric Diagonal t diag
-genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALSE) {
+genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, rank_rtol = 1e-6,
+                           metric_rtol = .metric_rtol_default(), verbose = FALSE) {
 
-  # Basic checks & normalization
+  # Basic checks & normalization. GMD models C = X' M X, so C must be PSD.
   stopifnot(is.matrix(C) || inherits(C, "Matrix"))
   p <- nrow(C)
   stopifnot(p == ncol(C))
-  if (!inherits(C, "Matrix")) C <- Matrix::Matrix(C, sparse = FALSE)
-  if (!Matrix::isSymmetric(C)) C <- Matrix::forceSymmetric(C)
+  C <- symmetrize_or_stop(C, name = "C")
+  if (!is_psd(C, rtol = metric_rtol)) {
+    stop("C must be symmetric positive semi-definite", call. = FALSE)
+  }
 
   # Column operator R (vector of weights, NULL=I, or PSD matrix)
   if (is.null(R)) {
     R <- Matrix::Diagonal(p)
   } else if (is.vector(R)) {
     stopifnot(length(R) == p)
-    if (any(R < -tol)) stop("Negative weights in R.")
-    R <- Matrix::Diagonal(p, x = as.numeric(R))
+    R <- Matrix::Diagonal(p, x = .clamp_weights(R, metric_rtol, "R"))
   } else {
-    if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
-    if (!Matrix::isSymmetric(R)) R <- Matrix::forceSymmetric(R)
+    R <- symmetrize_or_stop(R, name = "R")
+    if (!Matrix::isDiagonal(R) && !is_psd(R, rtol = metric_rtol)) {
+      stop("R must be symmetric positive semi-definite", call. = FALSE)
+    }
   }
 
   if (verbose) message("Computing eigen factorization of R...")
@@ -187,16 +214,16 @@ genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALS
   # Factorization of R to build R^{1/2} and R^{-1/2} on range(R).
   # Diagonal R (including the weight-vector case) needs no eigendecomposition.
   if (Matrix::isDiagonal(R)) {
-    r_diag <- pmax(as.numeric(Matrix::diag(R)), 0)
-    keep <- which(r_diag > tol)
+    r_diag <- .clamp_weights(as.numeric(Matrix::diag(R)), metric_rtol, "R")
+    keep <- which(r_diag > 0)
     if (length(keep) == 0L) stop("R is (numerically) zero.")
     s_all <- sqrt(r_diag)
-    Rsqrt <- Matrix::Diagonal(p, x = s_all)                                # R^{1/2}
-    Rmhalf <- Matrix::Diagonal(p, x = ifelse(r_diag > tol, 1 / s_all, 0))  # R^{-1/2} on range(R)
+    Rsqrt <- Matrix::Diagonal(p, x = s_all)                                  # R^{1/2}
+    Rmhalf <- Matrix::Diagonal(p, x = ifelse(r_diag > 0, 1 / s_all, 0))  # R^{-1/2} on range(R)
   } else {
     Re <- eigen(as.matrix(R), symmetric = TRUE)
     vals <- pmax(Re$values, 0)
-    keep <- which(vals > tol)
+    keep <- which(vals > metric_rtol * max(vals, 0))
     if (length(keep) == 0L) stop("R is (numerically) zero.")
 
     U <- Re$vectors[, keep, drop = FALSE]
@@ -216,14 +243,14 @@ genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALS
   # Iterative top-k solver when few components are requested from a large B;
   # "LA" (largest algebraic) so tiny negative eigenvalues cannot be selected.
   if (!is.null(ncomp) && ncomp >= 1L && p > 100L && ncomp < (p - 1L)) {
-    Ee <- RSpectra::eigs_sym(B, k = ncomp, which = "LA")
+    Ee <- .top_eigs_sym(B, ncomp, "LA", tol = 1e-10)
   } else {
     Ee <- eigen(B, symmetric = TRUE)
   }
   lam_all <- pmax(Ee$values, 0)
 
-  # Keep positive eigenvalues
-  pos <- which(lam_all > tol)
+  # Keep components above the relative rank cutoff (on d^2 = lambda)
+  pos <- which(lam_all > 0 & lam_all > rank_rtol^2 * max(lam_all, 0))
   if (length(pos) == 0L) stop("No positive eigenvalues in R^{1/2} C R^{1/2}.")
   if (is.null(ncomp)) ncomp <- length(pos)
   ncomp <- min(ncomp, length(pos))
@@ -255,15 +282,15 @@ genpca_cov_gmd <- function(C, R = NULL, ncomp = NULL, tol = 1e-8, verbose = FALS
 
 #' Generalized eigenvalue-based covariance GPCA (internal)
 #'
-#' Solves the generalized eigenproblem C v = lambda R v directly.
+#' Solves the generalized eigenproblem projected onto the retained range of R.
 #' This is the original implementation that was in gpca.R.
 #'
 #' @keywords internal
 #' @importFrom Matrix Matrix isSymmetric forceSymmetric Diagonal t diag
-#' @importFrom RSpectra eigs_sym
 genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
                               constraints_remedy = c("error", "ridge", "clip", "identity"),
-                              tol = 1e-8, verbose = FALSE) {
+                              rank_rtol = 1e-6, metric_rtol = .metric_rtol_default(),
+                              verbose = FALSE) {
 
   constraints_remedy <- match.arg(constraints_remedy)
 
@@ -271,78 +298,23 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
   stopifnot(is.matrix(C) || inherits(C, "Matrix"))
   p <- nrow(C)
   stopifnot(p == ncol(C))
-  if (!inherits(C, "Matrix")) C <- Matrix::Matrix(C, sparse = FALSE)
-  if (!Matrix::isSymmetric(C)) C <- Matrix::forceSymmetric(C)
+  C <- symmetrize_or_stop(C, name = "C")
+  c_scale <- .metric_scale(C)
 
-  # Ensure C is (numerically) PSD-ish; clip tiny negatives if needed
+  # The generalized eigenproblem is defined for indefinite C; warn, do not stop.
   eigC_min <- tryCatch(
     if (p <= 800) min(eigen(as.matrix(C), symmetric = TRUE, only.values = TRUE)$values)
-    else RSpectra::eigs_sym(C, k = 1, which = "SA")$values,
+    else .top_eigs_sym(C, 1, "SA")$values,
     error = function(e) NA_real_
   )
   if (is.na(eigC_min)) {
     if (verbose) warning("Could not verify PSD of C; proceeding.")
-  } else if (eigC_min < -1e-6) {
+  } else if (eigC_min < -metric_rtol * c_scale) {
     warning("C appears non-PSD (min eig: ", signif(eigC_min, 4), "). Proceeding but results may be unstable.")
-  } else if (eigC_min < 0 && eigC_min > -1e-6) {
-    # Symmetrize and small clip
-    if (verbose) message("Clipping tiny negative eigenvalues of C.")
-    C <- (C + Matrix::t(C)) / 2
   }
 
-  # --- Prepare metric R (renamed from G in original)
-  if (is.null(R)) {
-    R <- Matrix::Diagonal(p)
-  } else if (is.vector(R)) {
-    if (length(R) != p) stop("Length of weight vector R must match ncol(C).")
-    if (any(R < -tol)) stop("Weights in R must be nonnegative (>= -tol).")
-    R <- Matrix::Diagonal(p, x = as.numeric(R))
-  } else {
-    if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
-    if (!Matrix::isSymmetric(R)) R <- Matrix::forceSymmetric(R)
-  }
-
-  # --- Remedy for non-PSD R if needed
-  ensure_psd <- function(M, name) {
-    # quick path for diagonal
-    if (Matrix::isDiagonal(M)) {
-      d <- Matrix::diag(M)
-      minv <- min(d)
-      if (minv < -tol) {
-        if (verbose) message(name, " diagonal has negatives (min=", signif(minv, 4), "). Remedy: ", constraints_remedy)
-        if (constraints_remedy == "error") stop(name, " must be PSD.")
-        if (constraints_remedy == "ridge") M <- M + Matrix::Diagonal(length(d), x = (tol - minv))
-        if (constraints_remedy == "clip")  M <- Matrix::Diagonal(length(d), x = pmax(d, 0))
-        if (constraints_remedy == "identity") M <- Matrix::Diagonal(length(d))
-      }
-      return(M)
-    }
-    # general case
-    minEig <- tryCatch(
-      if (nrow(M) <= 800) min(eigen(as.matrix(M), symmetric = TRUE, only.values = TRUE)$values)
-      else RSpectra::eigs_sym(M, k = 1, which = "SA")$values,
-      error = function(e) NA_real_
-    )
-    if (is.na(minEig) || minEig < -tol) {
-      if (verbose) message(name, " not PSD (min eig: ", signif(minEig, 4), "). Remedy: ", constraints_remedy)
-      if (constraints_remedy == "error") stop(name, " must be PSD (>= -tol).")
-      if (constraints_remedy == "ridge") {
-        ridge <- if (is.na(minEig)) tol else (tol - minEig)
-        M <- (M + Matrix::t(M)) / 2 + Matrix::Diagonal(nrow(M), x = ridge)
-      } else if (constraints_remedy == "clip") {
-        ed <- eigen(as.matrix(M), symmetric = TRUE)
-        ed$values <- pmax(ed$values, 0)
-        M <- Matrix::Matrix(ed$vectors %*% (ed$values * t(ed$vectors)), sparse = FALSE)
-        M <- (M + Matrix::t(M)) / 2
-      } else if (constraints_remedy == "identity") {
-        M <- Matrix::Diagonal(nrow(M))
-      }
-    } else {
-      M <- (M + Matrix::t(M)) / 2
-    }
-    M
-  }
-  R <- ensure_psd(R, "R")
+  # --- Prepare metric R: same validation and (reported) repair as genpca()
+  R <- .prep_one_metric(R, p, "R", metric_rtol, constraints_remedy, verbose)
 
   if (verbose) message("Solving generalized eigenproblem C v = lambda R v...")
 
@@ -351,7 +323,7 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
   # Diagonal R needs no eigendecomposition: U is a sparse column selection.
   if (Matrix::isDiagonal(R)) {
     gamma <- pmax(as.numeric(Matrix::diag(R)), 0)
-    keep <- which(gamma > tol)
+    keep <- which(gamma > 0)
     if (length(keep) == 0L) stop("R is numerically zero; no components can be extracted.")
     U <- Matrix::sparseMatrix(i = keep, j = seq_along(keep), x = 1,
                               dims = c(p, length(keep)))
@@ -359,7 +331,7 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
   } else {
     ER <- eigen(as.matrix(R), symmetric = TRUE)
     gamma <- pmax(ER$values, 0)
-    keep <- which(gamma > tol)
+    keep <- which(gamma > metric_rtol * max(gamma, 0))
     if (length(keep) == 0L) stop("R is numerically zero; no components can be extracted.")
     U <- ER$vectors[, keep, drop = FALSE]
     gam_sqrt_inv <- 1 / sqrt(gamma[keep])
@@ -375,7 +347,7 @@ genpca_cov_geigen <- function(C, R = NULL, ncomp = NULL,
 
   # Filter positive eigenvalues
   lam_all <- pmax(ES$values, 0)
-  pos <- which(lam_all > tol)
+  pos <- which(lam_all > 0 & lam_all > rank_rtol^2 * max(lam_all, 0))
   if (length(pos) == 0L) stop("No positive eigenvalues found (within tol).")
   if (is.null(ncomp)) ncomp <- length(pos)
   ncomp <- min(ncomp, length(pos))

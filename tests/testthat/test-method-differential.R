@@ -77,7 +77,7 @@ test_that("randomized tracks eigen singular values within approximation envelope
   expect_gt(var_ratio, 0.9)
 })
 
-test_that("eigen backend handles sparse symmetric metrics in RSpectra branch", {
+test_that("eigen backend factors sparse symmetric metrics exactly regardless of maxeig", {
   set.seed(814)
   n <- 140
   p <- 180
@@ -103,10 +103,16 @@ test_that("eigen backend handles sparse symmetric metrics in RSpectra branch", {
     X, M = M, A = A, ncomp = k,
     method = "eigen",
     maxeig = 80,
-    warn_approx = FALSE,
     preproc = multivarious::pass()
   )
 
   expect_equal(length(fit$sdev), k)
   expect_true(all(is.finite(fit$sdev)))
+  fit_full <- genpca(
+    X, M = M, A = A, ncomp = k,
+    method = "eigen",
+    maxeig = Inf,
+    preproc = multivarious::pass()
+  )
+  expect_equal(fit$sdev, fit_full$sdev, tolerance = 1e-8)
 })

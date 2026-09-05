@@ -35,14 +35,13 @@ partial_eig_once <- function(M, k = 50, which = "LA", eps = 1e-15, tol = 1e-6) {
   k_eff <- max(k_eff, 1)
 
   # For small or full-rank requests, base eigen() is more accurate and avoids
-  # asking RSpectra for k >= n eigenpairs.
+  # asking the iterative solver for k >= n eigenpairs.
   if (nrow(M) <= 50 || k_eff >= nrow(M)) {
     es <- eigen(as.matrix(M), symmetric = TRUE)
     lam <- pmax(es$values[seq_len(k_eff)], 0)
     Q   <- es$vectors[, seq_len(k_eff), drop = FALSE]
   } else {
-    es <- RSpectra::eigs_sym(M, k = k_eff, which = which,
-                              opts = list(tol = tol))
+    es <- .top_eigs_sym(M, k_eff, which, tol = tol)
     lam <- pmax(es$values, 0)
     Q   <- es$vectors
   }

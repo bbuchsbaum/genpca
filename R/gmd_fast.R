@@ -17,96 +17,316 @@ should_use_topk <- function(k, min_dim, topk, auto_topk, topk_ratio, topk_min_di
   (k / min_dim) <= topk_ratio
 }
 
-gmd_fast_diag <- function(X, q_diag, r_diag, k, tol, maxit, topk) {
+# Components kept after an iterative or dense decomposition: singular values
+# above rank_rtol times the largest one (relative, so invariant to rescaling).
+.keep_components <- function(d, rank_rtol) {
+  dmax <- if (length(d)) max(d, 0) else 0
+  is.finite(d) & d > 0 & d > rank_rtol * dmax
+}
+
+.empty_gmd <- function(n, p) {
+  list(u = matrix(0, n, 0), v = matrix(0, p, 0),
+       ou = matrix(0, n, 0), ov = matrix(0, p, 0), d = numeric(0))
+}
+
+#' Factor a metric as A = F F' for the whitened-operator SVD
+#'
+#' Diagonal, dense Cholesky, sparse (CHOLMOD, permuted) Cholesky and
+#' PSD-singular (eigen) factors share one closure interface:
+#' `apply(V) = F V`, `apply_t(U) = F' U`, `solve_t(Z) = F^{+T} Z` (maps the
+#' singular vectors of the whitened operator back to metric-orthonormal
+#' factors), `mat` (F itself, for the dense fallback) and `ncol` (columns of
+#' F: the dimension for Cholesky factors, the numerical rank for eigen
+#' factors). A metric that is not positive definite needs a dense
+#' eigendecomposition, which is refused above `dense_maxn` rows.
+#' @keywords internal
+#' @noRd
+.metric_factor <- function(A, metric_rtol = .metric_rtol_default(), cache = TRUE,
+                           dense_maxn = 5000L, name = "metric", allow_eigen = TRUE) {
+  if (!inherits(A, "Matrix")) A <- Matrix::Matrix(A, sparse = FALSE)
+  n <- nrow(A)
+
+  if (is_diagonal_metric(A)) {
+    d <- .clamp_weights(diag_metric_values(A), metric_rtol, name)
+    s <- sqrt(d)
+    # Exact diagonal weights have no eigendecomposition roundoff: retain every
+    # positive weight in both the forward factor and its inverse.
+    inv <- ifelse(d > 0, 1 / s, 0)
+    return(list(kind = "diag", ncol = n, mat = Matrix::Diagonal(n, x = s),
+                apply = function(V) s * V,
+                apply_t = function(U) s * U,
+                solve_t = function(Z) inv * as.matrix(Z)))
+  }
+
+  A <- symmetrize_or_stop(A, name = name)
+
+  if (methods::is(A, "sparseMatrix")) {
+    ch <- suppressWarnings(tryCatch(
+      Matrix::Cholesky(A, LDL = FALSE, perm = TRUE, super = TRUE),
+      error = function(e) NULL))
+    if (!is.null(ch)) {
+      # P A P' = L L'  =>  A = F F' with F = P' L
+      L <- if (exists("expand1", envir = asNamespace("Matrix"))) {
+        Matrix::expand1(ch, "L")
+      } else {
+        methods::as(ch, "CsparseMatrix")
+      }
+      perm <- ch@perm + 1L
+      # Same pivot test as the dense branch: a numerically singular factor
+      # would amplify null-space noise in solve_t, so fall through to eigen.
+      piv <- as.numeric(Matrix::diag(L))
+      if (min(piv)^2 > metric_rtol * .metric_scale(A)) {
+      Fm <- L[order(perm), , drop = FALSE]
+      Lt <- Matrix::t(L)
+      return(list(kind = "sparse_chol", ncol = n, mat = Fm,
+                  apply = function(V) Fm %*% V,
+                  apply_t = function(U) Matrix::crossprod(Fm, U),
+                  solve_t = function(Z) {
+                    # F^{-T} Z = P' L^{-T} Z
+                    W <- as.matrix(Matrix::solve(Lt, as.matrix(Z)))
+                    out <- W
+                    out[perm, ] <- W
+                    out
+                  }))
+      }
+    }
+    if (!allow_eigen) return(NULL)
+    if (n > dense_maxn) {
+      stop("Metric ", name, " is not positive definite and has ", n, " rows (> ", dense_maxn,
+           "): a dense eigendecomposition would be needed. Supply a positive definite ",
+           "metric, use method = 'deflation', or raise maxeig.", call. = FALSE)
+    }
+    A <- Matrix::Matrix(as.matrix(A), sparse = FALSE)
+  }
+
+  # Dense: Cholesky when positive definite (cached), eigen factor otherwise.
+  scale <- .metric_scale(A)
+  L <- tryCatch(if (isTRUE(cache)) get_chol_lower_dense(A) else t(chol(as.matrix(A))),
+                error = function(e) NULL)
+  if (!is.null(L) && min(diag(L))^2 > metric_rtol * scale) {
+    Lt <- t(L)
+    return(list(kind = "chol", ncol = n, mat = L,
+                apply = function(V) L %*% V,
+                apply_t = function(U) crossprod(L, U),
+                solve_t = function(Z) backsolve(Lt, as.matrix(Z))))
+  }
+  if (!allow_eigen) return(NULL)
+  if (n > dense_maxn) {
+    stop("Metric ", name, " is not positive definite and has ", n, " rows (> ", dense_maxn,
+         "): a dense eigendecomposition would be needed. Supply a positive definite ",
+         "metric, use method = 'deflation', or raise maxeig.", call. = FALSE)
+  }
+  es <- eigen(as.matrix(A), symmetric = TRUE)
+  lam <- es$values
+  if (min(lam) < -metric_rtol * scale) {
+    stop(name, " must be positive semi-definite (min eigenvalue ", signif(min(lam), 3), ")",
+         call. = FALSE)
+  }
+  keep <- which(lam > metric_rtol * max(lam, 0))
+  if (!length(keep)) stop(name, " is (numerically) zero.", call. = FALSE)
+  Vk <- es$vectors[, keep, drop = FALSE]
+  sk <- sqrt(lam[keep])
+  Fm <- Vk * rep(sk, each = nrow(Vk))          # V_k Lambda^{1/2}
+  list(kind = "eigen", ncol = length(keep), mat = Fm,
+       apply = function(V) Fm %*% V,
+       apply_t = function(U) crossprod(Fm, U),
+       solve_t = function(Z) Vk %*% (as.matrix(Z) / sk))   # V_k Lambda^{-1/2} Z
+}
+
+# Diagonal metrics: partial SVD of the scaled data matrix.
+gmd_fast_diag <- function(X, q_diag, r_diag, k, tol, maxit, topk, rank_rtol, metric_rtol) {
   n <- nrow(X)
   p <- ncol(X)
   min_dim <- min(n, p)
   k_use <- min(k, min_dim)
 
-  q_sqrt <- sqrt(pmax(q_diag, 0))
-  r_sqrt <- sqrt(pmax(r_diag, 0))
-  q_invsqrt <- ifelse(q_sqrt > tol, 1 / q_sqrt, 0)
-  r_invsqrt <- ifelse(r_sqrt > tol, 1 / r_sqrt, 0)
+  q_diag <- .clamp_weights(q_diag, metric_rtol, "Q")
+  r_diag <- .clamp_weights(r_diag, metric_rtol, "R")
+  q_sqrt <- sqrt(q_diag)
+  r_sqrt <- sqrt(r_diag)
+  q_invsqrt <- ifelse(q_diag > 0, 1 / q_sqrt, 0)
+  r_invsqrt <- ifelse(r_diag > 0, 1 / r_sqrt, 0)
 
-  # Match gmdLA target: singular values of Q^{1/2} X R^{1/2}.
-  # Row scaling via recycling; column scaling via sweep.
-  Xw <- q_sqrt * X
-  Xw <- sweep(Xw, 2, r_sqrt, `*`)
+  # Target: singular values of Q^{1/2} X R^{1/2}.
+  Xw <- if (inherits(X, "Matrix")) {
+    (q_sqrt * X) %*% Matrix::Diagonal(p, x = r_sqrt)
+  } else {
+    sweep(q_sqrt * X, 2, r_sqrt, `*`)
+  }
 
   sv <- NULL
-  if (isTRUE(topk) && k_use < min_dim) {
-    sv <- tryCatch(
-      RSpectra::svds(Xw, k = k_use, opts = list(maxitr = maxit, tol = tol)),
-      error = function(e) NULL
-    )
+  if (isTRUE(topk) && k_use >= 1 && k_use < min_dim) {
+    sv <- tryCatch(.top_svd(Xw, k_use, tol = tol), error = function(e) NULL)
+    if (!is.null(sv) && !isTRUE(sv$converged)) sv <- NULL
   }
-
   if (is.null(sv)) {
-    sv_full <- base::svd(Xw, nu = k_use, nv = k_use)
-    d <- sv_full$d[seq_len(k_use)]
-    Uw <- sv_full$u[, seq_len(k_use), drop = FALSE]
-    Vw <- sv_full$v[, seq_len(k_use), drop = FALSE]
-  } else {
-    d <- sv$d
-    Uw <- sv$u
-    Vw <- sv$v
+    sv_full <- base::svd(as.matrix(Xw), nu = k_use, nv = k_use)
+    sv <- list(d = sv_full$d[seq_len(k_use)],
+               u = sv_full$u[, seq_len(k_use), drop = FALSE],
+               v = sv_full$v[, seq_len(k_use), drop = FALSE])
   }
 
-  keep <- d > tol
-  if (!any(keep)) {
-    return(list(
-      u = matrix(0, nrow = n, ncol = 0),
-      v = matrix(0, nrow = p, ncol = 0),
-      ou = matrix(0, nrow = n, ncol = 0),
-      ov = matrix(0, nrow = p, ncol = 0),
-      d = numeric(0)
-    ))
-  }
+  d <- as.numeric(sv$d)
+  keep <- .keep_components(d, rank_rtol)
+  if (!any(keep)) return(.empty_gmd(n, p))
+  d <- d[keep]
+  Uw <- as.matrix(sv$u)[, keep, drop = FALSE]
+  Vw <- as.matrix(sv$v)[, keep, drop = FALSE]
 
-  d <- as.numeric(d[keep])
-  Uw <- Uw[, keep, drop = FALSE]
-  Vw <- Vw[, keep, drop = FALSE]
-
-  # Metric-orthonormal factors (row scaling via recycling).
   ov <- r_invsqrt * Vw
   ou <- q_invsqrt * Uw
-  # Components in original space: C = R^{1/2} * right-singular-vectors
-  components <- r_sqrt * Vw
-  # Scores in returned parametrization: U = Q X C
-  scores <- q_diag * (X %*% components)
-
+  components <- r_sqrt * Vw                    # R ov
+  scores <- q_diag * as.matrix(X %*% components) # Q ou D
   list(u = scores, v = components, ou = ou, ov = ov, d = d)
 }
 
-#' Fast generalized matrix decomposition (dense/sparse dispatch)
+# General metrics: partial SVD of the whitened operator B = F_Q' X F_R,
+# where Q = F_Q F_Q' and R = F_R F_R'. B'B = F_R' X'QX F_R has the GMD
+# eigenvalues, ov = F_R^{-T} V and ou = F_Q^{-T} U are the metric-orthonormal
+# factors. Neither metric is ever squared-rooted explicitly and only
+# products with X, X' and the factors are needed per iteration.
+gmd_spectra_general <- function(X, Q, R, k, tol, use_topk, cache, rank_rtol, metric_rtol,
+                                dense_maxn = 5000L) {
+  n <- nrow(X)
+  p <- ncol(X)
+  primal <- p <= n
+  # The small-side metric may need an eigen factor (bounded by dense_maxn);
+  # the large-side metric is only used through products unless it is
+  # positive definite, in which case its Cholesky factor gives the SVD form.
+  FQ <- .metric_factor(Q, metric_rtol, cache, dense_maxn = dense_maxn, name = "Q",
+                       allow_eigen = !primal)
+  FR <- .metric_factor(R, metric_rtol, cache, dense_maxn = dense_maxn, name = "R",
+                       allow_eigen = primal)
+
+  if (!is.null(FQ) && !is.null(FR)) {
+    return(gmd_spectra_svd(X, Q, R, FQ, FR, k, tol, use_topk, rank_rtol))
+  }
+  gmd_spectra_sym(X, Q, R, if (primal) FR else FQ, primal, k, tol, use_topk, rank_rtol)
+}
+
+# SVD form: B = F_Q' X F_R with Q = F_Q F_Q', R = F_R F_R'. B'B = F_R' X'QX F_R
+# has the GMD eigenvalues, ov = F_R^{-T} V and ou = F_Q^{-T} U are the
+# metric-orthonormal factors. Only products with X, X' and the factors are
+# needed per iteration.
+gmd_spectra_svd <- function(X, Q, R, FQ, FR, k, tol, use_topk, rank_rtol) {
+  n <- nrow(X)
+  p <- ncol(X)
+  nB <- FQ$ncol
+  pB <- FR$ncol
+  k_use <- min(k, nB, pB)
+  if (k_use < 1) return(.empty_gmd(n, p))
+
+  op <- function(V, args = NULL) FQ$apply_t(X %*% FR$apply(V))
+  opt <- function(U, args = NULL) FR$apply_t(Matrix::crossprod(X, FQ$apply(U)))
+
+  sv <- NULL
+  if (isTRUE(use_topk) && k_use < min(nB, pB)) {
+    sv <- tryCatch(.top_svd(op, k_use, tol = tol, adjoint = opt, dim = c(nB, pB)),
+                   error = function(e) NULL)
+    if (!is.null(sv) && !isTRUE(sv$converged)) sv <- NULL
+  }
+  if (is.null(sv)) {
+    B <- as.matrix(FQ$apply_t(X %*% FR$mat))   # nB x pB, same footprint as X
+    sv_full <- base::svd(B, nu = k_use, nv = k_use)
+    sv <- list(d = sv_full$d[seq_len(k_use)],
+               u = sv_full$u[, seq_len(k_use), drop = FALSE],
+               v = sv_full$v[, seq_len(k_use), drop = FALSE])
+  }
+
+  d <- as.numeric(sv$d)
+  o <- order(d, decreasing = TRUE)
+  d <- d[o]
+  U <- as.matrix(sv$u)[, o, drop = FALSE]
+  V <- as.matrix(sv$v)[, o, drop = FALSE]
+  keep <- .keep_components(d, rank_rtol)
+  if (!any(keep)) return(.empty_gmd(n, p))
+  d <- d[keep]
+  U <- U[, keep, drop = FALSE]
+  V <- V[, keep, drop = FALSE]
+
+  ov <- as.matrix(FR$solve_t(V))
+  ou <- as.matrix(FQ$solve_t(U))
+  components <- as.matrix(R %*% ov)                    # R ov
+  scores <- as.matrix(Q %*% ou) * rep(d, each = n)     # Q ou D
+  list(u = scores, v = components, ou = ou, ov = ov, d = d)
+}
+
+# Symmetric small-side form, used when the large-side metric is singular (so
+# it must not be factored): T = F' (X'QX) F (primal, p x p) or F' (X R X') F
+# (dual, n x n) with F the small-side factor. Same algebra as gmdLA; the
+# large-side metric only appears in products.
+gmd_spectra_sym <- function(X, Q, R, Fs, primal, k, tol, use_topk, rank_rtol) {
+  n <- nrow(X)
+  p <- ncol(X)
+  G <- if (primal) Matrix::crossprod(X, Q %*% X) else X %*% (R %*% Matrix::t(X))
+  T <- as.matrix(Fs$apply_t(G %*% Fs$mat))
+  T <- 0.5 * (T + t(T))
+  dim_t <- nrow(T)
+  k_use <- min(k, dim_t)
+  if (k_use < 1) return(.empty_gmd(n, p))
+
+  eig <- NULL
+  if (isTRUE(use_topk) && k_use < dim_t - 1L && dim_t > 500L) {
+    eig <- tryCatch(.top_eigs_sym(T, k_use, "LA", tol = 1e-10), error = function(e) NULL)
+    if (!is.null(eig) && !isTRUE(eig$converged)) eig <- NULL
+  }
+  if (is.null(eig)) {
+    es <- eigen(T, symmetric = TRUE)
+    eig <- list(values = es$values[seq_len(k_use)], vectors = es$vectors[, seq_len(k_use), drop = FALSE])
+  }
+  lam <- as.numeric(eig$values)
+  keep <- lam > 0 & lam > rank_rtol^2 * max(lam, 0)
+  if (!any(keep)) return(.empty_gmd(n, p))
+  lam <- lam[keep]
+  Z <- as.matrix(eig$vectors)[, keep, drop = FALSE]
+  d <- sqrt(lam)
+
+  if (primal) {
+    ov <- as.matrix(Fs$solve_t(Z))                     # p x k, R-orthonormal
+    components <- as.matrix(R %*% ov)
+    ou <- as.matrix(X %*% components) / rep(d, each = n) # X R ov = ou D
+  } else {
+    ou <- as.matrix(Fs$solve_t(Z))                     # n x k, Q-orthonormal
+    ov <- as.matrix(Matrix::crossprod(X, Q %*% ou)) / rep(d, each = p) # X'Q ou = ov D
+    components <- as.matrix(R %*% ov)
+  }
+  scores <- as.matrix(Q %*% ou) * rep(d, each = n)
+  list(u = scores, v = components, ou = ou, ov = ov, d = d)
+}
+
+#' Generalized matrix decomposition via partial SVD of the whitened operator
 #'
 #' Computes the generalized SVD of X with row metric Q and column metric R,
 #' equivalent to the eigendecomposition used by \code{\link{genpca}} with
-#' \code{method = "spectra"}. Uses primal (p <= n) or dual (n < p) formulation
-#' to minimize computation, with optional Cholesky caching for repeated calls.
+#' \code{method = "eigen"}. The metrics are factored once (`Q = F_Q F_Q'`,
+#' `R = F_R F_R'`; diagonal, dense or sparse Cholesky, or an eigen factor for
+#' singular metrics) and the top-k singular triplets of the implicit operator
+#' `F_Q' X F_R` are computed with \pkg{eigencore}; a dense SVD is used when
+#' few components are not requested or the iterative solver does not
+#' converge. `gmd_fast_cpp()` is an alias kept for existing callers.
 #'
 #' @section When is this fast:
-#' This implementation is faster than the "eigen" method when:
 #' \itemize{
-#'   \item \code{k << min(n, p)}: Only top-k eigenvalues needed (uses ARPACK)
-#'   \item Repeated calls with same Q or R: Cholesky factors are cached
-#'   \item Large matrices where full eigendecomposition is expensive
+#'   \item \code{k << min(n, p)}: only the top-k triplets are computed
+#'   \item Repeated calls with the same dense Q or R: Cholesky factors are cached
+#'   \item Sparse metrics: only sparse factors and products are formed
 #' }
-#' For small matrices or when \code{k} is close to \code{min(n, p)}, the
-#' overhead of iterative methods may make "eigen" faster.
+#' A positive definite metric on the big side of X costs one Cholesky of that
+#' dimension; a singular one is never factored (symmetric small-side form).
 #'
 #' @param X numeric matrix (n x p)
 #' @param Q,R constraints (weights/metrics) for rows/cols. Must be symmetric
 #'   positive (semi-)definite. Can be dense matrices, sparse matrices, or
 #'   diagonal matrices.
 #' @param k number of components to extract (must be >= 1 and <= min(n, p))
-#' @param tol tolerance for filtering near-zero singular values. Default 1e-9.
-#' @param maxit maximum iterations for the Spectra eigensolver. Default 1000.
-#' @param seed random seed (ignored, kept for API compatibility)
-#' @param topk logical; use top-k symmetric eigen via ARPACK when available.
-#'   Defaults to TRUE. Set to FALSE to force full eigendecomposition.
-#' @param cache logical; cache Cholesky factors across calls when constraints
-#'   are dense. Defaults to TRUE. Use \code{\link{gmd_clear_cache}} to clear.
+#' @param tol convergence tolerance of the iterative solver. Default 1e-9.
+#' @param maxit unused (kept for compatibility).
+#' @param seed unused (kept for compatibility); results do not depend on the
+#'   R random stream.
+#' @param topk logical; use the iterative top-k solver when \code{k < min(n, p)}.
+#'   Set to FALSE to force a dense SVD of the whitened operator.
+#' @param cache logical; cache dense Cholesky factors across calls.
+#'   Defaults to TRUE. Use \code{\link{gmd_clear_cache}} to clear.
 #' @param auto_topk logical; when TRUE (default), use top-k only when
 #'   \code{k/min(n,p)} is small and \code{min(n,p)} is large enough.
 #' @param topk_ratio threshold used by \code{auto_topk}. If
@@ -115,30 +335,39 @@ gmd_fast_diag <- function(X, q_diag, r_diag, k, tol, maxit, topk) {
 #'   under \code{auto_topk}. Default 200.
 #' @param diag_fast logical; if TRUE (default) and both constraints are
 #'   diagonal, use a weighted-SVD fast path.
+#' @param rank_rtol relative cutoff on singular values: components with
+#'   \code{d_j <= rank_rtol * d_1} are dropped. Default 1e-6.
+#' @param metric_rtol relative tolerance for metric validation and null-space
+#'   detection. Default \code{sqrt(.Machine$double.eps)}.
+#' @param dense_maxn a singular general metric on the small side of X needs a
+#'   dense eigendecomposition; refuse it above this many rows (the
+#'   \code{maxeig} argument of \code{\link{genpca}}). A singular metric on
+#'   the large side is never factored: the solver switches to the symmetric
+#'   small-side formulation, in which that metric only appears in products.
 #'
 #' @return A list with components:
 #'   \describe{
-#'     \item{u}{n x k matrix of scores (left singular vectors scaled)}
-#'     \item{v}{p x k matrix of components (right singular vectors, R-scaled)}
+#'     \item{u}{n x k matrix of metric-weighted scores \code{Q ou D}}
+#'     \item{v}{p x k matrix of components \code{R ov}}
+#'     \item{ou,ov}{metric-orthonormal factors}
 #'     \item{d}{length-k vector of singular values}
 #'     \item{k}{number of components returned (may be < requested if rank-deficient)}
 #'   }
 #'
 #' @seealso \code{\link{genpca}} for the high-level interface,
-#'   \code{\link{gmd_clear_cache}} to clear Cholesky cache
+#'   \code{\link{gmd_clear_cache}} to clear the Cholesky cache
 #' @keywords internal
 #' @importFrom methods as is
-gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
-                         topk = TRUE, cache = TRUE, auto_topk = TRUE,
-                         topk_ratio = 0.08, topk_min_dim = 200L,
-                         diag_fast = TRUE) {
-  # Input validation
+gmd_spectra <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
+                        topk = TRUE, cache = TRUE, auto_topk = TRUE,
+                        topk_ratio = 0.08, topk_min_dim = 200L,
+                        diag_fast = TRUE, rank_rtol = 1e-6,
+                        metric_rtol = .metric_rtol_default(), dense_maxn = 5000L) {
   n <- nrow(X)
   p <- ncol(X)
   if (!is.numeric(k) || length(k) != 1 || k < 1) {
     stop("k must be a single positive integer >= 1")
   }
-
   k <- as.integer(k)
   if (k > min(n, p)) {
     warning("k (", k, ") exceeds min(n, p) = ", min(n, p), "; will return at most ", min(n, p), " components")
@@ -147,95 +376,43 @@ gmd_fast_cpp <- function(X, Q, R, k, tol = 1e-9, maxit = 1000L, seed = 1234L,
   if (!is.numeric(maxit) || length(maxit) != 1 || maxit < 1 || maxit != floor(maxit)) {
     stop("maxit must be a single positive integer >= 1")
   }
-  maxit <- as.integer(maxit)
   if (!is.numeric(topk_ratio) || length(topk_ratio) != 1 || topk_ratio <= 0 || topk_ratio > 1) {
     stop("topk_ratio must be a single number in (0, 1].")
   }
   if (!is.numeric(topk_min_dim) || length(topk_min_dim) != 1 || topk_min_dim < 2 || topk_min_dim != floor(topk_min_dim)) {
     stop("topk_min_dim must be a single integer >= 2.")
   }
+  if (!is.numeric(rank_rtol) || length(rank_rtol) != 1 || !is.finite(rank_rtol) || rank_rtol < 0) {
+    stop("rank_rtol must be a single non-negative number.")
+  }
   topk_min_dim <- as.integer(topk_min_dim)
 
   if (!inherits(Q, "Matrix")) Q <- Matrix::Matrix(Q, sparse = FALSE)
   if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
 
-  # coerce symmetric dense forms that trip Rcpp
-  if (inherits(Q, "dsyMatrix")) Q <- as_dge(Q)
-  if (inherits(R, "dsyMatrix")) R <- as_dge(R)
+  use_topk <- should_use_topk(k, min(n, p), topk, auto_topk, topk_ratio, topk_min_dim)
 
-  min_dim <- min(n, p)
-  use_topk <- should_use_topk(k, min_dim, topk, auto_topk, topk_ratio, topk_min_dim)
-
-  if (isTRUE(diag_fast) && is_diagonal_metric(Q) && is_diagonal_metric(R)) {
-    res <- gmd_fast_diag(
-      X = X,
-      q_diag = diag_metric_values(Q),
-      r_diag = diag_metric_values(R),
-      k = k,
-      tol = tol,
-      maxit = maxit,
-      topk = use_topk
-    )
+  res <- if (isTRUE(diag_fast) && is_diagonal_metric(Q) && is_diagonal_metric(R)) {
+    gmd_fast_diag(X, diag_metric_values(Q), diag_metric_values(R), k,
+                  tol = tol, maxit = maxit, topk = use_topk,
+                  rank_rtol = rank_rtol, metric_rtol = metric_rtol)
   } else {
-  primal <- (p <= n)  # use primal when small side is p
-
-  # ---- choose path and apply caching for dense constraints ----
-  if (primal) {
-    if (!methods::is(R, "sparseMatrix") && isTRUE(cache)) {
-      L_R <- get_chol_lower_dense(R)
-      if (methods::is(Q, "sparseMatrix")) {
-        res <- gmd_fast_cpp_primal_sp(X, as_dgc(Q), L_R, k, tol, maxit, use_topk)
-      } else {
-        res <- gmd_fast_cpp_primal_dn(X, as.matrix(Q), L_R, k, tol, maxit, use_topk)
-      }
-    } else {
-      # fall back to non-cached path
-      if (methods::is(Q, "sparseMatrix") || methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_sp(X, as_dgc(Q), as_dgc(R), k, tol, maxit, use_topk)
-      } else {
-        res <- gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol, maxit, use_topk)
-      }
-    }
-  } else {
-    # dual path (n < p): cache Cholesky for Q when dense
-    if (!methods::is(Q, "sparseMatrix") && isTRUE(cache)) {
-      L_Q <- get_chol_lower_dense(Q)
-      if (methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_dual_sp(X, L_Q, as_dgc(R), k, tol, maxit, use_topk)
-      } else {
-        res <- gmd_fast_cpp_dual_dn(X, L_Q, as.matrix(R), k, tol, maxit, use_topk)
-      }
-    } else {
-      if (methods::is(Q, "sparseMatrix") || methods::is(R, "sparseMatrix")) {
-        res <- gmd_fast_cpp_sp(X, as_dgc(Q), as_dgc(R), k, tol, maxit, use_topk)
-      } else {
-        res <- gmd_fast_cpp_dn(X, as.matrix(Q), as.matrix(R), k, tol, maxit, use_topk)
-      }
-    }
+    gmd_spectra_general(X, Q, R, k, tol = tol, use_topk = use_topk, cache = cache,
+                        rank_rtol = rank_rtol, metric_rtol = metric_rtol,
+                        dense_maxn = dense_maxn)
   }
-  }
-
-  # Ensure d is a vector (C++ functions may return it as a column matrix)
-  if (is.matrix(res$d)) {
-    res$d <- as.vector(res$d)
-  }
-
-  # Name outputs like multivarious - filter by tolerance first
-  keep <- res$d > tol
-  if (sum(keep) < length(res$d)) {
-    res$u <- res$u[, keep, drop = FALSE]
-    res$v <- res$v[, keep, drop = FALSE]
-    if (!is.null(res$ou)) res$ou <- res$ou[, keep, drop = FALSE]
-    if (!is.null(res$ov)) res$ov <- res$ov[, keep, drop = FALSE]
-    res$d <- res$d[keep]
-  }
-
-  # Set k to the number of components found
+  res$d <- as.vector(res$d)
   res$k <- length(res$d)
   res
 }
 
-# Metric orthonormalization for small block matrices.
+#' @rdname gmd_spectra
+#' @keywords internal
+gmd_fast_cpp <- gmd_spectra
+
+# Metric orthonormalization for small block matrices. `jitter` and `tol` are
+# relative to the scale of the Gram matrix, so the result is invariant to
+# rescaling A.
 metric_orthonormalize <- function(A, applyM, jitter = 1e-10, tol = 1e-12) {
   if (ncol(A) == 0) return(A)
 
@@ -243,9 +420,11 @@ metric_orthonormalize <- function(A, applyM, jitter = 1e-10, tol = 1e-12) {
   G <- Matrix::crossprod(A, MA)
   G <- 0.5 * (G + t(G))
   G <- as.matrix(G)
+  gscale <- max(diag(G), 0)
+  if (!is.finite(gscale) || gscale == 0) gscale <- 1
 
   # Fast path: Cholesky on the small Gram matrix.
-  jitter_now <- max(jitter, 0)
+  jitter_now <- max(jitter, 0) * gscale
   for (i in 0:6) {
     G_reg <- G
     if (jitter_now > 0) {
@@ -255,12 +434,12 @@ metric_orthonormalize <- function(A, applyM, jitter = 1e-10, tol = 1e-12) {
     if (!inherits(C, "try-error")) {
       return(A %*% solve(C))
     }
-    jitter_now <- if (jitter_now > 0) jitter_now * 10 else 1e-10
+    jitter_now <- if (jitter_now > 0) jitter_now * 10 else 1e-10 * gscale
   }
 
   # Robust fallback for semidefinite / rank-deficient blocks.
   eg <- eigen(G, symmetric = TRUE)
-  keep <- which(eg$values > tol)
+  keep <- which(eg$values > tol * max(eg$values, 0))
   if (length(keep) == 0) {
     return(matrix(0.0, nrow = nrow(A), ncol = 0))
   }
@@ -327,12 +506,14 @@ gmd_randomized_polish <- function(X, applyQ, applyR, U, V, iters = 1L, jitter = 
 
 # Randomized low-pass GMD backend in pure R (fallback):
 # 2 passes when n_power = 0, 2 + 2*n_power passes otherwise.
+# `tol` is a relative singular-value cutoff (d_j <= tol * d_1 is dropped) and
+# `jitter` is relative to the Gram scale in metric_orthonormalize().
 gmd_randomized_r <- function(X, Q, R, k,
                              oversample = 20L,
                              n_power = 1L,
                              n_polish = 0L,
                              jitter = 1e-10,
-                             tol = 1e-9,
+                             tol = 1e-6,
                              polish_tol = 0,
                              seed = NULL) {
   n <- nrow(X)
@@ -355,14 +536,10 @@ gmd_randomized_r <- function(X, Q, R, k,
 
   k <- as.integer(min(k, n, p))
   ell <- as.integer(min(n, p, k + oversample))
-  if (ell < 1) {
-    return(list(
-      u = matrix(0.0, nrow = n, ncol = 0),
-      v = matrix(0.0, nrow = p, ncol = 0),
-      d = numeric(0),
-      k = 0L
-    ))
-  }
+  empty <- list(u = matrix(0.0, nrow = n, ncol = 0),
+                v = matrix(0.0, nrow = p, ncol = 0),
+                d = numeric(0), k = 0L)
+  if (ell < 1) return(empty)
 
   if (!inherits(Q, "Matrix")) Q <- Matrix::Matrix(Q, sparse = FALSE)
   if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
@@ -381,14 +558,7 @@ gmd_randomized_r <- function(X, Q, R, k,
   }
 
   U0 <- metric_orthonormalize(Y, applyQ, jitter = jitter)
-  if (ncol(U0) == 0) {
-    return(list(
-      u = matrix(0.0, nrow = n, ncol = 0),
-      v = matrix(0.0, nrow = p, ncol = 0),
-      d = numeric(0),
-      k = 0L
-    ))
-  }
+  if (ncol(U0) == 0) return(empty)
 
   B <- Matrix::crossprod(X, applyQ(U0))
   RB <- applyR(B)
@@ -397,21 +567,14 @@ gmd_randomized_r <- function(X, Q, R, k,
 
   eg <- eigen(as.matrix(G), symmetric = TRUE)
   k_use <- min(k, ncol(eg$vectors))
-  if (k_use < 1) {
-    return(list(
-      u = matrix(0.0, nrow = n, ncol = 0),
-      v = matrix(0.0, nrow = p, ncol = 0),
-      d = numeric(0),
-      k = 0L
-    ))
-  }
+  if (k_use < 1) return(empty)
 
   S <- eg$vectors[, seq_len(k_use), drop = FALSE]
   d <- sqrt(pmax(eg$values[seq_len(k_use)], 0))
 
   U <- U0 %*% S
   V <- B %*% S
-  nz <- d > tol
+  nz <- .keep_components(d, tol)
   if (any(nz)) {
     V[, nz] <- sweep(V[, nz, drop = FALSE], 2, d[nz], "/")
   }
@@ -435,15 +598,8 @@ gmd_randomized_r <- function(X, Q, R, k,
     d <- pol$d
   }
 
-  keep <- d > tol
-  if (!any(keep)) {
-    return(list(
-      u = matrix(0.0, nrow = n, ncol = 0),
-      v = matrix(0.0, nrow = p, ncol = 0),
-      d = numeric(0),
-      k = 0L
-    ))
-  }
+  keep <- .keep_components(d, tol)
+  if (!any(keep)) return(empty)
 
   U <- U[, keep, drop = FALSE]
   V <- V[, keep, drop = FALSE]
@@ -457,7 +613,7 @@ gmd_randomized <- function(X, Q, R, k,
                            n_power = 1L,
                            n_polish = 0L,
                            jitter = 1e-10,
-                           tol = 1e-9,
+                           tol = 1e-6,
                            polish_tol = 0,
                            seed = NULL,
                            use_cpp = TRUE) {
@@ -466,63 +622,18 @@ gmd_randomized <- function(X, Q, R, k,
     if (!inherits(R, "Matrix")) R <- Matrix::Matrix(R, sparse = FALSE)
 
     seed_val <- if (is.null(seed)) 1234L else as.integer(seed)
+    common <- list(X = X, k = as.integer(k), oversample = as.integer(oversample),
+                   n_power = as.integer(n_power), n_polish = as.integer(n_polish),
+                   jitter = jitter, tol = tol, polish_tol = polish_tol, seed = seed_val)
     cpp_res <- tryCatch({
       if (methods::is(Q, "sparseMatrix") && methods::is(R, "sparseMatrix")) {
-        gmd_randomized_cpp_sp(
-          X = X,
-          Q = as_dgc(Q),
-          R = as_dgc(R),
-          k = as.integer(k),
-          oversample = as.integer(oversample),
-          n_power = as.integer(n_power),
-          n_polish = as.integer(n_polish),
-          jitter = jitter,
-          tol = tol,
-          polish_tol = polish_tol,
-          seed = seed_val
-        )
+        do.call(gmd_randomized_cpp_sp, c(list(Q = as_dgc(Q), R = as_dgc(R)), common))
       } else if (methods::is(Q, "sparseMatrix")) {
-        gmd_randomized_cpp_qsp_rdn(
-          X = X,
-          Q = as_dgc(Q),
-          R = as.matrix(R),
-          k = as.integer(k),
-          oversample = as.integer(oversample),
-          n_power = as.integer(n_power),
-          n_polish = as.integer(n_polish),
-          jitter = jitter,
-          tol = tol,
-          polish_tol = polish_tol,
-          seed = seed_val
-        )
+        do.call(gmd_randomized_cpp_qsp_rdn, c(list(Q = as_dgc(Q), R = as.matrix(R)), common))
       } else if (methods::is(R, "sparseMatrix")) {
-        gmd_randomized_cpp_qdn_rsp(
-          X = X,
-          Q = as.matrix(Q),
-          R = as_dgc(R),
-          k = as.integer(k),
-          oversample = as.integer(oversample),
-          n_power = as.integer(n_power),
-          n_polish = as.integer(n_polish),
-          jitter = jitter,
-          tol = tol,
-          polish_tol = polish_tol,
-          seed = seed_val
-        )
+        do.call(gmd_randomized_cpp_qdn_rsp, c(list(Q = as.matrix(Q), R = as_dgc(R)), common))
       } else {
-        gmd_randomized_cpp_dn(
-          X = X,
-          Q = as.matrix(Q),
-          R = as.matrix(R),
-          k = as.integer(k),
-          oversample = as.integer(oversample),
-          n_power = as.integer(n_power),
-          n_polish = as.integer(n_polish),
-          jitter = jitter,
-          tol = tol,
-          polish_tol = polish_tol,
-          seed = seed_val
-        )
+        do.call(gmd_randomized_cpp_dn, c(list(Q = as.matrix(Q), R = as.matrix(R)), common))
       }
     }, error = function(e) {
       warning("C++ randomized backend failed, falling back to R implementation: ", e$message)

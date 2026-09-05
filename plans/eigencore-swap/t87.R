@@ -1,0 +1,12 @@
+suppressMessages(pkgload::load_all("/Users/bbuchsbaum/code/genpca", quiet = TRUE))
+set.seed(2); X <- matrix(rnorm(30*6), 30); n <- nrow(X); p <- ncol(X); lambda <- 1e-3
+pen <- function(M, A) p*lambda*sum(Matrix::diag(M)) + n*lambda*sum(Matrix::diag(A))
+r_tr <- suppressWarnings(gpca_mle(X, ncomp = 2, max_iter = 8, lambda = lambda, scale_fix = "trace"))
+r_no <- suppressWarnings(gpca_mle(X, ncomp = 2, max_iter = 8, lambda = lambda, scale_fix = "none"))
+s <- as.numeric(r_tr$M[1,1] / r_no$M[1,1])
+cat("iterations:", length(r_tr$loglik_path), length(r_no$loglik_path), "\n")
+cat("reported loglik trace vs none:", r_tr$loglik, r_no$loglik, "\n")
+cat("exit rescale factor s:", s, "\n")
+cat("penalty before rescale:", pen(r_no$M, r_no$A), "  after rescale:", pen(r_tr$M, r_tr$A), "\n")
+cat("penalized objective change from rescale alone (0.5*dpen):", -0.5*(pen(r_tr$M, r_tr$A) - pen(r_no$M, r_no$A)), "\n")
+cat("optimal s* for the penalty given shapes: sqrt(n tr(A)/(p tr(M))) =", sqrt(n*sum(Matrix::diag(r_no$A))/(p*sum(Matrix::diag(r_no$M)))), "\n")

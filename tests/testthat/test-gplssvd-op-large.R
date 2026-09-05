@@ -61,8 +61,7 @@ Mg <- mk_spd(N)
 Mg2 <- mk_spd(N)
 Wg <- mk_spd(I)
 
-testthat::test_that("RSpectra path: identity and diagonal metrics (materialized)", {
-  testthat::skip_if_not_installed("RSpectra")
+testthat::test_that("eigencore path: identity and diagonal metrics (materialized)", {
   expect_matches_ref(gplssvd_op(X, Y, k = k), dense_ref(X, Y, k = k))
   op <- gplssvd_op(X, Y, XLW = Diagonal(x = wr), YLW = Diagonal(x = wr),
                    XRW = wcx, YRW = wcy, k = k)
@@ -71,8 +70,7 @@ testthat::test_that("RSpectra path: identity and diagonal metrics (materialized)
   expect_matches_ref(op, ref)
 })
 
-testthat::test_that("RSpectra path: general SPD metrics on dense data", {
-  testthat::skip_if_not_installed("RSpectra")
+testthat::test_that("eigencore path: general SPD metrics on dense data", {
   op <- gplssvd_op(X, Y, XLW = Mg, YLW = Mg, XRW = Wg, k = k)
   expect_matches_ref(op, dense_ref(X, Y, MX = Mg, MY = Mg, WX = Wg, k = k))
   # distinct row metrics on each block
@@ -80,8 +78,7 @@ testthat::test_that("RSpectra path: general SPD metrics on dense data", {
   expect_matches_ref(op2, dense_ref(X, Y, MX = Mg, MY = Mg2, k = k))
 })
 
-testthat::test_that("RSpectra path: sparse data stays on the lazy chain with general metrics", {
-  testthat::skip_if_not_installed("RSpectra")
+testthat::test_that("eigencore path: sparse data stays on the lazy chain with general metrics", {
   # shared row metric (fused middle) and distinct row metrics
   op <- gplssvd_op(Xs, Ys, XLW = Mg, YLW = Mg, k = k)
   expect_matches_ref(op, dense_ref(Xs, Ys, MX = Mg, MY = Mg, k = k))
@@ -89,8 +86,7 @@ testthat::test_that("RSpectra path: sparse data stays on the lazy chain with gen
   expect_matches_ref(op2, dense_ref(Xs, Ys, MX = Mg, MY = Mg2, k = k))
 })
 
-testthat::test_that("RSpectra path: sparse data with diagonal metrics (sparse materialization)", {
-  testthat::skip_if_not_installed("RSpectra")
+testthat::test_that("eigencore path: sparse data with diagonal metrics (sparse materialization)", {
   op <- gplssvd_op(Xs, Ys, XLW = Diagonal(x = wr), YLW = Diagonal(x = wr),
                    XRW = wcx, YRW = wcy, k = k)
   ref <- dense_ref(Xs, Ys, MX = Diagonal(x = wr), MY = Diagonal(x = wr),
@@ -107,7 +103,6 @@ testthat::test_that("irlba backend works beyond the dense fallback threshold", {
 })
 
 testthat::test_that("derived quantities match explicit formulas on the iterative path", {
-  testthat::skip_if_not_installed("RSpectra")
   op <- gplssvd_op(X, Y, XLW = Diagonal(x = wr), YLW = Diagonal(x = wr),
                    XRW = wcx, YRW = wcy, k = k)
   ref <- dense_ref(X, Y, MX = Diagonal(x = wr), MY = Diagonal(x = wr),
@@ -128,7 +123,6 @@ testthat::test_that("derived quantities match explicit formulas on the iterative
 })
 
 testthat::test_that("genpls keeps sparse inputs sparse with pass() and matches dense fit", {
-  testthat::skip_if_not_installed("RSpectra")
   testthat::skip_if_not_installed("multivarious")
   Mw <- Diagonal(x = wr)
   fit_sp <- genpls(Xs, Ys, Mx = Mw, My = Mw, ncomp = k)
@@ -147,7 +141,6 @@ testthat::test_that("genpls keeps sparse inputs sparse with pass() and matches d
 })
 
 testthat::test_that("genpls with centering preprocessor densifies sparse input gracefully", {
-  testthat::skip_if_not_installed("RSpectra")
   testthat::skip_if_not_installed("multivarious")
   fit_c <- genpls(Xs, Ys, ncomp = k,
                   preproc_x = multivarious::center(),

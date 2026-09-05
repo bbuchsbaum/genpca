@@ -1,6 +1,5 @@
 library(testthat)
 library(Matrix)
-library(RSpectra)
 
 test_that("Rank-1 matrix is recovered correctly", {
   set.seed(123)

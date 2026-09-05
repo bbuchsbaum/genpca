@@ -1,6 +1,5 @@
 # Import necessary functions from packages
 #' @importFrom Matrix Matrix Diagonal crossprod tcrossprod t solve bandSparse sparseMatrix Cholesky rowSums diag<-
-#' @importFrom RSpectra svds
 #' @importFrom FNN get.knn
 #' @importFrom stats median
 NULL
@@ -538,10 +537,11 @@ svd1_deflated <- function(X, U = NULL, d = numeric(0), V = NULL,
                           verbose = FALSE) {
   ops <- sfpca_make_ops(X, U, d, V)
   tryCatch({
-    RSpectra::svds(A = ops$mv, k = 1, nu = 1, nv = 1,
-                   Atrans = ops$tmv, dim = c(ops$n, ops$p))
+    sv <- .top_svd(ops$mv, 1, nu = 1, nv = 1, adjoint = ops$tmv, dim = c(ops$n, ops$p))
+    if (!isTRUE(sv$converged)) stop("iterative svd did not converge")
+    sv
   }, error = function(e) {
-    if (verbose) cat("RSpectra::svds failed, falling back to base R svd\n")
+    if (verbose) cat("iterative svd failed, falling back to base R svd\n")
     Xd <- as.matrix(X)
     if (!is.null(U) && length(d) > 0) {
       Xd <- Xd - as.matrix(U) %*% (d * t(as.matrix(V)))
@@ -562,7 +562,7 @@ default_alpha <- function(Omega) {
     if (nrow(Omega) <= 200) {
       max(eigen(as.matrix(Omega), symmetric = TRUE, only.values = TRUE)$values)
     } else {
-      as.numeric(RSpectra::eigs_sym(as_dgc(Omega), k = 1, which = "LM")$values[1])
+      as.numeric(.top_eigs_sym(as_dgc(Omega), 1, "LM")$values[1])
     }
   }, error = function(e) NA_real_)
   if (!is.finite(lam)) {

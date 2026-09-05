@@ -2,7 +2,7 @@
 % Please edit documentation in R/gpca_cov.R
 \name{genpca_cov}
 \alias{genpca_cov}
-\title{Generalized PCA on a covariance matrix}
+\title{Generalized PCA on a covariance matrix (GMD form)}
 \usage{
 genpca_cov(
   C,
@@ -10,45 +10,44 @@ genpca_cov(
   ncomp = NULL,
   method = c("gmd", "geigen"),
   constraints_remedy = c("error", "ridge", "clip", "identity"),
-  tol = 1e-08,
+  rank_rtol = 1e-06,
+  metric_rtol = .metric_rtol_default(),
+  tol = NULL,
   verbose = FALSE
 )
 }
 \arguments{
-\item{C}{A p x p symmetric positive semi-definite covariance matrix.
-Typically C = X'MX where X is the data matrix and M is a row metric.}
+\item{C}{A p x p symmetric positive semi-definite covariance matrix,
+typically \verb{C = X'MX}. Asymmetry beyond roundoff and indefiniteness
+beyond \code{metric_rtol} are errors.}
 
 \item{R}{Variable-side constraint/metric. Can be:
 \itemize{
-\item{NULL: Identity matrix (standard PCA on C)}
-\item{A numeric vector of length p: Interpreted as diagonal weights (must be non-negative)}
-\item{A p x p symmetric PSD matrix: General metric/smoothing/structure penalties}
+\item NULL: identity matrix (standard PCA on C)
+\item a numeric vector of length p: diagonal weights (must be non-negative)
+\item a p x p symmetric PSD matrix: general metric/smoothing/structure penalties
 }}
 
 \item{ncomp}{Number of components to return. Default is all positive eigenvalues.}
 
-\item{method}{Character string specifying the method. One of:
-\itemize{
-\item{"gmd" (default): Allen et al.'s GMD approach via eigen decomposition of \eqn{R^{1/2} C R^{1/2}}}
-\item{"geigen": Generalized eigenvalue approach solving C v = lambda R v}
-}}
+\item{method}{Deprecated. \code{"gmd"} (default) is this function; \code{"geigen"}
+forwards to \code{\link{geigen_cov}} with a warning.}
 
-\item{constraints_remedy}{How to handle slightly non-PSD inputs (used only
-by the \code{"geigen"} method; \code{"gmd"} always clips negative
-eigenvalues of \code{R} internally, see Details). Default
-\code{"error"} -- note this differs from \code{\link{genpca}}, whose
-default is \code{"ridge"}; \code{genpca_cov()} expects an
-already-validated covariance matrix \code{C} and metric \code{R}, so it
-errs on the side of rejecting bad input rather than silently repairing
-it. One of:
-\itemize{
-\item{"error": Stop with an error if constraints are not PSD}
-\item{"ridge": Add a small ridge to the diagonal to make PSD}
-\item{"clip": Clip negative eigenvalues to zero}
-\item{"identity": Replace with identity matrix}
-}}
+\item{constraints_remedy}{Deprecated here (GMD requires PSD input and stops
+otherwise); forwarded to \code{\link{geigen_cov}} when
+\code{method = "geigen"}.}
 
-\item{tol}{Numerical tolerance for PSD checks and filtering small eigenvalues. Default 1e-8.}
+\item{rank_rtol}{Relative cutoff for component acceptance on the
+singular-value scale (components with \code{d_j <= rank_rtol * d_1}
+are dropped). Default 1e-6.}
+
+\item{metric_rtol}{Relative tolerance for validating \code{C} and
+\code{R} and for detecting the numerical null space in an
+eigendecomposition of a general \code{R}. Every strictly positive
+diagonal weight is retained without a rank approximation. Default
+\code{sqrt(.Machine$double.eps)}.}
+
+\item{tol}{Deprecated; use \code{rank_rtol} and \code{metric_rtol}.}
 
 \item{verbose}{Logical. If TRUE, print progress messages. Default FALSE.}
 }
@@ -60,95 +59,57 @@ A plain list (\strong{not} a \pkg{multivarious}
 \item{d}{Singular values (square root of eigenvalues lambda)}
 \item{lambda}{Eigenvalues (variances under the R-metric)}
 \item{k}{Number of components returned}
-\item{propv}{Proportion of variance explained by each component}
+\item{propv}{Proportion of variance explained by each component
+(total variance is \eqn{\mathrm{tr}(CR)}, Allen et al. Corollary 5)}
 \item{cumv}{Cumulative proportion of variance explained}
 \item{R_rank}{Rank of the constraint matrix R}
-\item{method}{The method used ("gmd" or "geigen")}
+\item{method}{\code{"gmd"}}
 }
 Because this is a plain list rather than a \code{bi_projector}, the
 \code{multivarious} generics \code{scores()}, \code{components()}, and
 \code{reconstruct()} do not apply to it; index \code{$v}/\code{$d}
 directly, or use \code{\link{genpca}} when you need the full projector
-interface (out-of-sample \code{project()}, \code{reconstruct()}, etc.)
-on a data matrix rather than a pre-computed covariance matrix.
+interface on a data matrix rather than a pre-computed covariance matrix.
 }
 \description{
-Performs Generalized PCA directly on a pre-computed covariance matrix C with a single
-variable-side constraint/metric R. This is useful when you already have C = X'MX
-or when X is too large to store but C is manageable. Supports two methods:
-"gmd" (Allen et al.'s GMD approach, default) which exactly matches the two-sided
-\code{\link{genpca}}, and "geigen" (generalized eigenvalue approach) which solves
-C v = lambda R v.
+Performs Generalized PCA directly on a pre-computed covariance matrix
+\verb{C = X'MX} with a single variable-side metric \code{R}, following Allen et
+al.'s GMD: the eigendecomposition of \eqn{R^{1/2} C R^{1/2}} mapped back
+with \eqn{V = R^{-1/2} Z}, so that \eqn{V'RV = I}. With \verb{C = X'MX} and
+\code{R = A} this matches \code{\link{genpca}(X, M = M, A = A)} exactly. This is
+useful when you already have \code{C} or when \code{X} is too large to store but \code{C}
+is manageable.
 }
 \details{
-\strong{Method Selection Guide:}
-
-Use \code{method = "gmd"} when:
-\itemize{
-\item You need exact equivalence with \code{\link{genpca}(X, M, A)}
-\item You're following Allen et al.'s GMD framework
-\item You want consistent results with the two-sided decomposition
-}
-
-Use \code{method = "geigen"} when:
-\itemize{
-\item You specifically need the generalized eigenvalue formulation
-\item You're working with legacy code that expects this approach
-\item Computational efficiency is critical and R is well-conditioned
-}
-
-\strong{Method "gmd" (default):}
-
-This method implements Allen et al.'s GMD approach and exactly matches the
-two-sided genpca when C = X'MX. It computes the eigendecomposition of
-\eqn{R^{1/2} C R^{1/2}} and maps back with \eqn{V = R^{-1/2} Z}, ensuring V'RV = I.
-The total variance is tr(CR) as in Allen's GPCA (Corollary 5).
-
-\strong{Method "geigen":}
-
-This method solves the generalized eigenproblem C v = lambda R v directly.
-While mathematically valid, it solves a different optimization than Allen's
-GMD and will not, in general, match the two-sided genpca unless R = I or
-special commutation conditions hold.
-
-For exact equivalence with genpca(X, M, A), use method="gmd" with C = X'MX and R = A.
+The generalized eigenproblem \eqn{C v = \lambda R v} is a different
+estimator (it maximises \eqn{v'Cv} subject to \eqn{v'Rv = 1}, which is
+generally gives different components from the GMD) and lives in its own
+function, \code{\link{geigen_cov}}. \code{method = "geigen"} is accepted here
+for one release and forwards to it with a deprecation warning.
 }
 \examples{
-# Example 1: Standard PCA on covariance (no constraint)
+# Standard PCA on a covariance (no constraint)
 C <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
 fit0 <- genpca_cov(C, R=NULL, ncomp=3)
 print(fit0$d[1:3])       # first 3 singular values
 print(fit0$propv[1:3])   # variance explained by first 3 components
 
-# Example 2: Demonstrating equivalence with genpca
+# Equivalence with genpca()
 set.seed(123)
 X <- matrix(rnorm(50 * 10), 50, 10)
 M_diag <- runif(50, 0.5, 1.5)  # row weights
 A_diag <- runif(10, 0.5, 2)    # column weights
-
-# Two-sided GPCA
 fit_gpca <- genpca(X, M = M_diag, A = A_diag, ncomp = 5,
                    preproc = multivarious::pass())
-
-# Equivalent covariance-based GPCA
 C <- crossprod(X, diag(M_diag) \%*\% X)  # C = X'MX
-fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
-
-# These should match exactly
+fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5)
 all.equal(fit_gpca$sdev, fit_cov$d, tolerance = 1e-10)
 
-# Example 3: Variable weights via a diagonal metric (using iris covariance)
+# Variable weights via a diagonal metric (iris covariance, 4 variables)
 C_iris <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
-w <- c(1, 1, 0.5, 2)  # emphasize Sepal.Width less, Petal.Width more
-fitW <- genpca_cov(C_iris, R = w, ncomp=3, method="gmd")
+w <- c(1, 1, 0.5, 2)
+fitW <- genpca_cov(C_iris, R = w, ncomp=3)
 print(fitW$d[1:3])
-
-# Example 4: Compare GMD and generalized eigenvalue approaches
-fit_gmd <- genpca_cov(C_iris, R = w, ncomp=2, method="gmd")
-fit_geigen <- genpca_cov(C_iris, R = w, ncomp=2, method="geigen")
-# These will generally differ unless R = I
-print(paste("GMD singular values:", paste(round(fit_gmd$d, 3), collapse=", ")))
-print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=", ")))
 
 }
 \references{
@@ -157,6 +118,7 @@ A Generalized Least-Squares Matrix Decomposition.
 Journal of the American Statistical Association, 109(505), 145-159.
 }
 \seealso{
-\code{\link{genpca}} for the standard two-sided GPCA on data matrices,
-\code{\link{genpls}} for generalized partial least squares
+\code{\link{geigen_cov}} for the generalized eigenproblem
+\eqn{C v = \lambda R v}, \code{\link{genpca}} for the two-sided GPCA on
+data matrices, \code{\link{genpls}} for generalized partial least squares
 }

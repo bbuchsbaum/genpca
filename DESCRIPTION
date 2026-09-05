@@ -1,7 +1,7 @@
 Package: genpca
 Type: Package
 Title: Generalized Principal Component Analysis
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Brad", "Buchsbaum",
            email = "brad.buchsbaum@gmail.com",
@@ -21,7 +21,7 @@ Depends:
     R (>= 4.1.0)
 Imports:
     Rcpp,
-    RSpectra (>= 0.16.0),
+    eigencore (>= 1.0.3),
     FNN,
     Matrix,
     multivarious (>= 0.3.0),
@@ -31,8 +31,7 @@ Imports:
 LinkingTo:
     Rcpp,
     RcppArmadillo,
-    RcppEigen,
-    RSpectra
+    RcppEigen
 Suggests:
     testthat (>= 3.0.0),
     adjoin,

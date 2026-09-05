@@ -4,6 +4,12 @@
 \alias{constraints_utils}
 \title{Utilities for constraints}
 \description{
-Helpers to make constraint matrices symmetric positive definite (SPD).
+Helpers to validate, symmetrize and (only when asked) repair
+constraint matrices. Two relative tolerances are used throughout the
+package: \code{metric_rtol} (default \code{sqrt(.Machine$double.eps)}) decides
+whether a metric is positive (semi)definite and which of its eigenvalues
+count as zero, and \code{rank_rtol} (see \code{\link[=genpca]{genpca()}}) decides which components
+are kept. Both are relative to the scale of the matrix, so every decision
+is invariant to rescaling the input.
 }
 \keyword{internal}

@@ -1,0 +1,46 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+Explicit clip retains a negative eigenvalue
+[1]  1e+00 -1e-10
+Metric repair report for A (2 x 2)
+  method:                clip
+  changed:               FALSE
+  min eigenvalue before: -1e-10
+  min eigenvalue after:  -1e-10
+  Gershgorin bound:      -1e-10
+  rank:                  1
+  condition number:      1
+  relative tolerance:    1.49e-08
+
+Singular generalized eigenproblem residual
+$v
+2 x 1 Matrix of class "dgeMatrix"
+     [,1]
+[1,]    1
+[2,]    0
+
+$lambda
+[1] 2
+
+$residual
+2 x 1 Matrix of class "dgeMatrix"
+     [,1]
+[1,]    0
+[2,]    1
+
+
+Commuting C and R can select different leading directions
+$gmd
+2 x 1 Matrix of class "dgeMatrix"
+           [,1]
+[1,] -0.3333333
+[2,]  0.0000000
+
+$geigen
+2 x 1 Matrix of class "dgeMatrix"
+     [,1]
+[1,]    0
+[2,]    1

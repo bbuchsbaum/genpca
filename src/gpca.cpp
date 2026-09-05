@@ -1,6 +1,7 @@
 #define ARMA_64BIT_WORD 1
 #include <RcppArmadillo.h>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 // [[Rcpp::depends(RcppArmadillo)]]
@@ -32,7 +33,7 @@ using namespace arma;
 
 template <typename MatX>
 List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat &R,
-                        int k, double thr=1e-7, int maxit=500, bool verbose=false) {
+                        int k, double thr=1e-7, int maxit=500, bool verbose=false, double rank_rtol=1e-6) {
   if (maxit < 1) {
     stop("maxit must be >= 1.");
   }
@@ -80,7 +81,7 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
     return y;
   };
 
-  const double norm_floor = thr * scale_ref;
+  const double norm_floor = std::numeric_limits<double>::epsilon() * scale_ref;
 
   for (int i=0; i<k; i++) {
     Rcpp::checkUserInterrupt();
@@ -132,9 +133,9 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
 
     double d_i = arma::as_scalar((Q * u).t() * residual_mv(R * v, k_found));
     // Relative cutoff: stop once the residual singular value is negligible
-    // compared to the largest one extracted (or to ||X||_{Q,R} for the first).
-    double d_ref = (k_found > 0) ? std::fabs(dgmd(0)) : scale_ref;
-    if (!std::isfinite(d_i) || std::fabs(d_i) < thr * d_ref) {
+    // compared to the largest one extracted; the first establishes the scale.
+    double d_ref = (k_found > 0) ? std::fabs(dgmd(0)) : std::fabs(d_i);
+    if (!std::isfinite(d_i) || d_i <= 0.0 || d_i <= rank_rtol * d_ref) {
       warns.push_back("Deflation stopped early at component " + std::to_string(i + 1) +
                       " (singular value near zero).");
       break;
@@ -149,24 +150,24 @@ List gmd_deflation_impl(const MatX &X, const arma::sp_mat &Q, const arma::sp_mat
   }
 
   return List::create(
-    Named("d") = dgmd.head(k_found),
+    Named("d") = arma::vec(dgmd.head(k_found)),
     Named("v") = vgmd.head_cols(k_found),
     Named("u") = ugmd.head_cols(k_found),
     Named("k") = k_found,
-    Named("cumv") = cumv.head(k_found),
-    Named("propv") = propv.head(k_found),
+    Named("cumv") = arma::vec(cumv.head(k_found)),
+    Named("propv") = arma::vec(propv.head(k_found)),
     Named("warnings") = wrap(warns)
   );
 }
 
 //[[Rcpp::export]]
 List gmd_deflation_cpp(const arma::mat &X, const arma::sp_mat &Q, const arma::sp_mat &R,
-                       int k, double thr=1e-7, int maxit=500, bool verbose=false) {
-  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose);
+                       int k, double thr=1e-7, int maxit=500, bool verbose=false, double rank_rtol=1e-6) {
+  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose, rank_rtol);
 }
 
 //[[Rcpp::export]]
 List gmd_deflation_cpp_sp(const arma::sp_mat &X, const arma::sp_mat &Q, const arma::sp_mat &R,
-                          int k, double thr=1e-7, int maxit=500, bool verbose=false) {
-  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose);
+                          int k, double thr=1e-7, int maxit=500, bool verbose=false, double rank_rtol=1e-6) {
+  return gmd_deflation_impl(X, Q, R, k, thr, maxit, verbose, rank_rtol);
 }

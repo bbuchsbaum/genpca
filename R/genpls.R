@@ -25,12 +25,17 @@
 #' @param ncomp Number of components to extract (rank-k). Default 2.
 #' @param preproc_x,preproc_y Optional `multivarious` preprocessors (e.g., `center()`).
 #'   Defaults to `multivarious::pass()` (no-op).
-#' @param svd_backend Character, one of `"RSpectra"` (default) or `"irlba"` for
+#' @param svd_backend Character, one of `"eigencore"` (default) or `"irlba"` for
 #'   the iterative SVD. This choice only matters for larger problems: whenever
 #'   both `X` and `Y` have at most 64 columns after preprocessing, the
 #'   operator materializes `S` densely and computes a direct `svd()`,
 #'   ignoring `svd_backend` entirely (see `gplssvd_op()`).
-#' @param svd_opts List of options passed to the SVD backend, e.g., `tol`, `maxitr`.
+#' @param svd_opts List of options: `tol` for both backends and `maxitr` for
+#'   irlba only. An incomplete eigencore solve raises an error of class
+#'   `genpca_solver_nonconvergence`; no unchecked fit is returned.
+#' @param constraints_remedy What to do with a metric that is not positive
+#'   semi-definite: `"error"` (default), `"ridge"`, `"clip"` or `"identity"`;
+#'   repairs emit a `genpca_metric_repaired` warning. See [genpca()].
 #' @param verbose Logical; print brief progress messages.
 #'
 #' @return An object of class `c("genpls", "cross_projector", "projector")` with:
@@ -77,8 +82,7 @@
 #' `XRW`/`YRW` (right/column weights, i.e. `Ax`/`Ay`).
 #'
 #' @examples
-#' if (requireNamespace("RSpectra", quietly = TRUE) &&
-#'     requireNamespace("multivarious", quietly = TRUE)) {
+#' if (requireNamespace("multivarious", quietly = TRUE)) {
 #'   set.seed(1)
 #'   n <- 100; p <- 40; q <- 30
 #'   X <- matrix(rnorm(n*p), n, p)
@@ -96,7 +100,6 @@
 #' squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.
 #'
 #' @importFrom Matrix Matrix Diagonal crossprod t forceSymmetric Cholesky solve
-#' @importFrom RSpectra svds
 #' @importFrom multivarious cross_projector fit fit_transform pass
 #' @export
 genpls <- function(X, Y,
@@ -105,11 +108,14 @@ genpls <- function(X, Y,
                    ncomp = 2,
                    preproc_x = multivarious::pass(),
                    preproc_y = multivarious::pass(),
-                   svd_backend = c("RSpectra", "irlba"),
+                   svd_backend = c("eigencore", "irlba", "RSpectra"),
                    svd_opts = list(tol = 1e-7, maxitr = 1000),
+                   constraints_remedy = c("error", "ridge", "clip", "identity"),
                    verbose = FALSE) {
 
   svd_backend <- match.arg(svd_backend)
+  constraints_remedy <- match.arg(constraints_remedy)
+  if (svd_backend == "RSpectra") svd_backend <- "eigencore"
   stopifnot(length(ncomp) == 1L, ncomp >= 1)
 
   n <- nrow(X)
@@ -145,7 +151,8 @@ genpls <- function(X, Y,
                    XLW = Mx, YLW = My,
                    XRW = Ax, YRW = Ay,
                    k = ncomp, center = FALSE, scale = FALSE,
-                   svd_backend = svd_backend, svd_opts = svd_opts)
+                   svd_backend = svd_backend, svd_opts = svd_opts,
+                   constraints_remedy = constraints_remedy)
 
   # Derive projection weights for multivarious wrapper: W_X p = Fi D^{-1}
   # (`rep(invd, each = nrow)` scales column j by 1/d[j])

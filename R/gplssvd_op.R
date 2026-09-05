@@ -22,10 +22,17 @@
 #'   `min(ncol(X), ncol(Y))`, a warning is issued and `k` is silently
 #'   truncated to that maximum.
 #' @param center,scale Logical; pre-center/scale columns of X, Y before metrics
-#' @param svd_backend One of "RSpectra" (default) or "irlba". Ignored
+#' @param svd_backend One of "eigencore" (default) or "irlba"; "RSpectra" is
+#'   accepted as a deprecated alias of "eigencore". Ignored
 #'   whenever both `ncol(X) <= 64` and `ncol(Y) <= 64`, in which case `S` is
 #'   materialized densely and solved with `base::svd()`.
-#' @param svd_opts List of options for the backend (e.g., tol, maxitr)
+#' @param svd_opts List of options for the backend: `tol` (both backends) and
+#'   `maxitr` (irlba only; the eigencore partial SVD has no iteration cap).
+#'   An incomplete eigencore solve raises `genpca_solver_nonconvergence`;
+#'   try a less stringent `tol` if the requested accuracy cannot be reached.
+#' @param constraints_remedy What to do with a metric that is not positive
+#'   semi-definite: `"error"` (default), `"ridge"`, `"clip"` or `"identity"`;
+#'   repairs emit a `genpca_metric_repaired` warning. See [genpca()].
 #' @return A list with elements:
 #'   \describe{
 #'     \item{d}{Length-`k` numeric vector of singular values of
@@ -74,10 +81,13 @@ gplssvd_op <- function(X, Y,
                        XLW = NULL, YLW = NULL,
                        XRW = NULL, YRW = NULL,
                        k = 2, center = FALSE, scale = FALSE,
-                       svd_backend = c("RSpectra", "irlba"),
-                       svd_opts = list(tol = 1e-7, maxitr = 1000)) {
+                       svd_backend = c("eigencore", "irlba", "RSpectra"),
+                       svd_opts = list(tol = 1e-7, maxitr = 1000),
+                       constraints_remedy = c("error", "ridge", "clip", "identity")) {
 
   svd_backend <- match.arg(svd_backend)
+  constraints_remedy <- match.arg(constraints_remedy)
+  if (svd_backend == "RSpectra") svd_backend <- "eigencore"
   if (!is.numeric(k) || length(k) != 1 || k < 1) {
     stop("k must be a single positive integer >= 1")
   }
@@ -128,13 +138,13 @@ gplssvd_op <- function(X, Y,
   Y <- Ycs$A
 
   # Metric operators (shared helper); reuse when both blocks share a metric
-  MX <- .metric_operators(XLW, N)
-  MY <- if (identical(XLW, YLW)) MX else .metric_operators(YLW, N)
-  WX <- .metric_operators(XRW, I)
+  MX <- .metric_operators(XLW, N, remedy = constraints_remedy, name = "XLW")
+  MY <- if (identical(XLW, YLW)) MX else .metric_operators(YLW, N, remedy = constraints_remedy, name = "YLW")
+  WX <- .metric_operators(XRW, I, remedy = constraints_remedy, name = "XRW")
   WY <- if (identical(XRW, YRW) && (is.null(XRW) || J == I)) {
     WX
   } else {
-    .metric_operators(YRW, J)
+    .metric_operators(YRW, J, remedy = constraints_remedy, name = "YRW")
   }
 
   # Linear operators for S = t(Xe) %*% Ye (shared builder)
@@ -143,9 +153,6 @@ gplssvd_op <- function(X, Y,
   # Small-dense fallback for stability on toy sizes
   use_dense <- (I <= 64 && J <= 64)
   if (!use_dense) {
-    if (svd_backend == "RSpectra" && !requireNamespace("RSpectra", quietly = TRUE)) {
-      stop("RSpectra package required for svd_backend='RSpectra'.")
-    }
     if (svd_backend == "irlba" && !requireNamespace("irlba", quietly = TRUE)) {
       stop("irlba package required for svd_backend='irlba'.")
     }
@@ -164,9 +171,10 @@ gplssvd_op <- function(X, Y,
     u <- svdS$u[, seq_len(k), drop = FALSE]
     v <- svdS$v[, seq_len(k), drop = FALSE]
     d <- svdS$d[seq_len(k)]
-  } else if (svd_backend == "RSpectra") {
-    sv <- RSpectra::svds(A = opc$S_mv, k = k, nu = k, nv = k,
-                         opts = svd_opts, Atrans = opc$ST_mv, dim = c(I, J))
+  } else if (svd_backend == "eigencore") {
+    sv <- .top_svd(opc$S_mv, k, nu = k, nv = k,
+                   tol = if (!is.null(svd_opts$tol)) svd_opts$tol else 1e-8,
+                   adjoint = opc$ST_mv, dim = c(I, J))
     u <- sv$u
     v <- sv$v
     d <- sv$d
