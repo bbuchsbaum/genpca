@@ -30,7 +30,7 @@ knitr::opts_chunk$set(
   collapse   = TRUE,
   comment    = "#>",
   message    = FALSE,
-  warning    = FALSE,
+  warning    = TRUE,
   fig.width  = 6,
   fig.height = 4,
   out.width  = "85%"
@@ -55,24 +55,26 @@ cat(sprintf(
 
 
 
-This vignette walks through the choices that matter once your data outgrows the defaults: which backend to pick, when to switch to a covariance-only fit, and how to project out-of-sample observations.
+This vignette walks through the choices that matter once your data outgrow the defaults: which backend to pick, when to switch to a covariance-only fit, and how to project out-of-sample observations.
 
 ## Backend selection
 
 | Method | Best for | Pros | Cons |
 |:--|:--|:--|:--|
-| `eigen` | Small / medium dense problems | Robust reference behaviour | Can be expensive at scale; very large sparse constraints may trigger truncated eigensolve via `maxeig` |
-| `spectra` | Larger matrix-free solves | Lower memory than dense eigendecomp | Iterative behaviour can vary by conditioning |
+| `eigen` | Small / medium dense problems | Robust reference behaviour | Can be expensive at scale; `maxeig` guards dense eigendecomposition of a singular general metric; it never truncates the metric |
+| `spectra` | Few components with factorizable metrics | Usually applies a whitened operator | Dense data copy, factorization costs, and dense fallbacks |
 | `randomized` | Wide (`p >> n`) low-rank workloads | Fast block GEMM / SpMM path | Approximation error depends on tuning |
 | `deflation` | Few components, tight memory | Low memory footprint | Can converge slowly; monitor iteration warnings |
-| `auto` | Default production usage | Picks among the dense and randomized paths | Heuristics may not be optimal for every regime |
+| `auto` | Automatic dispatch | Chooses a backend, including deflation when a singular metric exceeds the dense guard | Heuristics may not be optimal for every regime |
 
 The default is `"eigen"`; pass `method = "auto"` to let the heuristics pick a
 backend for you on larger problems.
 
 ## Backends on the same problem
 
-A small head-to-head on a dense problem so you can see how the singular values agree across paths:
+Compare the dense reference with the randomized approximation on a full-rank
+noise matrix. Its slowly decaying spectrum makes approximation error visible.
+These single-run timings illustrate the calls; they are not a benchmark.
 
 ```{r backend-bench}
 set.seed(11)
@@ -89,10 +91,11 @@ t_rnd <- system.time(
 )
 data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
-           top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
+           top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]),
+           max_relative_error = c(0, max(abs(fit_rnd$sdev / fit_eig$sdev - 1))))
 ```
 
-```{r backend-plot, echo = FALSE, fig.cap = "Singular values from the eigen and randomized paths agree to plotting precision on this dense problem.", fig.height = 3.5}
+```{r backend-plot, echo = FALSE, fig.cap = "The randomized approximation underestimates the reference singular values on this full-rank example. The table reports the largest relative difference.", fig.height = 3.5}
 plot(fit_eig$sdev, type = "b", pch = 19, col = "grey30",
      ylim = range(c(fit_eig$sdev, fit_rnd$sdev)),
      xlab = "Component", ylab = "Singular value",
@@ -103,9 +106,14 @@ legend("topright", legend = c("eigen", "randomized"),
        bty = "n", cex = 0.85)
 ```
 
+The maximum relative difference here is
+`r sprintf("%.2f%%", 100 * max(abs(fit_rnd$sdev / fit_eig$sdev - 1)))`.
+Increase `oversample`, `n_power`, or `n_polish` when you need a more accurate
+approximation, then check the accuracy and time on a representative problem.
+
 ## Sparse workflow (`spectra`)
 
-The `spectra` backend factors each metric once (a sparse Cholesky here) and runs eigencore's iterative partial SVD on the whitened operator; it is the right choice for large problems that need few components, including problems with sparse row/column metrics:
+The `spectra` backend factors each metric once (a sparse Cholesky here) and runs eigencore's iterative partial SVD on the whitened operator; this is useful when few components are needed and the data copy and metric factors fit in memory:
 
 ```{r spectra}
 set.seed(42)
@@ -125,24 +133,32 @@ fit_sp$sdev
 
 ### What stays sparse
 
-Be precise about what "sparse" buys with each backend, because it is less than
-the name suggests:
+There are three separate storage costs: the data, the metrics or their
+factors, and the matrices used by the solver.
 
-- `"deflation"` is the only backend that keeps the data sparse end to end: its
-  C++ kernel takes sparse `X`, `M` and `A` and only multiplies.
-- `"spectra"` and `"randomized"` densify `X` before the solve (the iterative
-  solver works on a dense copy of the data), but never form a dense metric:
-  a diagonal metric costs nothing, a sparse positive definite metric is
-  factored by a sparse (CHOLMOD) Cholesky whose fill-in depends on the graph,
-  and a dense positive definite metric costs one dense Cholesky of its
-  dimension. A metric that is not positive definite needs a dense
-  eigendecomposition, refused above `maxeig` rows.
-- Validation itself performs one sparse Cholesky probe of a sparse metric
-  under every `constraints_remedy`; that is fill-in, not densification.
+- `"deflation"` can retain sparse `X`, `M`, and `A` and apply the residual
+  implicitly. Use preprocessing that preserves sparsity, such as `pass()`
+  here: ordinary centering generally fills implicit zeros.
+- `"spectra"` and `"randomized"` make a dense copy of `X`. Sparse input
+  alone therefore does not bound their data storage by its nonzero count.
+- The eigen and spectra factorization paths handle diagonal metrics
+  elementwise, dense positive definite metrics by dense Cholesky, and sparse
+  positive definite metrics by sparse Cholesky. Sparse Cholesky can add many
+  nonzeros: fill-in depends on graph structure and ordering.
+- A singular general metric on the smaller side requires dense
+  eigendecomposition, refused above `maxeig` (default 5000). It is never
+  truncated to meet that limit. A singular large-side metric is used in
+  products without being factored. `method = "auto"` can route an oversized
+  singular small-side case to deflation.
+- Spectra usually applies the whitened operator without forming it, but can
+  materialize it for a dense fallback. Its singular large-side route forms
+  a smaller Gram matrix. The randomized method instead works with projected
+  blocks and metric products; `maxeig` is not its workspace guard.
 
-So "sparse `X` with a sparse metric" is memory-safe with `"deflation"`, and
-compute-safe with `"spectra"` as long as the metric's Cholesky factor stays
-sparse (banded, spatial-graph and AR-type metrics all do).
+Metric validation can itself require a sparse Cholesky probe. Banded metrics
+such as those above have favourable fill-in; an arbitrary spatial graph need
+not. Budget for the factors and possible dense workspaces as well as the
+original sparse inputs.
 
 ## Covariance-only GPCA
 
@@ -191,8 +207,12 @@ legend("topright", legend = c("Train", "OOS"),
 
 ## Performance tips
 
-Keep data sparse when possible; avoid centering dense copies if you plan to use `spectra`. Validate empirical metrics with `repair_metric()` before fitting rather than relying on a remedy inside the fit. For large problems, limit `ncomp` to what you truly need, and consider the covariance route when `n` is huge but `p` is moderate.
+Choose preprocessing for the analysis first, then budget its storage: a
+centered sparse matrix can become dense. If a metric needs repair, use
+`repair_metric()` once and inspect its report before fitting. Limit `ncomp`
+to the components you intend to use, and consider the covariance route when
+`n` is large but `p` is moderate.
 
 ## Where next
 
-See `vignette("gpca-metrics")` for building metrics, and `vignette("genpca")` for a getting-started walkthrough.
+See [GPCA Metrics](gpca-metrics.html) for building metrics, and [Getting Started](genpca.html) for a getting-started walkthrough.

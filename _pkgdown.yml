@@ -3,3 +3,17 @@ template:
   bootstrap: 5
   package: albersdown
 mathjax: local
+articles:
+- title: Start here
+  navbar: ~
+  contents:
+  - genpca
+- title: Choose metrics and methods
+  contents:
+  - gpca-metrics
+  - structured-noise
+  - gpca-scale
+- title: Related decompositions
+  contents:
+  - sfpca
+  - gplssvd-reference

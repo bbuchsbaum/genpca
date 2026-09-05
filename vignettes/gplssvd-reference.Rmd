@@ -30,7 +30,7 @@ knitr::opts_chunk$set(
   collapse   = TRUE,
   comment    = "#>",
   message    = FALSE,
-  warning    = FALSE,
+  warning    = TRUE,
   fig.width  = 6,
   fig.height = 4,
   out.width  = "85%"
@@ -55,15 +55,24 @@ cat(sprintf(
 
 
 
-This vignette has two audiences. End users who just want to run generalized PLS on two blocks should read the **Quick practical use** section and stop. Contributors who want to verify the whitening identities behind `gplssvd_op()` should continue to the explicit reference implementation below.
+Start here to relate two data blocks measured on the same observations.
+The first example fits `genpls()` and projects both blocks into latent
+coordinates. The later sections provide a dense reference for contributors
+checking the whitening identities behind `gplssvd_op()`.
 
 ## Quick practical use
+
+Rows must refer to the same observations in the same order. Here `X` has
+150 rows and 8 variables, `Y` has 150 rows and 5 variables, and both contain
+one shared simulated signal. The example metrics are positive diagonal
+weights.
 
 ```{r quick-use}
 set.seed(123)
 N <- 150
-X <- matrix(rnorm(N * 8), N, 8)
-Y <- matrix(rnorm(N * 5), N, 5)
+shared <- rnorm(N)
+X <- outer(shared, seq(0.5, 1.2, length.out = 8)) + matrix(rnorm(N * 8), N, 8)
+Y <- outer(shared, seq(0.5, 1.2, length.out = 5)) + matrix(rnorm(N * 5), N, 5)
 row_wt   <- diag(runif(N, 0.5, 1.5))
 col_wt_x <- diag(runif(8, 0.8, 1.2))
 col_wt_y <- diag(runif(5, 0.8, 1.2))
@@ -76,15 +85,34 @@ fit <- genpls(X, Y, ncomp = 2,
 round(fit$d, 3)
 ```
 
-```{r quick-plot, echo = FALSE, fig.cap = "Singular values of the generalized cross-product.", fig.height = 3}
-barplot(fit$d, names.arg = paste0("LV", seq_along(fit$d)),
-        col = "grey60", border = NA,
-        ylab = "Singular value")
+Project each block using its fitted preprocessing and projection weights:
+
+```{r quick-project}
+Sx <- multivarious::project(fit, X)
+Sy <- multivarious::project(fit, Y, source = "Y")
+cor(Sx[, 1], Sy[, 1])
 ```
 
-That is enough to fit and inspect a model. The remainder of this vignette is for contributors verifying the math.
+```{r quick-plot, echo = FALSE, fig.cap = "Leading projected coordinates of the two blocks, which share a simulated signal.", fig.height = 3.5}
+plot(Sx[, 1], Sy[, 1], pch = 19, col = "steelblue",
+     xlab = "X latent coordinate 1", ylab = "Y latent coordinate 1")
+```
 
-## Notation
+```{r quick-project-check, include = FALSE}
+stopifnot(identical(dim(Sx), c(150L, 2L)), identical(dim(Sy), c(150L, 2L)),
+          all(is.finite(Sx)), all(is.finite(Sy)),
+          abs(cor(Sx[, 1], Sy[, 1])) > 0.6)
+```
+
+The leading coordinates track the shared variation. This is a training-data
+association, not a held-out predictive assessment. For new observations,
+pass matrices with the same columns to `project()` in the same way. With
+nonidentity row metrics these ambient coordinates differ from the stored
+row-whitened `lx` and `ly` used in the identities below.
+
+## Reference for contributors
+
+### Notation
 
 GPLSSVD decomposes the relationship between two data blocks `X` (`N x I`) and `Y` (`N x J`) with optional row and column metrics:
 
@@ -95,20 +123,22 @@ GPLSSVD decomposes the relationship between two data blocks `X` (`N x I`) and `Y
 - `Lx`, `Ly`: latent variables (data projections onto components)
 - `d`: singular values of the whitened cross-product matrix
 
-## Reference implementation
+### Reference implementation
 
-The function below builds the whitened cross-product `S = (M_X^{1/2} X W_X^{1/2})' (M_Y^{1/2} Y W_Y^{1/2})` explicitly and runs a dense SVD. It is deliberately the most literal transcription of the algebra above, with no attention to speed or to input types beyond what the check below needs; the package's operator-based path avoids materialising the whitened matrices at all.
+The function below builds the whitened cross-product `S = (M_X^{1/2} X W_X^{1/2})' (M_Y^{1/2} Y W_Y^{1/2})` explicitly and runs a dense SVD. It is deliberately the most literal transcription of the algebra above, with no attention to speed or to input types beyond what the check below needs; the package's operator path can apply the corresponding products without explicitly assembling these matrices, with dense fallbacks where needed.
 
 Everything rests on one helper. Each metric enters through its symmetric PSD
 square root, and singular metrics need the *pseudo*-inverse of that root --
-zero eigenvalues stay zero rather than blowing up:
+zero eigenvalues stay zero rather than blowing up. This small reference
+assumes valid PSD inputs; it is not a replacement for package validation or
+numerical rank handling:
 
 ```{r ref-sqrt}
 psd_sqrt <- function(W, n) {
   if (is.null(W)) return(list(h = diag(n), hinv = diag(n), full = diag(n)))
   W    <- as.matrix(W)
   e    <- eigen(W, symmetric = TRUE)
-  lam  <- pmax(e$values, 0)                    # clip round-off negatives
+  lam  <- pmax(e$values, 0)                    # PSD assumed; clip numerical negatives
   half <- function(f) e$vectors %*% (f * t(e$vectors))
   list(h    = half(sqrt(lam)),                 # W^{1/2}
        hinv = half(ifelse(lam > 0, 1 / sqrt(lam), 0)),  # W^{-1/2}, pseudo
@@ -147,7 +177,7 @@ dense_gplssvd_ref <- function(X, Y, MX = NULL, MY = NULL,
 }
 ```
 
-## Cross-checking the operator
+### Cross-checking the operator
 
 Run the reference on a small block, run `gplssvd_op()` with the same metrics, and compare:
 
@@ -194,4 +224,4 @@ The diagonal of `t(Lx) %*% Ly` recovers the singular values, as the GPLSSVD iden
 
 ## Where next
 
-See `vignette("genpca")` for a getting-started walkthrough and `vignette("gpca-metrics")` for metric recipes that apply to both GPCA and GPLSSVD.
+See [Getting Started](genpca.html) for a getting-started walkthrough and [GPCA Metrics](gpca-metrics.html) for metric recipes that apply to both GPCA and GPLSSVD.

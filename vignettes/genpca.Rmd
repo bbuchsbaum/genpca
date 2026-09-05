@@ -30,7 +30,7 @@ knitr::opts_chunk$set(
   collapse   = TRUE,
   comment    = "#>",
   message    = FALSE,
-  warning    = FALSE,
+  warning    = TRUE,
   fig.width  = 6,
   fig.height = 4,
   out.width  = "85%"
@@ -55,30 +55,141 @@ cat(sprintf(
 
 
 
-## Why generalized PCA?
+## Fit a weighted analysis
 
-Standard PCA (`prcomp()`) treats every observation and every variable equally. That is fine when the data are homogeneous, but in many applications the assumption is wrong: some observations are noisier than others, some variables are correlated by design, or there is known spatial or temporal structure you want the decomposition to respect. Generalized PCA encodes that prior knowledge through a row metric `M` and a column metric `A`. When both are identity, you recover ordinary PCA.
+`genpca()` takes a numeric matrix with **observations in rows and variables
+in columns**. A row metric `M` weights observations; a column metric `A`
+weights variables. With identity metrics and the same preprocessing, it
+recovers ordinary PCA.
 
-## Quick start
+Start with the three crime variables in `USArrests`: 50 states by 3 variables.
+Their spreads differ substantially. Set `A` to inverse column variances so
+that Assault does not dominate simply because of its numerical scale.
+This is equivalent to PCA on standardized columns.
 
 ```{r quick-start}
-set.seed(1)
-X <- matrix(rnorm(80 * 30), 80, 30)
-fit <- genpca(X, ncomp = 3, preproc = multivarious::center())
-fit$sdev
+data("USArrests")
+X <- as.matrix(USArrests[, c("Murder", "Assault", "Rape")])
+col_sd <- apply(X, 2, sd)
+A <- Diagonal(x = 1 / col_sd^2)
+fit <- genpca(X, A = A, ncomp = 2,
+              preproc = multivarious::center())
+
+S <- multivarious::scores(fit)       # 50 states x 2 components
+V <- multivarious::components(fit)   # 3 variables x 2 projection weights
+round(cor(X, S), 2)
 ```
 
-```{r quick-plot, echo = FALSE, fig.cap = "Singular values from the 3-component fit."}
-barplot(fit$sdev,
-        names.arg = paste0("PC", seq_along(fit$sdev)),
-        ylab = "Singular value", col = "grey60", border = NA)
+The variable-score correlations give the axes an interpretation. PC1 moves
+with all three crime variables; PC2 contrasts Murder with Rape more strongly
+than it contrasts Assault with Rape. Component signs are arbitrary: reversing
+an axis leaves the analysis unchanged.
+
+```{r quick-plot, echo = FALSE, fig.cap = "States in the two-component space after inverse-variance weighting of the crime variables. Six states with extreme scores are labelled.", fig.height = 4.5}
+plot(S, pch = 19, col = "grey50",
+     xlab = "PC1", ylab = "PC2", main = "Standardized crime variables",
+     xlim = extendrange(S[, 1], f = 0.15),
+     ylim = extendrange(S[, 2], f = 0.15))
+label <- unique(c(order(S[, 1])[c(1, 2, 49, 50)], which.min(S[, 2]), which.max(S[, 2])))
+text(S[label, 1], S[label, 2], labels = state.abb[label], pos = 3, cex = 0.8)
 ```
 
-With identity metrics, `genpca()` reproduces standard PCA. The interesting cases are when `M` or `A` is non-trivial.
+To see the effect of scaling, compare each variable's correlation with PC1
+under the two fits. Absolute correlations remove the arbitrary axis sign.
+
+```{r scaling-comparison}
+fit_raw <- genpca(X, ncomp = 2, preproc = multivarious::center())
+round(cbind(
+  unscaled = abs(cor(X, multivarious::scores(fit_raw)[, 1])),
+  scaled   = abs(cor(X, S[, 1]))
+), 2)
+```
+
+```{r quick-check, include = FALSE}
+stopifnot(identical(dim(S), c(50L, 2L)), all(is.finite(S)),
+          all(abs(cor(X, S[, 1])) > 0.7))
+```
+
+### Use the fitted object
+
+The result is a `bi_projector`. Use its public accessors to inspect the fit,
+reconstruct the input, or project new rows with the training preprocessing.
+
+```{r object-flow}
+Xhat <- multivarious::reconstruct(fit)   # 50 x 3, back in original units
+scores_again <- multivarious::project(fit, X)
+max(abs(S - scores_again))              # numerical zero on training rows
+```
+
+| Operation | Output |
+|:--|:--|
+| `multivarious::scores(fit)` | `n x k` training coordinates |
+| `multivarious::components(fit)` | `p x k` projection weights |
+| `multivarious::project(fit, X_new)` | `n_new x k` coordinates, with training centering applied |
+| `multivarious::reconstruct(fit, comp = 1:k)` | `n x p` reconstruction, with centering reversed |
+
+New data must have the same variables in the same order. Centering is fitted
+on the training data; do not center a new batch separately before `project()`.
+
+## Add observation weights
+
+A diagonal `M` changes how much each row contributes to the objective.
+As an illustration, give greater weight to states with a higher urban
+population percentage. This is an analytical choice, not a claim that those
+states are more reliable or a weighting by total population.
+
+```{r row-weights}
+urban_wt <- USArrests$UrbanPop / mean(USArrests$UrbanPop)
+M <- Diagonal(x = urban_wt)
+fit_row <- genpca(X, M = M, A = A, ncomp = 2,
+                  preproc = multivarious::center())
+round(cor(X, multivarious::scores(fit_row)), 2)
+```
+
+The weights change the fitted axes; they do not push a state toward a
+particular signed end of an axis. This fit retains ordinary column centering
+through `multivarious::center()`; setting `M` does not change that
+preprocessing into weighted centering.
+
+## Choose the number of components
+
+`fit$sdev` contains singular values of the metric-whitened data. With identity
+metrics and centering, these equal `prcomp(X)$sdev * sqrt(nrow(X) - 1)`.
+Fit the full available spectrum before using a scree plot to choose a rank:
+
+```{r scree, fig.cap = "Fraction of total weighted variation for all three available components.", fig.height = 3}
+fit_all <- genpca(X, A = A, ncomp = ncol(X),
+                  preproc = multivarious::center())
+share <- fit_all$sdev^2 / sum(fit_all$sdev^2)
+barplot(share, names.arg = paste0("PC", seq_along(share)),
+        ylim = c(0, 1), ylab = "Fraction of weighted variation",
+        col = "grey60", border = NA)
+```
+
+The first two components account for
+`r sprintf("%.1f%%", 100 * sum(share[1:2]))` of the weighted variation in this
+example. A scree plot describes the training fit; it does not establish how
+well components will generalize. For prediction, compare held-out
+reconstruction error using preprocessing and data-derived metrics estimated
+on training rows only.
+
+## Where next
+
+- [GPCA Metrics](gpca-metrics.html): construct row and column metrics and choose
+  between smoothing and noise whitening.
+- [Modelling Structured Noise](structured-noise.html): explore those choices
+  with known signal and noise in simulations.
+- [GPCA at Scale](gpca-scale.html): choose a backend, budget memory, and project
+  held-out observations.
+- [Sparse and Functional PCA](sfpca.html): fit sparse, smooth factors.
+- [Generalized PLS-SVD](gplssvd-reference.html): relate two data blocks, with an
+  explicit whitening reference for contributors.
+
+The remaining sections explain the mathematics and notation behind the fit.
 
 ## The decomposition
 
-### Two metrics, one inner product
+### Two metrics, one weighted objective
 
 Let $X$ be the $n \times p$ data matrix. Generalized PCA asks you to supply
 two symmetric positive semi-definite matrices:
@@ -86,14 +197,16 @@ two symmetric positive semi-definite matrices:
 - $M$ ($n \times n$), the **row metric**, which puts a geometry on the space of observations;
 - $A$ ($p \times p$), the **column metric**, which puts a geometry on the space of variables.
 
-Together they define an inner product on $n \times p$ matrices,
+For positive definite metrics, they define an inner product on $n \times p$ matrices,
 
 $$\langle Y, Z \rangle_{M,A} \;=\; \operatorname{tr}\!\left(Y^{\top} M Z A\right),
 \qquad
 \|Y\|_{M,A}^{2} \;=\; \operatorname{tr}\!\left(Y^{\top} M Y A\right).$$
 
 When $M = I_n$ and $A = I_p$ this is the ordinary Frobenius inner product,
-and everything below collapses to the familiar SVD and PCA.
+and the decomposition reduces to the familiar SVD and PCA. Singular PSD metrics instead define
+a seminorm: directions in their null spaces have zero weight. Here $X$ denotes
+the preprocessed data, after centering if requested.
 
 ### The problem it solves
 
@@ -125,17 +238,19 @@ Then
 $$U = M^{-1/2}\widetilde{U}, \qquad V = A^{-1/2}\widetilde{V}, \qquad D \text{ unchanged}$$
 
 solves the problem above (with pseudo-inverses when a metric is singular).
-That is the whole idea: **GMD is an SVD performed in a different coordinate
-system.** Everything else is bookkeeping and computation.
+GMD is therefore an SVD in the coordinates selected by the metrics.
 
-Eliminating the whitening gives the form the solvers actually use — an
-eigenproblem for a single operator,
+For positive definite metrics, eliminating the whitening gives the eigenproblem
 
 $$X^{\top} M X A \, v_k \;=\; d_k^{2}\, v_k, \qquad v_k^{\top} A v_k = 1,$$
 
 and the $k$-th generalized principal component (the score vector) is
 
 $$z_k \;=\; X A v_k \;=\; d_k\, u_k .$$
+
+For singular metrics, the pseudo-inverse factors solve the problem on the
+metrics' supported subspaces; the identities above need the corresponding
+projections when interpreted outside those subspaces.
 
 In the package these are `components(fit)` $= A\,$`ov` for the loadings and
 `scores(fit)` $=$ `ou %*% diag(sdev)` for the scores, with `ou` and `ov`
@@ -169,239 +284,42 @@ the package ships `gpca_mle()`, which learns $(M, A)$ by penalized maximum
 likelihood, and `mnpca_mrl()`, which does the same with sparse precision
 matrices.
 
-## Relation to the French school
+## Choosing structured metrics
 
-Readers coming from *analyse des données* will recognize all of this. The
-French tradition — Benzécri's correspondence analysis, formalized by
-Escoufier as the **duality diagram** — describes an analysis by a *triplet*
-$(X, Q, D)$: a data table, a metric on the variable space, and a set of row
-masses. The analysis is then the eigendecomposition of the operator
-$X^{\top} D X Q$. That is, term for term, the eigenproblem two sections
-above. Correspondence analysis, multiple correspondence analysis, principal
-coordinates, discriminant analysis, canonical correlation, and PLS are all
-recovered by choosing the triplet appropriately; the `ade4` package is built
-directly on this formalism, and Abdi's papers on the generalized SVD — cited
-in this package's `DESCRIPTION` — are the same construction in English.
+Use [GPCA Metrics: Building M and A](gpca-metrics.html) for runnable recipes.
+The direction of the weighting matters:
 
-The one genuine trap is notation: **$Q$ means opposite things in the two
-literatures.**
+- To favour smooth column loadings, start with a PSD kernel or a smoother
+  such as $A = (I + \alpha L)^{-1}$, where $L$ is a graph Laplacian.
+  A raw adjacency or distance matrix need not be PSD and cannot be used
+  without a valid metric construction.
+- To account for correlated noise, use its **inverse covariance**. For a
+  time-by-voxel table with separable Gaussian noise, choose
+  $M = \Sigma_{\mathrm{time}}^{-1}$ and
+  $A = \Sigma_{\mathrm{space}}^{-1}$. The row metric acts on time and the
+  column metric on space. A covariance model for related samples likewise
+  enters through its inverse when the goal is noise whitening.
+- `sfpca()` encourages smooth, sparse factors through a different constraint.
+  Its spatial penalty is built from `spat_cds`; increasing `alpha_v`
+  strengthens that penalty. See [Sparse and Functional PCA](sfpca.html)
+  before transferring tuning choices between the two interfaces.
 
-| Role | `genpca` | Allen et al. (2014) | Duality diagram |
-|:--|:--|:--|:--|
-| Row metric / observation weights | `M` | $Q$ | $D$ |
-| Column metric / variable geometry | `A` | $R$ | $Q$ |
+A Laplacian as `A` emphasizes contrasts across graph edges; its inverse
+(with a ridge to make it invertible) emphasizes smooth directions. Select
+between these according to whether smooth variation is signal or nuisance.
 
-What Allen, Grosenick & Taylor contribute on top of the classical theory is
-less the geometry than the framing and the machinery: the decomposition is
-posed as a *best rank-$K$ approximation* with an optimality theorem rather
-than only an eigenanalysis; the metrics are allowed to be large, dense, and
-structured (spatial kernels, temporal covariances) instead of the diagonal
-weights typical of the classical treatments; and the formulation extends
-cleanly to regularized and sparse variants, which is what `sfpca()`
-implements.
+## Choosing a backend
 
-## Where this pays off
+The default `method = "eigen"` uses a Gram eigenproblem on the smaller side
+of the data. `"spectra"` usually applies eigencore's partial SVD to a
+whitened operator, with a dense fallback and a small-side Gram route for a
+singular large-side metric. `"randomized"` approximates a leading subspace;
+`"deflation"` extracts components one at a time and can preserve sparse data.
 
-**Genomics and microbiome data.** Genes in a pathway or taxa on a phylogeny
-are not exchangeable. A column metric built from a gene-network Laplacian or
-a phylogenetic distance encodes that, so components respect known biology;
-double principal coordinate analysis is precisely this choice of triplet. On
-the row side, a diagonal $M$ down-weights samples with low sequencing depth,
-and a kinship matrix as $M$ absorbs relatedness.
-
-**Imaging.** In fMRI the natural table is time $\times$ voxels. Neighbouring
-voxels are correlated, so an $A$ built from the voxel adjacency graph or a
-spatial smoothing operator yields spatially coherent components instead of
-salt-and-pepper maps — the motivating example in Allen et al. On the row
-side, $M$ can carry AR(1) temporal whitening or simply down-weight
-motion-corrupted frames.
-
-**Time series and functional data.** When the variables are ordered — time
-points, wavelengths, positions along a transect — you usually want loadings
-that vary smoothly rather than jumping between neighbours. GPCA delivers that
-through the metric, which is Silverman's "smoothing by choice of norm"
-construction: components become smooth functions of the index. This is the
-foundation `sfpca()` builds on, adding sparsity to smoothness.
-
-One direction trap is worth stating explicitly, because the two interfaces in
-this package take *opposite* inputs. Write $\Omega = D_2^{\top}D_2$ for a
-second-difference roughness operator, so that $v^{\top}\Omega v$ is large for
-wiggly $v$.
-
-- In `genpca()`, $A$ is a **metric**, and a metric amplifies its own dominant
-  directions, since the loadings are $AV$ rather than $V$. To get smooth loadings, pass a
-  *smoothing* operator — $A = (I + \alpha\Omega)^{-1}$, or a kernel or
-  adjacency matrix, as in the banded example above. Passing $\Omega$ itself
-  makes loadings **rougher**, not smoother.
-- In `sfpca()`, the same information enters as a **constraint**,
-  $v^{\top}(I + \alpha\Omega)\,v \le 1$, which charges wiggly $v$ against a
-  fixed budget. There you supply the roughness operator directly (via
-  `alpha_v` and `spat_cds`), and larger `alpha_v` means smoother.
-
-Metric form and constraint form are inverse to one another; mixing them up
-silently produces the opposite of what you wanted, so it is worth checking the
-smoothness of your loadings against a small sweep of $\alpha$.
-
-**Space $\times$ time.** The case where both metrics earn their keep at once:
-$M$ from the temporal covariance, $A$ from the spatial covariance, on a
-single space-by-time table. Under a separable noise model this is exactly the
-maximum-likelihood fit from the statistics reading above, which makes it the
-principled choice rather than a convenient one. The same structure appears in
-EEG and MEG (sensor covariance estimated from empty-room noise), in climate
-fields, and generally in any table whose two margins each carry their own
-dependence.
-
-## How the package computes it
-
-The literal recipe — form $M^{1/2}$ and $A^{1/2}$, whiten, take an SVD — costs
-$O(n^3 + p^3)$ and densifies everything in sight. That is fine for small
-dense problems and hopeless for a spatial metric over 200,000 voxels. So
-`genpca()` offers several backends that compute the same decomposition by
-different routes:
-
-| `method` | Approach | Best for |
-|:--|:--|:--|
-| `"eigen"` | Works on the smaller side: a $p \times p$ Gram eigenproblem when $n \ge p$, an $n \times n$ one when $n < p$. Metric square roots are cached. | Small to medium dense problems (the default) |
-| `"spectra"` | Iterative. Factors each metric once ($M = F_M F_M^{\top}$, $A = F_A F_A^{\top}$: diagonal, Cholesky, sparse Cholesky, or an eigen factor for a singular metric) and hands the *action* of the whitened matrix $F_M^{\top} X F_A$ to eigencore's partial SVD; neither the whitened matrix nor the Gram matrix is ever formed. | Large problems where few components are needed |
-| `"randomized"` | Randomized range finder with power iterations and a polish step, all in the metric geometry. | Wide ($p \gg n$), low-rank problems |
-| `"deflation"` | Generalized power iteration one component at a time, with the residual applied implicitly so sparse inputs stay sparse. | Tight memory budgets |
-
-Underneath, metrics are handled as operator closures rather than materialized
-matrices, with element-wise fast paths for diagonal metrics and Cholesky
-factors for general SPD ones. `genpca_cov()` covers the case where you only
-have the cross-product $C = X^{\top}MX$ rather than $X$ itself. The backends
-are mathematically equivalent and the test suite asserts they agree; they
-differ only in cost and in the accuracy trade-offs of iterative solvers.
-
-### References
-
-Allen, G. I., Grosenick, L., & Taylor, J. (2014). A generalized least-square
-matrix decomposition. *Journal of the American Statistical Association*,
-109(505), 145–159.
-
-Escoufier, Y. (1987). The duality diagram: a means for better practical
-applications. In *Development in Numerical Ecology*. Springer.
-
-Holmes, S. (2008). Multivariate data analysis: the French way. In
-*Probability and Statistics: Essays in Honor of David A. Freedman*. IMS.
-
-Dray, S., & Dufour, A.-B. (2007). The ade4 package: implementing the duality
-diagram for ecologists. *Journal of Statistical Software*, 22(4).
-
-Silverman, B. W. (1996). Smoothed functional principal components analysis by
-choice of norm. *The Annals of Statistics*, 24(1), 1–24.
-
-## Row weights (diagonal metric)
-
-A diagonal `M` says "weight observation `i` by `m_ii`." Useful when rows represent groups of different sizes, or when some rows are more reliable than others.
-
-```{r row-weights}
-row_wt <- runif(nrow(X), 0.5, 1.5)
-M <- Diagonal(x = row_wt)
-fit_row <- genpca(X, M = M, ncomp = 3, preproc = multivarious::center())
-head(multivarious::scores(fit_row), 4)
-```
-
-```{r row-compare, echo = FALSE, fig.cap = "Identity (left) vs row-weighted (right) component scores. Symbol size in the right panel scales with row weight.", fig.width = 7, fig.height = 3.5}
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
-S0 <- multivarious::scores(fit)
-S1 <- multivarious::scores(fit_row)
-plot(S0[, 1], S0[, 2], pch = 19, cex = 0.8, col = "grey40",
-     xlab = "PC1", ylab = "PC2", main = "Identity metric")
-plot(S1[, 1], S1[, 2], pch = 19,
-     cex = 0.5 + row_wt / max(row_wt),
-     col = "steelblue",
-     xlab = "PC1", ylab = "PC2", main = "Diagonal M")
-par(op)
-```
-
-## Column structure (smoothness)
-
-A non-identity column metric encodes prior structure on the variables. Here we add a small AR-style coupling between adjacent columns:
-
-```{r col-metric}
-p <- ncol(X)
-A <- Diagonal(p)
-for (i in seq_len(p - 1)) {
-  A[i, i + 1] <- 0.15
-  A[i + 1, i] <- 0.15
-}
-A <- A + 0.05 * Diagonal(p)
-fit_col <- genpca(X, A = A, ncomp = 3, preproc = multivarious::center())
-fit_col$sdev
-```
-
-```{r col-metric-plot, echo = FALSE, fig.cap = "Banded column metric A (left) and the resulting PC1 loadings, identity vs A (right). The banded A pulls adjacent loadings together, suppressing high-frequency wiggle.", fig.width = 7, fig.height = 3.5}
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
-flip <- function(M) as.matrix(M)[, ncol(M):1]
-image(flip(A), axes = FALSE, main = "Column metric A",
-      col = grey.colors(20, start = 0.95, end = 0.2))
-matplot(cbind(multivarious::components(fit)[, 1],
-              multivarious::components(fit_col)[, 1]),
-        type = "l", lty = 1, lwd = 2,
-        col = c("grey50", "steelblue"),
-        xlab = "Variable index", ylab = "PC1 loading",
-        main = "PC1 loadings")
-legend("topright", legend = c("Identity", "Banded A"),
-       col = c("grey50", "steelblue"), lty = 1, lwd = 2,
-       bty = "n", cex = 0.8)
-par(op)
-```
-
-## Choosing the number of components
-
-`fit$sdev` holds the generalized singular values `d_k` of the
-metric-whitened data, not standard deviations: with identity metrics and
-centering, `fit$sdev` equals `prcomp(X)$sdev * sqrt(nrow(X) - 1)`. A scree
-plot of the squared values is the quickest first look:
-
-```{r scree, fig.cap = "Squared generalized singular value by component.", fig.height = 3}
-barplot(fit$sdev^2,
-        names.arg = paste0("PC", seq_along(fit$sdev)),
-        xlab = "Component", ylab = "Squared generalized singular value",
-        col = "grey60", border = NA)
-```
-
-For a more principled choice, split the rows into train and holdout, fit on the training set, and compare holdout reconstruction error across values of `ncomp`. With informative metrics, a small `ncomp` often beats a larger unweighted PCA.
-
-## Real data: USArrests
-
-```{r usarrests}
-data("USArrests")
-X_real  <- as.matrix(USArrests[, c("Murder", "Assault", "Rape")])
-pop_wt  <- USArrests$UrbanPop / mean(USArrests$UrbanPop)
-M_real  <- Diagonal(x = pop_wt)
-col_sd  <- apply(X_real, 2, sd)
-A_real  <- Diagonal(x = 1 / col_sd^2)
-
-fit_real <- genpca(X_real, M = M_real, A = A_real, ncomp = 2,
-                   preproc = multivarious::center())
-scores2d <- multivarious::scores(fit_real)
-```
-
-```{r usarrests-plot, echo = FALSE, fig.cap = "GPCA on USArrests with row weights from urbanisation and column weights inversely proportional to variance.", fig.height = 5}
-plot(scores2d[, 1], scores2d[, 2], pch = 19, col = "grey50",
-     xlab = "PC1 (weighted)", ylab = "PC2 (weighted)",
-     main = "GPCA on USArrests")
-text(scores2d[, 1], scores2d[, 2],
-     labels = abbreviate(rownames(USArrests), 4),
-     pos = 3, cex = 0.6, col = "grey20")
-```
-
-PC1 separates states by overall violent-crime rate, with high-urbanisation states pulled toward the high end through the row weights. PC2 picks up the residual contrast between assault-heavy and rape-heavy states once the dominant rate axis is removed.
-
-## Object verbs
-
-`genpca()` returns a `bi_projector` from the `multivarious` ecosystem. The verbs you reach for most:
-
-| Verb | Returns | What it gives you |
-|:--|:--|:--|
-| `multivarious::scores(fit)` | `n x k` | Observation coordinates in component space |
-| `multivarious::components(fit)` | `p x k` | Loadings (variable directions) |
-| `multivarious::project(fit, X_new)` | `n_new x k` | Out-of-sample scores |
-| `reconstruct(fit, comp = 1:k)` | `n x p` | Rank-`k` reconstruction of `X` |
-
-These verbs are shared across `genpca()`, `genpls()`, `sfpca()`, and `rpls()`, so once you learn them on `genpca` they carry over.
+Neither `"spectra"` nor `"randomized"` preserves sparse `X`: both make a
+dense data copy. Metric factorizations and fallback storage also matter.
+[GPCA at Scale](gpca-scale.html) describes those costs, the `maxeig` guard,
+and the covariance-only interface.
 
 ## What are `ou`, `ov`, `u`, and `v`?
 
@@ -419,16 +337,59 @@ the verbs:
 | `ou` | Row-metric-orthonormal left factor | `t(ou) %*% M %*% ou = I` |
 | `ov` | Column-metric-orthonormal right factor | `t(ov) %*% A %*% ov = I` |
 | `v` (`components(fit)`) | `A %*% ov` | Loadings in the original variable space |
-| `s` (`scores(fit)`) | `X %*% A %*% ov = ou %*% diag(sdev)` | Equal to `project(fit, X)` on the training data |
+| `s` (`scores(fit)`) | `ou %*% diag(sdev)` | Stored training scores |
 
-In other words, `scores(fit)` and `project(fit, X)` compute the same
-quantity two ways -- one directly from `X` and the column loadings, the
-other from the stored orthonormal factors and the singular values -- and
-they agree exactly on the training data.
+Here the decomposition applies to the preprocessed matrix `Xp`, not raw `X`.
+For positive definite metrics, the score formula is `Xp %*% A %*% ov`.
+`project()` applies the stored preprocessing before multiplying by the
+projection weights. With singular metrics, null-space representatives can
+make projected coordinates differ from the stored factor scores outside the
+weighted subspace.
 
-## Where next
+## Relation to the French school
 
-- `vignette("gpca-metrics")` covers metric recipes (AR(1), spatial kernels, graph Laplacians), the smoother-versus-precision orientation rule, and the `gpca_mle()` learner.
-- `vignette("structured-noise")` works out which noise a metric can and cannot remove, with worked simulations -- start here if your data has several kinds of structure at once.
-- `vignette("gpca-scale")` covers backends, sparse workflows, and covariance-only GPCA.
-- `vignette("gplssvd-reference")` covers the generalized PLS / PLS-SVD interface and includes a contributor-oriented reference implementation.
+Readers coming from *analyse des données* will recognize all of this. The
+French tradition — Benzécri's correspondence analysis, formalized by
+Escoufier as the **duality diagram** — describes an analysis by a *triplet*
+$(X, Q, D)$: a data table, a metric on the variable space, and a set of row
+masses. The analysis is then the eigendecomposition of the operator
+$X^{\top} D X Q$. That is, term for term, the eigenproblem in [The decomposition](#the-decomposition). Correspondence analysis, multiple correspondence analysis, principal
+coordinates, discriminant analysis, canonical correlation, and PLS are all
+recovered by choosing the triplet appropriately; the `ade4` package is built
+directly on this formalism, and Abdi's papers on the generalized SVD — cited
+in this package's `DESCRIPTION` — are the same construction in English.
+
+Watch the notation: **$Q$ means opposite things in the two
+literatures.**
+
+| Role | `genpca` | Allen et al. (2014) | Duality diagram |
+|:--|:--|:--|:--|
+| Row metric / observation weights | `M` | $Q$ | $D$ |
+| Column metric / variable geometry | `A` | $R$ | $Q$ |
+
+What Allen, Grosenick & Taylor contribute on top of the classical theory is
+less the geometry than the framing and the machinery: the decomposition is
+posed as a *best rank-$K$ approximation* with an optimality theorem rather
+than only an eigenanalysis; the metrics are allowed to be large, dense, and
+structured (spatial kernels, temporal covariances) instead of the diagonal
+weights typical of the classical treatments; and the formulation extends
+cleanly to regularized and sparse variants, which is what `sfpca()`
+implements.
+
+## References
+
+Allen, G. I., Grosenick, L., & Taylor, J. (2014). A generalized least-square
+matrix decomposition. *Journal of the American Statistical Association*,
+109(505), 145–159.
+
+Escoufier, Y. (1987). The duality diagram: a means for better practical
+applications. In *Development in Numerical Ecology*. Springer.
+
+Holmes, S. (2008). Multivariate data analysis: the French way. In
+*Probability and Statistics: Essays in Honor of David A. Freedman*. IMS.
+
+Dray, S., & Dufour, A.-B. (2007). The ade4 package: implementing the duality
+diagram for ecologists. *Journal of Statistical Software*, 22(4).
+
+Silverman, B. W. (1996). Smoothed functional principal components analysis by
+choice of norm. *The Annals of Statistics*, 24(1), 1–24.
