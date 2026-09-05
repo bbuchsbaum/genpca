@@ -1,0 +1,46 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+rows 1234 d: 10  1 reconstruction error: 1.426233e-16
+rows 1 d: 9.999995 reconstruction error: 0.0001000099
+rows 2 d: 9.999995 reconstruction error: 0.0001000099
+rows 3 d: 9.999995 reconstruction error: 0.0001000099
+rows 4 d: 9.999995 reconstruction error: 0.0001000099
+rows 5 d: 10  1 reconstruction error: 1.426233e-16
+rows 6 d: 9.999995 reconstruction error: 0.0001000099
+rows 7 d: 9.999995 reconstruction error: 0.0001000099
+rows 8 d: 10  1 reconstruction error: 1.426233e-16
+rows 9 d: 10  1 reconstruction error: 1.426233e-16
+rows 10 d: 10  1 reconstruction error: 1.426233e-16
+rows 11 d: 10  1 reconstruction error: 1.426233e-16
+rows 12 d: 10  1 reconstruction error: 1.426233e-16
+columns 1234 d: 10  1 reconstruction error: 1.164195e-16
+columns 1 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 2 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 3 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 4 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 5 d: 10  1 reconstruction error: 1.164195e-16
+columns 6 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 7 d: 1.08089268 0.97048419 reconstruction error: 0.9889468
+columns 8 d: 10  1 reconstruction error: 1.164195e-16
+columns 9 d: 10  1 reconstruction error: 1.164195e-16
+columns 10 d: 10  1 reconstruction error: 1.164195e-16
+columns 11 d: 10  1 reconstruction error: 1.164195e-16
+columns 12 d: 10  1 reconstruction error: 1.164195e-16
+MLE scale 1 loglik 880.5545 delta -6.914433e-10
+MLE scale 100 loglik 770.0305 delta 5.189124e-06
+Warning messages:
+1: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2
+2: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2
+3: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2
+4: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2
+5: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2
+6: In genpca(X, M = M, A = A, ncomp = 2, method = "randomized", jitter_metric = 0,  :
+  Found only 1 valid components, less than requested ncomp=2

@@ -9,15 +9,15 @@
 
 // ---- helpers ---------------------------------------------------------------
 
-static inline arma::mat random_sign_matrix(const arma::uword nrow,
+static inline arma::mat random_normal_matrix(const arma::uword nrow,
                                            const arma::uword ncol,
                                            const unsigned int seed) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int> d01(0, 1);
+  std::normal_distribution<double> normal(0.0, 1.0);
   arma::mat out(nrow, ncol);
   for (arma::uword j = 0; j < ncol; ++j) {
     for (arma::uword i = 0; i < nrow; ++i) {
-      out(i, j) = d01(gen) ? 1.0 : -1.0;
+      out(i, j) = normal(gen);
     }
   }
   return out;
@@ -36,38 +36,57 @@ static arma::mat metric_orthonormalize_cpp(const arma::mat& A,
   arma::mat G = A.t() * MA;
   G = 0.5 * (G + G.t());
 
-  // jitter and tol are relative to the Gram scale (invariant to rescaling A)
-  double gscale = G.n_rows ? G.diag().max() : 1.0;
-  if (!(gscale > 0.0) || !std::isfinite(gscale)) gscale = 1.0;
-  double jitter_now = std::max(0.0, jitter) * gscale;
-  for (int tries = 0; tries < 7; ++tries) {
-    arma::mat Greg = G;
-    if (jitter_now > 0.0) {
-      Greg.diag() += jitter_now;
+  // A jittered Cholesky is a candidate preconditioner, not proof that the
+  // original metric Gram is full rank. Certify against M before accepting it.
+  const double eps = std::numeric_limits<double>::epsilon();
+  const double gscale = G.n_rows ? std::max(0.0, G.diag().max()) : 0.0;
+  arma::mat Greg = G;
+  Greg.diag() += std::max(0.0, jitter) * gscale;
+  arma::mat C;
+  if (arma::chol(C, Greg, "upper")) {
+    arma::mat Xt = arma::solve(arma::trimatl(C.t()), A.t(), arma::solve_opts::fast);
+    arma::mat B = Xt.t();
+    arma::mat check = B.t() * (M * B);
+    if (check.is_finite() &&
+        arma::norm(check - arma::eye(check.n_rows, check.n_cols), "inf") <= 1e-8) {
+      // Remove the small normalization error left by jitter (CholeskyQR2).
+      arma::mat correction;
+      if (arma::chol(correction, check, "upper")) {
+        arma::mat corrected = arma::solve(arma::trimatl(correction.t()), B.t(),
+                                          arma::solve_opts::fast);
+        return corrected.t();
+      }
     }
-    arma::mat C;
-    if (arma::chol(C, Greg, "upper")) {
-      // A * inv(C), implemented as triangular solve.
-      arma::mat Xt = arma::solve(arma::trimatl(C.t()), A.t(), arma::solve_opts::fast);
-      return Xt.t();
-    }
-    jitter_now = (jitter_now > 0.0) ? jitter_now * 10.0 : 1e-10 * gscale;
   }
 
+  // Remove linear dependence in Euclidean coordinates before forming a
+  // metric Gram. Column scaling and SVD avoid squaring the raw sketch's
+  // condition number. The user singular-value cutoff belongs to the final
+  // decomposition, not to this internal basis or the metric spectrum.
+  arma::mat scaled = A;
+  for (arma::uword j = 0; j < scaled.n_cols; ++j) {
+    const double scale = arma::norm(scaled.col(j), 2);
+    if (scale > 0.0) scaled.col(j) /= scale;
+  }
+  arma::mat basis, right;
+  arma::vec singular;
+  if (!arma::svd_econ(basis, singular, right, scaled))
+    Rcpp::stop("SVD failed while orthonormalizing the randomized sketch.");
+  const double floor = eps * std::max(A.n_rows, A.n_cols) *
+    (singular.n_elem ? singular.max() : 0.0);
+  arma::uvec independent = arma::find(singular > floor && singular > 0.0);
+  if (independent.n_elem == 0) return arma::mat(A.n_rows, 0, arma::fill::zeros);
+  basis = basis.cols(independent);
+  G = basis.t() * (M * basis);
+  G = 0.5 * (G + G.t());
   arma::vec eval;
   arma::mat evec;
-  if (!arma::eig_sym(eval, evec, G)) {
-    return arma::mat(A.n_rows, 0, arma::fill::zeros);
-  }
-  const double emax = eval.n_elem ? eval.max() : 0.0;
-  arma::uvec keep = arma::find(eval > tol * std::max(emax, 0.0) && eval > 0.0);
-  if (keep.n_elem == 0) {
-    return arma::mat(A.n_rows, 0, arma::fill::zeros);
-  }
-
-  arma::vec invsqrt = 1.0 / arma::sqrt(eval.elem(keep));
-  arma::mat B = evec.cols(keep) * arma::diagmat(invsqrt);
-  return A * B;
+  if (!arma::eig_sym(eval, evec, G))
+    Rcpp::stop("Metric eigendecomposition failed while orthonormalizing the sketch.");
+  const double emax = eval.n_elem ? std::max(0.0, eval.max()) : 0.0;
+  arma::uvec keep = arma::find(eval > eps * G.n_rows * emax && eval > 0.0);
+  if (keep.n_elem == 0) return arma::mat(A.n_rows, 0, arma::fill::zeros);
+  return basis * evec.cols(keep) * arma::diagmat(1.0 / arma::sqrt(eval.elem(keep)));
 }
 
 template <typename MatQ, typename MatR>
@@ -140,19 +159,24 @@ Rcpp::List gmd_randomized_impl(const arma::mat& X,
   }
 
   const int ell = std::max(1, std::min(std::min(n, p), k_use + std::max(0, oversample)));
-  arma::mat Omega = random_sign_matrix(static_cast<arma::uword>(p),
-                                       static_cast<arma::uword>(ell),
-                                       seed);
-
-  arma::mat Y = X * (R * Omega);
-  for (int it = 0; it < n_power; ++it) {
-    arma::mat Utmp = metric_orthonormalize_cpp(Y, Q, jitter, tol);
-    if (Utmp.n_cols == 0) break;
-    arma::mat Z = X.t() * (Q * Utmp);
-    Y = X * (R * Z);
+  arma::mat U0;
+  if (ell == n) {
+    // The sketch covers the entire row space: use it directly, without a
+    // random draw that can accidentally lose a direction.
+    U0 = metric_orthonormalize_cpp(arma::eye(n, n), Q, jitter, tol);
+  } else {
+    arma::mat Omega = ell == p ? arma::eye(p, p) :
+      random_normal_matrix(static_cast<arma::uword>(p),
+                           static_cast<arma::uword>(ell), seed);
+    arma::mat Y = X * (R * Omega);
+    for (int it = 0; it < n_power; ++it) {
+      arma::mat Utmp = metric_orthonormalize_cpp(Y, Q, jitter, tol);
+      if (Utmp.n_cols == 0) break;
+      arma::mat Z = X.t() * (Q * Utmp);
+      Y = X * (R * Z);
+    }
+    U0 = metric_orthonormalize_cpp(Y, Q, jitter, tol);
   }
-
-  arma::mat U0 = metric_orthonormalize_cpp(Y, Q, jitter, tol);
   if (U0.n_cols == 0) {
     return Rcpp::List::create(
       Rcpp::Named("u") = arma::mat(X.n_rows, 0, arma::fill::zeros),

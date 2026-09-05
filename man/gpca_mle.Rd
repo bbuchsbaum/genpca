@@ -62,9 +62,11 @@ the returned metrics), \code{A}, \code{M} (learned SPD metrics),
 \code{loglik} (the penalized log-likelihood evaluated at the
 returned \code{M}, \code{A} and \code{fit}),
 \code{loglik_unpenalized} (the same without the \code{lambda}
-penalty), \code{loglik_rescale_delta} (\code{loglik} minus the
-last value of \code{loglik_path}; zero for
-\code{scale_fix = "none"}, typically negative otherwise), and
+penalty), \code{loglik_rescale_delta} (the change in the penalty
+contribution caused solely by reciprocal metric rescaling; exactly
+zero for \code{scale_fix = "none"}), \code{loglik_refit_delta}
+(the remaining change from the last path value to \code{loglik},
+including final refitting and numerical objective reevaluation), and
 \code{loglik_path} (the penalized log-likelihood after each outer
 iteration; monotone non-decreasing up to numerical noise, since
 every block update exactly minimizes the shared penalized

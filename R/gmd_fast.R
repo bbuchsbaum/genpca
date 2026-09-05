@@ -421,31 +421,31 @@ metric_orthonormalize <- function(A, applyM, jitter = 1e-10, tol = 1e-12) {
   G <- 0.5 * (G + t(G))
   G <- as.matrix(G)
   gscale <- max(diag(G), 0)
-  if (!is.finite(gscale) || gscale == 0) gscale <- 1
-
-  # Fast path: Cholesky on the small Gram matrix.
-  jitter_now <- max(jitter, 0) * gscale
-  for (i in 0:6) {
-    G_reg <- G
-    if (jitter_now > 0) {
-      diag(G_reg) <- diag(G_reg) + jitter_now
-    }
-    C <- try(chol(G_reg), silent = TRUE)
-    if (!inherits(C, "try-error")) {
-      return(A %*% solve(C))
-    }
-    jitter_now <- if (jitter_now > 0) jitter_now * 10 else 1e-10 * gscale
+  C <- tryCatch(chol(G + diag(max(jitter, 0) * gscale, nrow(G))),
+                error = function(e) NULL)
+  if (!is.null(C)) {
+    B <- as.matrix(A %*% solve(C))
+    check <- as.matrix(Matrix::crossprod(B, applyM(B)))
+    if (all(is.finite(check)) && norm(check - diag(ncol(B)), "I") <= 1e-8)
+      return(B %*% solve(chol(check)))
   }
 
-  # Robust fallback for semidefinite / rank-deficient blocks.
-  eg <- eigen(G, symmetric = TRUE)
-  keep <- which(eg$values > tol * max(eg$values, 0))
-  if (length(keep) == 0) {
-    return(matrix(0.0, nrow = nrow(A), ncol = 0))
-  }
-  B <- eg$vectors[, keep, drop = FALSE]
-  B <- sweep(B, 2, sqrt(eg$values[keep]), "/")
-  A %*% B
+  # A regularized Gram cannot certify rank or metric orthogonality. Build
+  # an independent Euclidean basis first, then whiten its small metric Gram.
+  scaled <- as.matrix(A)
+  scales <- sqrt(colSums(scaled^2))
+  scaled <- sweep(scaled, 2, ifelse(scales > 0, scales, 1), "/")
+  sv <- svd(scaled, nv = 0)
+  eps <- .Machine$double.eps
+  independent <- sv$d > eps * max(dim(A)) * max(sv$d, 0) & sv$d > 0
+  if (!any(independent)) return(matrix(0, nrow(A), 0))
+  basis <- sv$u[, independent, drop = FALSE]
+  G <- as.matrix(crossprod(basis, applyM(basis)))
+  eg <- eigen(0.5 * (G + t(G)), symmetric = TRUE)
+  keep <- eg$values > eps * nrow(G) * max(eg$values, 0) & eg$values > 0
+  if (!any(keep)) return(matrix(0, nrow(A), 0))
+  basis %*% sweep(eg$vectors[, keep, drop = FALSE], 2,
+                  sqrt(eg$values[keep]), "/")
 }
 
 random_sign_matrix <- function(nrow, ncol, seed = NULL) {
@@ -469,6 +469,29 @@ random_sign_matrix <- function(nrow, ncol, seed = NULL) {
     set.seed(seed)
   }
   matrix(sample(c(-1, 1), size = nrow * ncol, replace = TRUE), nrow = nrow, ncol = ncol)
+}
+
+random_normal_matrix <- function(nrow, ncol, seed = NULL) {
+  if (!is.null(seed)) {
+    # Never clobber the caller's RNG stream (CRAN policy): save and restore
+    # .Random.seed around the seeded draw.
+    old_seed <- if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    } else {
+      NULL
+    }
+    on.exit({
+      if (is.null(old_seed)) {
+        if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+          rm(".Random.seed", envir = globalenv())
+        }
+      } else {
+        assign(".Random.seed", old_seed, envir = globalenv())
+      }
+    }, add = TRUE)
+    set.seed(seed)
+  }
+  matrix(rnorm(nrow * ncol), nrow = nrow, ncol = ncol)
 }
 
 gmd_randomized_polish <- function(X, applyQ, applyR, U, V, iters = 1L, jitter = 1e-10,
@@ -546,18 +569,20 @@ gmd_randomized_r <- function(X, Q, R, k,
   applyQ <- function(B) Q %*% B
   applyR <- function(B) R %*% B
 
-  Omega <- random_sign_matrix(p, ell, seed = seed)
-  Y <- X %*% applyR(Omega)
-
-  if (n_power > 0L) {
-    for (it in seq_len(as.integer(n_power))) {
-      Utmp <- metric_orthonormalize(Y, applyQ, jitter = jitter)
-      Z <- Matrix::crossprod(X, applyQ(Utmp))
-      Y <- X %*% applyR(Z)
+  if (ell == n) {
+    U0 <- metric_orthonormalize(diag(n), applyQ, jitter = jitter)
+  } else {
+    Omega <- if (ell == p) diag(p) else random_normal_matrix(p, ell, seed = seed)
+    Y <- X %*% applyR(Omega)
+    if (n_power > 0L) {
+      for (it in seq_len(as.integer(n_power))) {
+        Utmp <- metric_orthonormalize(Y, applyQ, jitter = jitter)
+        Z <- Matrix::crossprod(X, applyQ(Utmp))
+        Y <- X %*% applyR(Z)
+      }
     }
+    U0 <- metric_orthonormalize(Y, applyQ, jitter = jitter)
   }
-
-  U0 <- metric_orthonormalize(Y, applyQ, jitter = jitter)
   if (ncol(U0) == 0) return(empty)
 
   B <- Matrix::crossprod(X, applyQ(U0))

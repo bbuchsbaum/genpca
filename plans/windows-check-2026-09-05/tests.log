@@ -1,0 +1,322 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+audit-2026-09: ...............................................................................................................................................................................
+cca-vs-genpls: ..
+coverage-95-branches: ................................................Solving generalized eigenproblem C v = lambda R v...
+.......Preparing constraints...
+Applying pre-processing...
+Using one-shot eigen decomposition (gmdLA) to extract 1 components...
+ gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 4)...
+  (Found  1  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+Constructing final object...
+GPCA finished.
+.... gmdLA: Using primal approach (n >= p)
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 4)...
+  (Found  1  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+..... Deflation component 1
+  u norm near zero, stopping power iteration for component 1
+...............Preparing constraints...
+Applying pre-processing...
+ Deflation component 1
+.Preparing constraints...
+Applying pre-processing...
+ Deflation component 1
+........Computing top-1 GPLSSVD components via operator (eigencore) ...
+..........Preparing constraints...
+Applying pre-processing...
+ Calculating variance explained for Spectra method...
+Constructing final object...
+GPCA finished.
+..
+coverage-gpca-branches: ..WMatrix M is not SPD, replacing with identity matrix
+W.......Preparing constraints...
+Applying pre-processing...
+Using one-shot eigen decomposition (gmdLA) to extract 2 components...
+ gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+Constructing final object...
+............Preparing constraints...
+Applying pre-processing...
+Using randomized block solver to extract 2 components (oversample=2, n_power=1, n_polish=1, tol_polish=1e-04).
+ Calculating variance explained for randomized method...
+Constructing final object...
+GPCA finished.
+... gmdLA: Using primal approach (n >= p)
+ Computing factorization for matrix R
+  Calculating X'QX...
+  Calculating F' X'QX F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ov (V = F^{-T} * eigenvectors)...
+  Calculating ou (U)...
+ Calculating explained variance...
+. gmdLA: Using dual approach (n < p)
+ Computing factorization for matrix Q
+  Calculating X R X'...
+  Calculating F' X R X' F...
+  Performing eigen decomposition on target matrix (dim: 5)...
+  (Found  2  eigenvalues > tol)
+  Calculating ou (U = F^{-T} * eigenvectors)...
+  Calculating ov (V = X' Q U D^{-1})...
+ Calculating explained variance...
+.............Computing eigen factorization of R...
+Computing R^{1/2} C R^{1/2}...
+Computing eigendecomposition...
+Mapping back: V = R^{-1/2} Z...
+........WSolving generalized eigenproblem C v = lambda R v...
+WSolving generalized eigenproblem C v = lambda R v...
+Matrix R is not SPD, replacing with identity matrix
+WSolving generalized eigenproblem C v = lambda R v...
+...WSolving generalized eigenproblem C v = lambda R v...
+Matrix R is not SPD, replacing with identity matrix
+WSolving generalized eigenproblem C v = lambda R v...
+........
+deflation-cpp-dense-metrics: ....
+deflation-vs-eigen: ..........
+dual-path-correctness: W
+dual-path (n < p) correctness with non-identity metrics: W
+Attaching package: 'multivarious'
+
+The following object is masked from 'package:testthat':
+
+    pass
+
+The following objects are masked from 'package:stats':
+
+    residuals, screeplot
+
+The following objects are masked from 'package:base':
+
+    transform, truncate
+
+......................
+ensure-spd: ......
+genpls-vs-op: ..............
+gmd-fast-dispatch: 'as(<ddiMatrix>, "dgCMatrix")' is deprecated.
+Use 'as(as(., "generalMatrix"), "CsparseMatrix")' instead.
+See help("Deprecated") and help("Matrix-deprecated").
+.............................
+gpca_mle: .....................
+gplssvd-op-large: ........................................
+gplssvd_op: S................................................................................................................................................
+internal-coverage: ..........................................................................................
+Extracting component 1/2 [penalty=l1, lambda=0.05]
+
+Extracting component 2/2 [penalty=l1, lambda=0.1]
+.
+Extracting component 1/2 [penalty=l1, lambda=0.1]
+v_k => all zero, stopping.
+..
+Extracting component 1/2 [penalty=l1, lambda=1e+06]
+v_k => all zero, stopping.
+........
+method-differential: ...........
+mnpca_mrl: ..................
+mnpca_synthetic-structures: ............
+phase3-hardening: ...............................................................WW.............
+randomized-backend: .........
+release-review-regressions: .....................................................................................................
+repair-metric: ....................
+solver-backend: .....................
+windows-check-regressions: .....................................................................................................................................................................................
+deflation_empty: W
+gmd_deflationR empty case: WWWW......WWWWWW.....
+genpca_cov: .....................W.W.W.
+genpca_cov_equivalence: .........................................................
+genpca_cov_gmd: .......................................
+gep_subspace: ......
+gpca: W
+genpca: ..WW...WWW.W.WW.W.....WW.sigma is 3.00269080945555
+sigma is 3.40988208633537
+WW......WWW.WWWW............MSE no constraint: 0.2154146
+MSE adjacency:     0.2154525
+.W
+gmd_fast_cpp direct tests: ..W.W.W...W.W.W...W.W.W...W.W.W.....W.W.W........W.W..W
+genpca <U+2013> advanced properties: .W..W....
+prep_constraints: W
+prep_constraints and construct_spatial_penalty utils: .W..WW....WW......
+reconstruct_zero_comp: W
+reconstruct with zero components: ..
+rpls: ........................
+rpls_additional: ..
+sfpca: .............
+sfpca_bi_projector: .........................................
+sfpca_bic: .............................
+sfpca_cd: ................................................
+sfpca_deflation: ...........................
+
+== Skipped =====================================================================
+1. setup: Matrix available ('test-gplssvd_op.R:4:1') - Reason: empty test
+
+== Warnings ====================================================================
+1. prep_constraints covers matrix validation, identity remedy, and preprocessor detection ('test-coverage-gpca-branches.R:14:3') - Matrix A is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+2. prep_constraints covers matrix validation, identity remedy, and preprocessor detection ('test-coverage-gpca-branches.R:14:3') - Matrix M is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+3. genpca_cov covers GMD and generalized-eigen covariance branches ('test-coverage-gpca-branches.R:263:3') - Matrix R is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 0.55). Inspect with repair_metric().
+
+4. genpca_cov covers GMD and generalized-eigen covariance branches ('test-coverage-gpca-branches.R:264:3') - Matrix R is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+5. genpca_cov covers GMD and generalized-eigen covariance branches ('test-coverage-gpca-branches.R:265:3') - Matrix R is not positive semi-definite (min eigenvalue -0.5); replaced by the identity as requested by constraints_remedy = "identity".
+
+6. genpca_cov covers GMD and generalized-eigen covariance branches ('test-coverage-gpca-branches.R:272:3') - Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+7. genpca_cov covers GMD and generalized-eigen covariance branches ('test-coverage-gpca-branches.R:279:3') - Matrix R is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+8. (code run outside of `test_that()`) ('test-dual-path-correctness.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+9. (code run outside of `test_that()`) ('test-dual-path-correctness.R:4:1') - package 'multivarious' was built under R version 4.5.2
+
+10. constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum ('test-phase3-hardening.R:212:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+11. constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum ('test-phase3-hardening.R:214:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 14.2). Inspect with repair_metric().
+
+12. (code run outside of `test_that()`) ('test_deflation_empty.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+13. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Total generalized variance is not positive or could not be computed.
+
+14. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Power iteration did not converge for component 1 within 500 iterations.
+
+15. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Stopping deflation due to non-convergence of power iteration.
+
+16. gmd_deflationR returns zero-sized matrices when no components found ('test_deflation_empty.R:12:3') - Deflation stopped early. Found 0 components instead of requested 3.
+
+17. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Total generalized variance is not positive or could not be computed.
+
+18. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Power iteration did not converge for component 1 within 500 iterations.
+
+19. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Stopping deflation due to non-convergence of power iteration.
+
+20. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Deflation stopped early. Found 0 components instead of requested 3.
+
+21. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - Found only 0 valid components, less than requested ncomp=3
+
+22. genpca handles zero-rank input consistently ('test_deflation_empty.R:24:3') - No valid components found.
+
+23. genpca_cov remedies work correctly ('test_genpca_cov.R:131:3') - Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "ridge" (diagonal shift 6.9). Inspect with repair_metric().
+
+24. genpca_cov remedies work correctly ('test_genpca_cov.R:135:3') - Matrix R is not positive semi-definite (min eigenvalue -1); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+25. genpca_cov remedies work correctly ('test_genpca_cov.R:139:3') - Matrix R is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+26. (code run outside of `test_that()`) ('test_gpca.R:1:1') - `context()` was deprecated in the 3rd edition.
+
+27. pca and genpca have same results with identity matrix for row and column constraints ('test_gpca.R:12:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+28. pca and genpca have same results with identity matrix for row and column constraints ('test_gpca.R:12:3') - Found only 9 valid components, less than requested ncomp=10
+
+29. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:25:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+30. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:25:3') - Found only 9 valid components, less than requested ncomp=10
+
+31. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:30:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+32. gen_pca with column variances is equivalent to a scaled pca ('test_gpca.R:31:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+33. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:37:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+34. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:37:3') - Found only 9 valid components, less than requested ncomp=10
+
+35. gen_pca with use_cpp with column variances is equivalent to a scaled pca ('test_gpca.R:42:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+36. gen_pca with dense column and row constraints works ('test_gpca.R:76:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+37. gen_pca with dense column and row constraints works ('test_gpca.R:76:3') - Found only 9 valid components, less than requested ncomp=10
+
+38. gen_pca with sparse column and row constraints works ('test_gpca.R:87:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+39. gen_pca with sparse column and row constraints works ('test_gpca.R:87:3') - Found only 9 valid components, less than requested ncomp=10
+
+40. can reconstruct a genpca model with component selection ('test_gpca.R:107:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+41. can reconstruct a genpca model with component selection ('test_gpca.R:107:3') - Found only 9 valid components, less than requested ncomp=10
+
+42. can reconstruct a genpca model with component selection ('test_gpca.R:109:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+43. can reconstruct a genpca model with component selection ('test_gpca.R:111:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+44. can reconstruct a genpca model with component selection ('test_gpca.R:111:3') - Found only 9 valid components, less than requested ncomp=10
+
+45. can project a row vector ('test_gpca.R:124:3') - gmdLA: Found only 9 positive eigenvalues > tol, less than requested k=10
+
+46. can project a row vector ('test_gpca.R:124:3') - Found only 9 valid components, less than requested ncomp=10
+
+47. (code run outside of `test_that()`) ('test_gpca.R:319:1') - `context()` was deprecated in the 3rd edition.
+
+48. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:368:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+49. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:370:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+50. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, dense constraints ('test_gpca.R:374:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+51. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:398:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+52. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:400:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+53. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, dense constraints ('test_gpca.R:404:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+54. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:429:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+55. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:431:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+56. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p <= n, sparse constraints ('test_gpca.R:435:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+57. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:459:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+58. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:461:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+59. gmd_fast_cpp matches genpca (use_cpp=TRUE) for p > n, sparse constraints ('test_gpca.R:465:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+60. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:490:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+61. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:492:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+62. gmd_fast_cpp handles k=1 correctly ('test_gpca.R:496:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+63. gmd_fast_cpp matches genpca spectra for identity constraints ('test_gpca.R:550:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+64. gmd_fast_cpp matches genpca spectra for identity constraints ('test_gpca.R:552:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+65. (code run outside of `test_that()`) ('test_gpca.R:585:1') - `context()` was deprecated in the 3rd edition.
+
+66. Spectra method matches eigen method on modest problems ('test_gpca.R:602:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+67. Spectra method matches eigen method on modest problems ('test_gpca.R:611:3') - `check.attributes` is deprecated; please use `ignore_attr` instead
+
+68. (code run outside of `test_that()`) ('test_prep_constraints.R:4:1') - `context()` was deprecated in the 3rd edition.
+
+69. prep_constraints ridge remedy produces PSD matrix ('test_prep_constraints.R:21:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 0.55). Inspect with repair_metric().
+
+70. prep_constraints clip remedy produces PSD matrices ('test_prep_constraints.R:33:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+71. prep_constraints clip remedy produces PSD matrices ('test_prep_constraints.R:33:3') - Matrix M is not positive semi-definite (min eigenvalue -0.2); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+72. prep_constraints identity remedy returns identity matrices ('test_prep_constraints.R:48:3') - Matrix A is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+73. prep_constraints identity remedy returns identity matrices ('test_prep_constraints.R:48:3') - Matrix M is not positive semi-definite (min eigenvalue -1); replaced by the identity as requested by constraints_remedy = "identity".
+
+74. (code run outside of `test_that()`) ('test_reconstruct_zero_comp.R:5:1') - `context()` was deprecated in the 3rd edition.
+
+== DONE ========================================================================
+Warning message:
+package 'testthat' was built under R version 4.5.2

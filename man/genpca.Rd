@@ -117,7 +117,10 @@ forward and inverse factors.}
 
 \item{n_polish}{Number of optional block-polish iterations for \code{method = "randomized"}. Default \code{0}.}
 
-\item{jitter_metric}{Jitter used in metric orthonormalization for \code{method = "randomized"}, relative to the scale of the block Gram matrix. Default \code{1e-10}.}
+\item{jitter_metric}{Relative Gram jitter for the candidate Cholesky
+preconditioner in \code{method = "randomized"}. The basis is checked
+in the original metric; a failed check uses rank-revealing
+orthonormalization instead. Default \code{1e-10}.}
 
 \item{seed_randomized}{Optional seed for \code{method = "randomized"}.
 Default \code{1234}. This fully determines the randomized backend's

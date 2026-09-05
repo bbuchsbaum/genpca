@@ -39,7 +39,10 @@ test_that("gpca_mle path stays monotone at large covariance scale (no tolerant r
     expect_true(all(diff(path) >= -slack))
     expect_true(genpca:::is_pd(res$M, rtol = 0))
     expect_true(genpca:::is_pd(res$A, rtol = 0))
-    # no rescale: only the refit's roundoff, relative to the objective's size
-    expect_lt(abs(res$loglik_rescale_delta), 1e-8 * max(1, abs(res$loglik)))
+    # No rescaling has exactly zero effect. The final refit/reevaluation
+    # discrepancy is retained separately, not clamped away.
+    expect_identical(res$loglik_rescale_delta, 0)
+    expect_equal(res$loglik_refit_delta, res$loglik - tail(path, 1))
+    expect_true(is.finite(res$loglik_refit_delta))
   }
 })

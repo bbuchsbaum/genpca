@@ -1,0 +1,22 @@
+Registered S3 methods overwritten by 'RcppEigen':
+  method               from
+  predict.fastLm       RcppArmadillo
+  print.fastLm         RcppArmadillo
+  summary.fastLm       RcppArmadillo
+  print.summary.fastLm RcppArmadillo
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+gpca_mle: .....................
+phase3-hardening: ...............................................................WW.............
+release-review-regressions: .....................................................................................................
+windows-check-regressions: .....................................................................................................................................................................................
+
+== Warnings ====================================================================
+1. constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum ('test-phase3-hardening.R:212:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "clip". Inspect with repair_metric().
+
+2. constraints_remedy 'clip' differs from 'ridge' and preserves the positive spectrum ('test-phase3-hardening.R:214:3') - Matrix A is not positive semi-definite (min eigenvalue -0.5); repaired with constraints_remedy = "ridge" (diagonal shift 14.2). Inspect with repair_metric().
+
+== DONE ========================================================================

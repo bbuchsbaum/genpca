@@ -215,7 +215,10 @@ is_pass_preproc <- function(preproc) {
 #' @param oversample Oversampling for \code{method = "randomized"} (sketch size = \code{ncomp + oversample}). Default `20`.
 #' @param n_power Number of power iterations for \code{method = "randomized"}. Default `1`.
 #' @param n_polish Number of optional block-polish iterations for \code{method = "randomized"}. Default `0`.
-#' @param jitter_metric Jitter used in metric orthonormalization for \code{method = "randomized"}, relative to the scale of the block Gram matrix. Default `1e-10`.
+#' @param jitter_metric Relative Gram jitter for the candidate Cholesky
+#'        preconditioner in \code{method = "randomized"}. The basis is checked
+#'        in the original metric; a failed check uses rank-revealing
+#'        orthonormalization instead. Default `1e-10`.
 #' @param seed_randomized Optional seed for \code{method = "randomized"}.
 #'        Default `1234`. This fully determines the randomized backend's
 #'        random stream: the C++ kernel seeds its own generator from this
@@ -810,9 +813,11 @@ genpca <- function(X, A = NULL, M = NULL, ncomp = NULL,
 #'         \code{loglik} (the penalized log-likelihood evaluated at the
 #'         returned \code{M}, \code{A} and \code{fit}),
 #'         \code{loglik_unpenalized} (the same without the \code{lambda}
-#'         penalty), \code{loglik_rescale_delta} (\code{loglik} minus the
-#'         last value of \code{loglik_path}; zero for
-#'         \code{scale_fix = "none"}, typically negative otherwise), and
+#'         penalty), \code{loglik_rescale_delta} (the change in the penalty
+#'         contribution caused solely by reciprocal metric rescaling; exactly
+#'         zero for \code{scale_fix = "none"}), \code{loglik_refit_delta}
+#'         (the remaining change from the last path value to \code{loglik},
+#'         including final refitting and numerical objective reevaluation), and
 #'         \code{loglik_path} (the penalized log-likelihood after each outer
 #'         iteration; monotone non-decreasing up to numerical noise, since
 #'         every block update exactly minimizes the shared penalized
@@ -930,6 +935,7 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
   # therefore always recomputed at the metrics actually returned, and the
   # size of the move is reported in `loglik_rescale_delta`.
   loglik_at_exit <- tail(loglik_path, 1)
+  loglik_rescale_delta <- 0
   if (scale_fix != "none") {
     s <- if (scale_fix == "trace") {
       sum(Matrix::diag(Sigma_r)) / n
@@ -938,6 +944,12 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
       exp(logdet_r / n)
     }
     if (is.finite(s) && s > 0) {
+      # The quadratic and log-determinant terms are invariant to reciprocal
+      # scaling. Evaluate only the penalty change, without conflating it
+      # with the final refit or inversion roundoff in objective reevaluation.
+      loglik_rescale_delta <- -0.5 * lambda * (
+        p * (s - 1) * sum(Matrix::diag(M)) +
+        n * (1 / s - 1) * sum(Matrix::diag(A)))
       Sigma_r <- Sigma_r / s
       Sigma_c <- Sigma_c * s
       M <- M * s
@@ -953,8 +965,8 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
                 verbose = FALSE,
                 ...)
 
-  # Objective at the returned (M, A, fit); identical to the last path value
-  # when scale_fix = "none" up to the refit's own roundoff.
+  # Objective at the returned (M, A, fit). Preserve any final refit and
+  # numerical reevaluation discrepancy separately from the rescaling effect.
   E_final <- X - multivarious::reconstruct(fit)
   Sigma_r_final <- Matrix::solve(M)
   Sigma_c_final <- Matrix::solve(A)
@@ -968,7 +980,8 @@ gpca_mle <- function(X, ncomp = min(dim(X)),
        M = M,
        loglik = loglik_final,
        loglik_unpenalized = loglik_final + 0.5 * pen_final,
-       loglik_rescale_delta = loglik_final - loglik_at_exit,
+       loglik_rescale_delta = loglik_rescale_delta,
+       loglik_refit_delta = loglik_final - loglik_at_exit - loglik_rescale_delta,
        loglik_path = loglik_path)
 }
 

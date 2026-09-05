@@ -17,13 +17,12 @@ test_that("gpca_mle penalized loglik path is monotone and metrics are SPD", {
     path <- res$loglik_path
     expect_true(all(is.finite(path)))
     expect_lte(length(path), 8)
-    # loglik is the penalized objective at the returned (M, A, fit): equal to
-    # the last path value only when no post-hoc rescale was applied
+    # Account separately for reciprocal rescaling and final reevaluation.
     if (sf == "none") {
       expect_equal(res$loglik, tail(path, 1), tolerance = 1e-8)
       expect_equal(res$loglik_rescale_delta, 0, tolerance = 1e-8)
     } else {
-      expect_equal(res$loglik, tail(path, 1) + res$loglik_rescale_delta)
+      expect_equal(res$loglik, tail(path, 1) + res$loglik_rescale_delta + res$loglik_refit_delta)
     }
     if (length(path) > 1) {
       slack <- 1e-8 * pmax(abs(path[-length(path)]), 1)

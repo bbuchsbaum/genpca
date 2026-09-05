@@ -1,0 +1,33 @@
+Registered S3 method overwritten by 'genpca':
+  method                   from
+  transfer.cross_projector multivarious
+Warning message:
+package 'testthat' was built under R version 4.5.2
+rows 1234 d: 10  1 reconstruction error: 3.49246e-16
+rows 1 d: 10  1 reconstruction error: 3.49246e-16
+rows 2 d: 10  1 reconstruction error: 3.49246e-16
+rows 3 d: 10  1 reconstruction error: 3.49246e-16
+rows 4 d: 10  1 reconstruction error: 3.49246e-16
+rows 5 d: 10  1 reconstruction error: 3.49246e-16
+rows 6 d: 10  1 reconstruction error: 3.49246e-16
+rows 7 d: 10  1 reconstruction error: 3.49246e-16
+rows 8 d: 10  1 reconstruction error: 3.49246e-16
+rows 9 d: 10  1 reconstruction error: 3.49246e-16
+rows 10 d: 10  1 reconstruction error: 3.49246e-16
+rows 11 d: 10  1 reconstruction error: 3.49246e-16
+rows 12 d: 10  1 reconstruction error: 3.49246e-16
+columns 1234 d: 10  1 reconstruction error: 0
+columns 1 d: 10  1 reconstruction error: 0
+columns 2 d: 10  1 reconstruction error: 0
+columns 3 d: 10  1 reconstruction error: 0
+columns 4 d: 10  1 reconstruction error: 0
+columns 5 d: 10  1 reconstruction error: 0
+columns 6 d: 10  1 reconstruction error: 0
+columns 7 d: 10  1 reconstruction error: 0
+columns 8 d: 10  1 reconstruction error: 0
+columns 9 d: 10  1 reconstruction error: 0
+columns 10 d: 10  1 reconstruction error: 0
+columns 11 d: 10  1 reconstruction error: 0
+columns 12 d: 10  1 reconstruction error: 0
+MLE scale 1 loglik 880.5545 rescale delta 0 refit delta -6.914433e-10
+MLE scale 100 loglik 770.0305 rescale delta 0 refit delta 5.189124e-06

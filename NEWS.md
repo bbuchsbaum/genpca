@@ -2,6 +2,16 @@
 
 ### Release review fixes
 
+* Randomized sketches use Gaussian draws and use a deterministic complete basis
+  when the sketch spans a full matrix dimension. Metric orthonormalization
+  verifies the original Gram matrix, corrects residual normalization error,
+  and removes dependent sketch directions without inventing rank through
+  jitter. This fixes seed- and C++-library-dependent component loss on Windows.
+* `gpca_mle()` now separates the penalty effect of reciprocal rescaling
+  (`loglik_rescale_delta`, exactly zero with `scale_fix = "none"`) from final
+  refitting and objective reevaluation (`loglik_refit_delta`). The reported
+  likelihood remains evaluated at the returned fit and metrics.
+
 * Strictly positive diagonal weights are retained in both forward and inverse
   metric factors. Previously a small positive weight could contribute a large
   singular value while its recovered loading was zero. The fix covers GPCA,
