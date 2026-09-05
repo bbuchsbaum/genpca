@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -210,16 +210,19 @@ untouched, so the fit cannot distinguish them:</p>
 <span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">Xv</span>, M <span class="op">=</span> <span class="fl">7</span> <span class="op">*</span> <span class="va">M0</span>, A <span class="op">=</span> <span class="va">A0</span> <span class="op">/</span> <span class="fl">7</span>, ncomp <span class="op">=</span> <span class="fl">4</span>, preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/center.html" class="external-link">center</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">f1</span><span class="op">$</span><span class="va">sdev</span> <span class="op">-</span> <span class="va">f2</span><span class="op">$</span><span class="va">sdev</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 4.440892e-15</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 8.881784e-16</span></span></code></pre></div>
 <p>The singular values and the component subspace are identical; only
 the scores pick up a constant factor, since their normalisation is tied
 to the scale of <code>M</code>. The practical upshot is that there is no
 point tuning the overall magnitude of <code>M</code> against that of
 <code>A</code> — it is the <em>relative</em> weighting within each
 metric that changes the answer. This indeterminacy is also why
-<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> takes a <code>scale_fix</code> argument: when
-both metrics are learned, the split has to be pinned down by convention
-rather than by the data.</p>
+<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> has a <code>scale_fix</code> argument: when both
+metrics are learned, the split is pinned down by the ridge penalty in
+the objective (the default, <code>scale_fix = "none"</code>), and
+<code>"trace"</code>/<code>"det"</code> are optional post-hoc
+reparameterizations whose effect on the penalized objective is reported
+in <code>loglik_rescale_delta</code>.</p>
 </div>
 </div>
 <div class="section level2">
@@ -538,13 +541,25 @@ mistakes: a covariance estimated from fewer samples than variables, a
 kernel matrix with round-off in the last few digits, a matrix that is
 asymmetric by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>16</mn></mrow></msup><annotation encoding="application/x-tex">10^{-16}</annotation></semantics></math>
-because of the order in which it was assembled. The check itself is
-tolerant — eigenvalues down to <code>-tol * max(abs(diag()))</code> with
-<code>tol = 1e-6</code> count as non-negative — so ordinary
-floating-point noise never triggers a remedy, and a metric that passes
-is used exactly as supplied.</p>
-<p>When a metric does fail, <code>constraints_remedy</code> decides what
-happens next:</p>
+because of the order in which it was assembled. The checks are relative
+to the scale of the matrix, so ordinary floating-point noise never
+triggers anything: eigenvalues down to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><msqrt><mi>ϵ</mi></msqrt><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">|</mo><msub><mi>A</mi><mrow><mi>i</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">-\sqrt{\epsilon}\,\max|A_{ii}|</annotation></semantics></math>
+(about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>1.5</mn><mo>×</mo><msup><mn>10</mn><mrow><mi>−</mi><mn>8</mn></mrow></msup></mrow><annotation encoding="application/x-tex">-1.5\times10^{-8}</annotation></semantics></math>
+times the largest diagonal entry) count as non-negative, and an
+asymmetry
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>A</mi><mo>−</mo><msup><mi>A</mi><mi>⊤</mi></msup><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub><mi>/</mi><mo stretchy="false" form="postfix">∥</mo><mi>A</mi><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub></mrow><annotation encoding="application/x-tex">\|A - A^\top\|_F / \|A\|_F</annotation></semantics></math>
+below
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><annotation encoding="application/x-tex">10^{-10}</annotation></semantics></math>
+is averaged away. A metric that passes is used exactly as supplied.</p>
+<p>Two things are never repaired. A genuinely asymmetric matrix is an
+error under every setting: there is no way to know which triangle you
+meant. And a metric that fails the PSD check is an error by default
+(<code>constraints_remedy = "error"</code>), because a fit that silently
+ran on a different metric than the one you supplied is worse than no
+fit. If you do want a repair, ask for it, and you will be told what was
+done:</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -559,58 +574,52 @@ happens next:</p>
 <tbody>
 <tr class="odd">
 <td>
-<code>"ridge"</code> (default)</td>
+<code>"error"</code> (default)</td>
+<td>Refuses the input.</td>
+<td>Nothing — this is the right setting when the metric comes from a
+pipeline that ought to be producing a valid one.</td>
+</tr>
+<tr class="even">
+<td><code>"ridge"</code></td>
 <td>Adds a diagonal shift (from the Gershgorin bound, with a
-<code><a href="https://rdrr.io/pkg/Matrix/man/nearPD.html" class="external-link">Matrix::nearPD()</a></code> fallback for small dense matrices) just
-large enough to make the matrix positive definite. Preserves
+<code><a href="https://rdrr.io/pkg/Matrix/man/nearPD.html" class="external-link">Matrix::nearPD()</a></code> fallback for small dense matrices)
+sufficient to make the matrix positive definite. Preserves
 sparsity.</td>
 <td>The shift pulls the metric toward a multiple of the identity,
 diluting the structure you supplied. A <em>large</em> shift means the
 input was badly indefinite — diagnose it rather than absorb it.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>"clip"</code></td>
 <td>Eigendecomposes and sets the negative eigenvalues to zero, leaving
 the rest of the spectrum exactly as it was.</td>
 <td>Densifies the matrix, so it refuses sparse input larger than
 2000×2000. Use <code>"ridge"</code> at that size.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>"identity"</code></td>
 <td>Replaces the offending metric with the identity.</td>
-<td>Discards your structure and quietly hands back ordinary PCA, with
-the run still reporting success. Pass <code>verbose = TRUE</code> to be
-told when this fires.</td>
-</tr>
-<tr class="even">
-<td><code>"error"</code></td>
-<td>Refuses the input.</td>
-<td>Nothing — this is the right setting when the metric comes from a
-pipeline that ought to be producing a valid one.
-<code><a href="../reference/genpca_cov.html">genpca_cov()</a></code> defaults to it for that reason.</td>
+<td>Discards your structure and hands back ordinary PCA.</td>
 </tr>
 </tbody>
 </table>
-<p>Two behaviours are worth knowing about because they are silent:</p>
-<ul>
-<li>
-<code>"ridge"</code> and <code>"clip"</code> both symmetrise the
-input by mirroring the <strong>upper</strong> triangle onto the lower.
-If you pass a genuinely asymmetric matrix, the lower triangle is
-discarded without a word. Only <code>"error"</code> reports it.</li>
-<li>
-<code>"identity"</code> and a large <code>"ridge"</code> shift both
-produce a fit that looks healthy while encoding much less structure than
-you intended.</li>
-</ul>
-<p>So if a metric matters to the result, verify it rather than trusting
-the remedy to have done something sensible:</p>
+<p>Every repair that actually changes the metric emits a warning of
+class <code>genpca_metric_repaired</code> whose <code>report</code>
+field records the minimum eigenvalue before and after, the shift
+applied, the rank and the condition number. The same report is available
+directly from <code><a href="../reference/repair_metric.html">repair_metric()</a></code>, which is the better way to
+work: repair once, look at the report, and pass the repaired matrix to
+every subsequent fit.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Is the metric usable as-is? (small problems)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/eigen.html" class="external-link">eigen</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">A</span><span class="op">)</span>, symmetric <span class="op">=</span> <span class="cn">TRUE</span>, only.values <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Is the metric usable as-is, and what would a repair do to it?</span></span>
+<span><span class="va">A_ok</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/repair_metric.html">repair_metric</a></span><span class="op">(</span><span class="va">A</span>, method <span class="op">=</span> <span class="st">"ridge"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">A_ok</span>, <span class="st">"repair_report"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Did a remedy fire, and how hard?</span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Catch the repair warning programmatically inside a fit</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">withCallingHandlers</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/genpca.html">genpca</a></span><span class="op">(</span><span class="va">X</span>, A <span class="op">=</span> <span class="va">A</span>, M <span class="op">=</span> <span class="va">M</span>, ncomp <span class="op">=</span> <span class="fl">3</span>, constraints_remedy <span class="op">=</span> <span class="st">"ridge"</span><span class="op">)</span>,</span>
+<span>  genpca_metric_repaired <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="op">{</span> <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">w</span><span class="op">$</span><span class="va">report</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">invokeRestart</a></span><span class="op">(</span><span class="st">"muffleWarning"</span><span class="op">)</span> <span class="op">}</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 <p>Two habits that avoid the problem to begin with: scale metrics before
 use (dividing by the mean diagonal, say) so that <code>M</code> and
 <code>A</code> are comparably conditioned, and prefer building a metric

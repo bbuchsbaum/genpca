@@ -33,7 +33,7 @@ set A = solve(Sigma_c).
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -89,10 +89,10 @@ set <code>A = solve(Sigma_c)</code>.</p></li>
 <span>  ncomp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  max_iter <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  lambda <span class="op">=</span> <span class="fl">0.001</span>,</span>
-<span>  scale_fix <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"trace"</span>, <span class="st">"det"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  scale_fix <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"none"</span>, <span class="st">"trace"</span>, <span class="st">"det"</span><span class="op">)</span>,</span>
 <span>  tol <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"eigen"</span>,</span>
-<span>  constraints_remedy <span class="op">=</span> <span class="st">"ridge"</span>,</span>
+<span>  constraints_remedy <span class="op">=</span> <span class="st">"error"</span>,</span>
 <span>  preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/pass.html" class="external-link">pass</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -125,12 +125,14 @@ scale direction and covariances may become singular.</p></dd>
 
 
 <dt id="arg-scale-fix">scale_fix<a class="anchor" aria-label="anchor" href="#arg-scale-fix"></a></dt>
-<dd><p>How to canonicalize the <code>c * Sigma_r, Sigma_c / c</code>
-indeterminacy at exit. One of <code>"trace"</code> (default: row
-covariance scaled to mean diagonal 1), <code>"det"</code> (row covariance
-scaled to determinant 1), or <code>"none"</code>. Applied as a joint
-reciprocal rescale, so the fitted covariance \(\Sigma_r \otimes
-       \Sigma_c\) and the likelihood are unchanged.</p></dd>
+<dd><p>Optional post-hoc reparameterization of the
+<code>c * Sigma_r, Sigma_c / c</code> split at exit. One of <code>"none"</code>
+(default: keep the penalized optimum), <code>"trace"</code> (row
+covariance scaled to mean diagonal 1) or <code>"det"</code> (row
+covariance scaled to determinant 1). Applied as a joint reciprocal
+rescale, so the fitted covariance \(\Sigma_r \otimes \Sigma_c\)
+and the unpenalized likelihood are unchanged, but the penalized
+objective generally decreases; see Details.</p></dd>
 
 
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
@@ -143,7 +145,9 @@ reciprocal rescale, so the fitted covariance \(\Sigma_r \otimes
 
 
 <dt id="arg-constraints-remedy">constraints_remedy<a class="anchor" aria-label="anchor" href="#arg-constraints-remedy"></a></dt>
-<dd><p>Passed to <code>genpca</code>; defaults to "ridge".</p></dd>
+<dd><p>Passed to <code>genpca</code>; defaults to "error".
+The learned metrics are inverses of positive definite matrices, so
+no repair fires in practice.</p></dd>
 
 
 <dt id="arg-preproc">preproc<a class="anchor" aria-label="anchor" href="#arg-preproc"></a></dt>
@@ -161,8 +165,13 @@ reciprocal rescale, so the fitted covariance \(\Sigma_r \otimes
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list with elements <code>fit</code> (a <code>genpca</code> fit computed with
-the returned canonicalized metrics), <code>A</code>, <code>M</code> (learned
-SPD metrics), <code>loglik</code> (final penalized log-likelihood), and
+the returned metrics), <code>A</code>, <code>M</code> (learned SPD metrics),
+<code>loglik</code> (the penalized log-likelihood evaluated at the
+returned <code>M</code>, <code>A</code> and <code>fit</code>),
+<code>loglik_unpenalized</code> (the same without the <code>lambda</code>
+penalty), <code>loglik_rescale_delta</code> (<code>loglik</code> minus the
+last value of <code>loglik_path</code>; zero for
+<code>scale_fix = "none"</code>, typically negative otherwise), and
 <code>loglik_path</code> (the penalized log-likelihood after each outer
 iteration; monotone non-decreasing up to numerical noise, since
 every block update exactly minimizes the shared penalized
@@ -179,13 +188,20 @@ an inverse-Wishart-style ridge penalty
 (a MAP estimate). Because every block update is an exact minimizer of this
 one objective, <code>loglik_path</code> is monotone non-decreasing up to
 numerical noise. The penalty also resolves the \(c\,\Sigma_r,
-\Sigma_c/c\) scale indeterminacy during iteration; <code>scale_fix</code> is
-applied once at exit as a <em>joint</em> reciprocal rescale (row covariance
-normalized, factor absorbed into the column covariance), which leaves the
-likelihood unchanged. The algorithm stops when the relative change in the
-penalized log-likelihood falls below <code>tol</code> or <code>max_iter</code> is
-reached. Increase <code>lambda</code> or reduce <code>ncomp</code> if iterations
-become unstable.</p>
+\Sigma_c/c\) scale indeterminacy, so the converged metrics are the
+penalized optimum and no rescaling is needed (<code>scale_fix = "none"</code>,
+the default). <code>scale_fix = "trace"</code> or <code>"det"</code> additionally
+applies a joint reciprocal rescale at exit (row covariance normalized,
+factor absorbed into the column covariance). The unpenalized
+matrix-normal likelihood is invariant to that rescale, but the penalty
+\(p\lambda\,\mathrm{tr}(M) + n\lambda\,\mathrm{tr}(A)\) is not, so
+the rescaled metrics are no longer the penalized optimum; the returned
+<code>loglik</code> is always evaluated at the returned metrics and
+<code>loglik_rescale_delta</code> reports how far the rescale moved it. The
+algorithm stops when the relative change in the penalized log-likelihood
+falls below <code>tol</code> or <code>max_iter</code> is reached. Increase
+<code>lambda</code> or reduce <code>ncomp</code> if iterations become unstable. The
+objective is not identifiable with <code>lambda = 0</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,57 @@
       <small>Source: <a href="https://github.com/bbuchsbaum/genpca/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.2.0" id="genpca-020">genpca 0.2.0<a class="anchor" aria-label="anchor" href="#genpca-020"></a></h2>
+<div class="section level4">
+<h4 id="release-review-fixes-0-2-0">Release review fixes<a class="anchor" aria-label="anchor" href="#release-review-fixes-0-2-0"></a></h4>
+<ul><li>Strictly positive diagonal weights are retained in both forward and inverse metric factors. Previously a small positive weight could contribute a large singular value while its recovered loading was zero. The fix covers GPCA, covariance PCA and PLS operators, including base-matrix diagonal inputs.</li>
+<li>Both deflation implementations now separate <code>rank_rtol</code> from the iteration <code>threshold</code>. All backends also apply a common final component filter. Empty C++ deflation results return empty singular-value and variance vectors.</li>
+<li>Incomplete eigencore results raise <code>genpca_solver_nonconvergence</code>. Existing dense fallbacks handle this error; operator callers without a fallback stop instead of returning an unchecked fit.</li>
+<li>Explicit <code>"clip"</code> repairs remove negative eigenvalues even within the PSD validation tolerance and report the change, up to reconstruction roundoff.</li>
+<li>
+<code><a href="../reference/geigen_cov.html">geigen_cov()</a></code> documents its projected equation for singular metrics and the range constraint on its vectors. Commuting metrics and covariances need not give the same leading component under GMD and generalized eigenanalysis.</li>
+<li>Rank-cutoff equations render in both PDF and HTML manuals. Local diagnostic artifacts are excluded from source packages.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="numerical-semantics-audit-of-0-2-0">Numerical semantics (audit of 2026-09)<a class="anchor" aria-label="anchor" href="#numerical-semantics-audit-of-0-2-0"></a></h4>
+<ul><li>All rank and validity decisions are now relative to the scale of the problem, so results are invariant to rescaling <code>X</code> or a metric. New <code>rank_rtol</code> argument in <code><a href="../reference/genpca.html">genpca()</a></code>, <code><a href="../reference/genpca_cov.html">genpca_cov()</a></code> and the internal solvers: component <code>j</code> is dropped when <code>d_j &lt;= rank_rtol * d_1</code> (default <code>1e-6</code>), for every method. Metric validation and null-space detection use a separate relative tolerance, <code>sqrt(.Machine$double.eps)</code>. The previous absolute cutoffs (<code>1e-8</code> on eigenvalues, <code>1e-9</code> on singular values, a <code>1e-8</code> total-variance floor, an absolute <code>jitter_metric</code>) could change the number of components returned, or return wrong values from the randomized backend, when <code>X</code> was rescaled.</li>
+<li>Positive semi-definiteness and positive definiteness are now distinct checks (<code><a href="../reference/is_psd.html">is_psd()</a></code>, <code><a href="../reference/is_psd.html">is_pd()</a></code>, both shifted Cholesky probes with relative tolerance). <code><a href="../reference/ensure_spd.html">ensure_spd()</a></code> always returns a positive definite matrix and forwards its tolerance; previously a zero or singular matrix could be returned unchanged.</li>
+<li>Asymmetric metrics are an error under every <code>constraints_remedy</code>. The relative asymmetry <code>||A - A'|| / ||A||</code> is measured; below <code>1e-10</code> the two triangles are averaged, above it the call stops. Previously one triangle was silently used, so the result depended on which triangle the caller had filled. The same applies to <code>C</code> and <code>R</code> in <code><a href="../reference/genpca_cov.html">genpca_cov()</a></code>.</li>
+<li>
+<code>constraints_remedy = "clip"</code> now guarantees a PSD result; the previous tolerant fast path could return a matrix with a small negative eigenvalue.</li>
+<li>Diagonal weights (vectors or diagonal matrices) are validated identically by every backend: entries within the relative tolerance of zero are set to exactly zero with a message; more negative entries are subject to <code>constraints_remedy</code>. Previously the eigen path rejected what the other backends silently accepted or clamped.</li>
+<li>
+<code>method = "eigen"</code> never truncates a metric any more. A positive definite general metric is factored exactly by Cholesky at any size; a singular general metric needs a dense eigendecomposition, which is refused above <code>maxeig</code> rows (default now <code>5000</code>) with a message naming the alternatives. The previous behaviour, keeping only the <code>maxeig</code> largest eigenvectors of the metric before looking at <code>X</code>, could discard the dominant component entirely (a direction with a small metric eigenvalue and large data variance). <code>warn_approx</code> is deprecated and ignored.</li>
+<li>
+<code>genpca_cov(method = "gmd")</code> requires <code>C</code> to be PSD within tolerance and no longer clamps negative metric eigenvalues silently. Its <code>tol</code> argument is deprecated in favor of <code>rank_rtol</code> and <code>metric_rtol</code>.</li>
+<li>New exported <code><a href="../reference/repair_metric.html">repair_metric()</a></code> returns a repaired metric together with a <code>metric_repair_report</code> (minimum eigenvalue before and after, Gershgorin bound, applied shift, rank, condition number).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="explicit-metric-repair-breaking-0-2-0">Explicit metric repair (breaking)<a class="anchor" aria-label="anchor" href="#explicit-metric-repair-breaking-0-2-0"></a></h4>
+<ul><li>
+<code><a href="../reference/genpca.html">genpca()</a></code> now defaults to <code>constraints_remedy = "error"</code>: an indefinite metric stops the fit instead of being silently shifted. Opt into a repair with <code>constraints_remedy = "ridge"</code>, <code>"clip"</code> or <code>"identity"</code>; every repair that changes the metric emits a warning of class <code>genpca_metric_repaired</code> whose <code>report</code> field is the <code><a href="../reference/repair_metric.html">repair_metric()</a></code> diagnostic. <code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> inherits the new default.</li>
+<li>
+<code><a href="../reference/genpls.html">genpls()</a></code>, <code><a href="../reference/genplsc.html">genplsc()</a></code> and <code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code> gain the same <code>constraints_remedy</code> argument (default <code>"error"</code>). Previously their metric operators applied a Gershgorin ridge to any indefinite weight matrix with no message and no way to opt out.</li>
+<li>
+<code>verbose = TRUE</code> is no longer needed to find out that a metric was replaced by the identity; the warning always fires.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="covariance-interface-and-gpca_mle-0-2-0">Covariance interface and <code>gpca_mle()</code>
+<a class="anchor" aria-label="anchor" href="#covariance-interface-and-gpca_mle-0-2-0"></a></h4>
+<ul><li>
+<code><a href="../reference/genpca_cov.html">genpca_cov()</a></code> is now the GMD estimator only (eigendecomposition of <code>R^{1/2} C R^{1/2}</code>). The generalized eigenproblem <code>C v = lambda R v</code>, a different estimator, is the new exported <code><a href="../reference/geigen_cov.html">geigen_cov()</a></code>. <code>genpca_cov(method = "geigen")</code> still works for one release and forwards with a deprecation warning.</li>
+<li>
+<code><a href="../reference/gpca_mle.html">gpca_mle()</a></code> defaults to <code>scale_fix = "none"</code>. The ridge penalty already identifies the overall scale of the learned metrics, and the previous default <code>"trace"</code> rescaled the metrics after convergence in a way the penalized objective is not invariant to, while still reporting the pre-rescale value. <code>loglik</code> is now always the penalized objective at the returned metrics; <code>loglik_unpenalized</code> and <code>loglik_rescale_delta</code> (the change caused by a <code>"trace"</code>/<code>"det"</code> rescale) are new.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="solver-backend-0-2-0">Solver backend<a class="anchor" aria-label="anchor" href="#solver-backend-0-2-0"></a></h4>
+<ul><li>The iterative eigen/SVD backend is now the <strong>eigencore</strong> package; <strong>RSpectra</strong> is no longer a dependency. <code>method = "spectra"</code> computes the top-k singular triplets of the metric-whitened data <code>F_M' X F_A</code> (<code>M = F_M F_M'</code>, <code>A = F_A F_A'</code>) as an implicit operator: diagonal, dense Cholesky, sparse (CHOLMOD) Cholesky and eigen factors (for singular metrics) are all supported, and a dense SVD is used when the iterative solver does not converge. The C++ Spectra kernel and the <code>LinkingTo: RSpectra</code> dependency are gone. <code><a href="../reference/gmd_spectra.html">gmd_fast_cpp()</a></code> remains as an alias of the new <code><a href="../reference/gmd_spectra.html">gmd_spectra()</a></code>; its <code>maxit</code> and <code>seed</code> arguments are ignored.</li>
+<li>
+<code><a href="../reference/genpls.html">genpls()</a></code>, <code><a href="../reference/genplsc.html">genplsc()</a></code> and <code><a href="../reference/gplssvd_op.html">gplssvd_op()</a></code> accept <code>svd_backend = "eigencore"</code> (new default); <code>"RSpectra"</code> is accepted as a deprecated alias.</li>
+<li>Iterative solves never disturb the caller’s <code>.Random.seed</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="genpca-010">genpca 0.1.0<a class="anchor" aria-label="anchor" href="#genpca-010"></a></h2>
 <ul><li>Initial CRAN submission.</li>

@@ -11,7 +11,7 @@ without materializing \(Xe = Mx^{1/2} X Ax^{1/2}\) or \(Ye = My^{1/2} Y Ay^{1/2}
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,8 +64,9 @@ without materializing \(Xe = Mx^{1/2} X Ax^{1/2}\) or \(Ye = My^{1/2} Y Ay^{1/2}
 <span>  ncomp <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  preproc_x <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/pass.html" class="external-link">pass</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  preproc_y <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/pass.html" class="external-link">pass</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  svd_backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"RSpectra"</span>, <span class="st">"irlba"</span><span class="op">)</span>,</span>
+<span>  svd_backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"eigencore"</span>, <span class="st">"irlba"</span>, <span class="st">"RSpectra"</span><span class="op">)</span>,</span>
 <span>  svd_opts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>tol <span class="op">=</span> <span class="fl">1e-07</span>, maxitr <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span>,</span>
+<span>  constraints_remedy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"ridge"</span>, <span class="st">"clip"</span>, <span class="st">"identity"</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -108,7 +109,7 @@ Defaults to <code><a href="https://bbuchsbaum.github.io/multivarious/reference/p
 
 
 <dt id="arg-svd-backend">svd_backend<a class="anchor" aria-label="anchor" href="#arg-svd-backend"></a></dt>
-<dd><p>Character, one of <code>"RSpectra"</code> (default) or <code>"irlba"</code> for
+<dd><p>Character, one of <code>"eigencore"</code> (default) or <code>"irlba"</code> for
 the iterative SVD. This choice only matters for larger problems: whenever
 both <code>X</code> and <code>Y</code> have at most 64 columns after preprocessing, the
 operator materializes <code>S</code> densely and computes a direct <code><a href="https://rdrr.io/r/base/svd.html" class="external-link">svd()</a></code>,
@@ -116,7 +117,15 @@ ignoring <code>svd_backend</code> entirely (see <code><a href="gplssvd_op.html">
 
 
 <dt id="arg-svd-opts">svd_opts<a class="anchor" aria-label="anchor" href="#arg-svd-opts"></a></dt>
-<dd><p>List of options passed to the SVD backend, e.g., <code>tol</code>, <code>maxitr</code>.</p></dd>
+<dd><p>List of options: <code>tol</code> for both backends and <code>maxitr</code> for
+irlba only. An incomplete eigencore solve raises an error of class
+<code>genpca_solver_nonconvergence</code>; no unchecked fit is returned.</p></dd>
+
+
+<dt id="arg-constraints-remedy">constraints_remedy<a class="anchor" aria-label="anchor" href="#arg-constraints-remedy"></a></dt>
+<dd><p>What to do with a metric that is not positive
+semi-definite: <code>"error"</code> (default), <code>"ridge"</code>, <code>"clip"</code> or <code>"identity"</code>;
+repairs emit a <code>genpca_metric_repaired</code> warning. See <code><a href="genpca.html">genpca()</a></code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -201,8 +210,7 @@ squares decompositions: The GSVD package. (Eqs. 10-14). arXiv:2010.14734.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"RSpectra"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
-<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"multivarious"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"multivarious"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">100</span>; <span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">40</span>; <span class="va">q</span> <span class="op">&lt;-</span> <span class="fl">30</span></span></span>
 <span class="r-in"><span>  <span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">*</span><span class="va">p</span><span class="op">)</span>, <span class="va">n</span>, <span class="va">p</span><span class="op">)</span></span></span>

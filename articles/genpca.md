@@ -254,7 +254,7 @@ routes:
 | `method` | Approach | Best for |
 |:---|:---|:---|
 | `"eigen"` | Works on the smaller side: a $`p \times p`$ Gram eigenproblem when $`n \ge p`$, an $`n \times n`$ one when $`n < p`$. Metric square roots are cached. | Small to medium dense problems (the default) |
-| `"spectra"` | Matrix-free. Supplies only the *action* $`w \mapsto X^{\top}MXA\,w`$ to a C++ Krylov eigensolver; neither the whitened matrix nor the Gram matrix is ever formed. | Large problems with sparse structured metrics |
+| `"spectra"` | Iterative. Factors each metric once ($`M = F_M F_M^{\top}`$, $`A = F_A F_A^{\top}`$: diagonal, Cholesky, sparse Cholesky, or an eigen factor for a singular metric) and hands the *action* of the whitened matrix $`F_M^{\top} X F_A`$ to eigencore’s partial SVD; neither the whitened matrix nor the Gram matrix is ever formed. | Large problems where few components are needed |
 | `"randomized"` | Randomized range finder with power iterations and a polish step, all in the metric geometry. | Wide ($`p \gg n`$), low-rank problems |
 | `"deflation"` | Generalized power iteration one component at a time, with the residual applied implicitly so sparse inputs stay sparse. | Tight memory budgets |
 

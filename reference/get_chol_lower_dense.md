@@ -12,7 +12,8 @@ get_chol_lower_dense(A)
 
 - A:
 
-  numeric or dense Matrix (SPD). If sparse, falls back to dense.
+  numeric or dense Matrix (SPD). Sparse input is an error (it is
+  factored sparsely elsewhere), never densified here.
 
 ## Value
 

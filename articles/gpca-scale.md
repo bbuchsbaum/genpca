@@ -40,8 +40,8 @@ data.frame(method = c("eigen", "randomized"),
            elapsed = c(t_eig["elapsed"], t_rnd["elapsed"]),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]))
 #>       method elapsed   top_sv
-#> 1      eigen   0.105 19.48896
-#> 2 randomized   0.007 19.14753
+#> 1      eigen   0.109 19.48896
+#> 2 randomized   0.008 19.14753
 ```
 
 ![Singular values from the eigen and randomized paths agree to plotting
@@ -53,9 +53,10 @@ precision on this dense problem.
 
 ## Sparse workflow (`spectra`)
 
-The `spectra` backend uses an iterative C++ solver and is the right
-choice for large sparse problems, including problems with sparse
-row/column metrics:
+The `spectra` backend factors each metric once (a sparse Cholesky here)
+and runs eigencore’s iterative partial SVD on the whitened operator; it
+is the right choice for large problems that need few components,
+including problems with sparse row/column metrics:
 
 ``` r
 
@@ -70,11 +71,33 @@ A_sp <- bandSparse(p, k = c(-1, 0, 1),
                    diagonals = list(rep(0.1, p - 1), rep(1, p), rep(0.1, p - 1)))
 
 fit_sp <- genpca(X_sparse, M = M_sp, A = A_sp, ncomp = 5, method = "spectra",
-                 preproc = multivarious::pass(),
-                 constraints_remedy = "ridge")
+                 preproc = multivarious::pass())
 fit_sp$sdev
 #> [1] 5.153523 4.533004 4.258609 4.174038 3.991699
 ```
+
+### What stays sparse
+
+Be precise about what “sparse” buys with each backend, because it is
+less than the name suggests:
+
+- `"deflation"` is the only backend that keeps the data sparse end to
+  end: its C++ kernel takes sparse `X`, `M` and `A` and only multiplies.
+- `"spectra"` and `"randomized"` densify `X` before the solve (the
+  iterative solver works on a dense copy of the data), but never form a
+  dense metric: a diagonal metric costs nothing, a sparse positive
+  definite metric is factored by a sparse (CHOLMOD) Cholesky whose
+  fill-in depends on the graph, and a dense positive definite metric
+  costs one dense Cholesky of its dimension. A metric that is not
+  positive definite needs a dense eigendecomposition, refused above
+  `maxeig` rows.
+- Validation itself performs one sparse Cholesky probe of a sparse
+  metric under every `constraints_remedy`; that is fill-in, not
+  densification.
+
+So “sparse `X` with a sparse metric” is memory-safe with `"deflation"`,
+and compute-safe with `"spectra"` as long as the metric’s Cholesky
+factor stays sparse (banded, spatial-graph and AR-type metrics all do).
 
 ## Covariance-only GPCA
 
@@ -129,9 +152,11 @@ the same component space.
 ## Performance tips
 
 Keep data sparse when possible; avoid centering dense copies if you plan
-to use `spectra`. Use `constraints_remedy = "ridge"` for empirical
-metrics. For large problems, limit `ncomp` to what you truly need, and
-consider the covariance route when `n` is huge but `p` is moderate.
+to use `spectra`. Validate empirical metrics with
+[`repair_metric()`](https://bbuchsbaum.github.io/genpca/reference/repair_metric.md)
+before fitting rather than relying on a remedy inside the fit. For large
+problems, limit `ncomp` to what you truly need, and consider the
+covariance route when `n` is huge but `p` is moderate.
 
 ## Where next
 

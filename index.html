@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,7 +96,7 @@
 <li>
 <code>eigen</code>: Direct eigendecomposition for small-to-medium problems</li>
 <li>
-<code>spectra</code>: Matrix-free C++ implementation for large/sparse data</li>
+<code>spectra</code>: Iterative partial SVD of the metric-whitened data (via eigencore) for large problems</li>
 <li>
 <code>randomized</code>: Block-sketch approximation for wide low-rank settings</li>
 <li>
@@ -114,7 +114,7 @@
 <li>
 <strong>Operator-level computations</strong> (<code>gplssvd_op</code>): Efficient PLS without materializing whitened matrices</li>
 <li>
-<strong>Constraint handling</strong>: Automatic validation and repair of metric matrices (PSD enforcement)</li>
+<strong>Constraint handling</strong>: Strict, scale-relative validation of metric matrices (symmetry and positive semi-definiteness); repairs are explicit and reported (<code><a href="reference/repair_metric.html">repair_metric()</a></code>, <code>constraints_remedy</code>)</li>
 </ul>
 </div>
 <div class="section level3">
@@ -167,9 +167,9 @@
 </tr>
 <tr>
 <td><code>spectra</code></td>
-<td>Large diagonal/sparse-friendly problems</td>
-<td>Matrix-free iterative solve; lower memory</td>
-<td>Accuracy/performance can depend on conditioning and iteration behavior</td>
+<td>Large problems with few components</td>
+<td>Iterative partial SVD of the whitened operator (eigencore); lower memory</td>
+<td>Both metrics are factored once (Cholesky or sparse Cholesky); a large dense general metric costs one factorization</td>
 </tr>
 <tr>
 <td><code>randomized</code></td>
@@ -201,7 +201,7 @@
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"bbuchsbaum/genpca"</span><span class="op">)</span></span></code></pre></div>
 <p>You’ll also want these runtime dependencies installed:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Matrix"</span>, <span class="st">"RSpectra"</span>, <span class="st">"multivarious"</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Matrix"</span>, <span class="st">"eigencore"</span>, <span class="st">"multivarious"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># Optional for some utilities / tests</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"irlba"</span>, <span class="st">"knitr"</span>, <span class="st">"rmarkdown"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -340,7 +340,7 @@
 <h2 id="testing-and-guarantees">Testing and guarantees<a class="anchor" aria-label="anchor" href="#testing-and-guarantees"></a>
 </h2>
 <ul>
-<li>Eigen vs Spectra: unit tests assert tight agreement on modest problems (sdev within 1e‑6, scores within 1e‑5 up to sign).</li>
+<li>Eigen vs spectra (eigencore): unit tests assert tight agreement on modest problems (sdev within 1e‑6, scores within 1e‑5 up to sign).</li>
 <li>Deflation vs Eigen: additional tests (n≈60, p≈40, k=8) assert:
 <ul>
 <li>sdev within 1e‑4,</li>

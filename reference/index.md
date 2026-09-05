@@ -2,10 +2,12 @@
 
 ## All functions
 
+- [`geigen_cov()`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md)
+  : Generalized eigenproblem on a covariance matrix
 - [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
   : Generalised Principal Components Analysis (GPCA)
 - [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
-  : Generalized PCA on a covariance matrix
+  : Generalized PCA on a covariance matrix (GMD form)
 - [`genpls()`](https://bbuchsbaum.github.io/genpca/reference/genpls.md)
   : Generalized PLS via Implicit Operator (PLS-SVD / GPLSSVD)
 - [`genplsc()`](https://bbuchsbaum.github.io/genpca/reference/genplsc.md)
@@ -24,6 +26,8 @@
   : Reconstruct data from a genpca fit
 - [`reconstruct(`*`<sfpca>`*`)`](https://bbuchsbaum.github.io/genpca/reference/reconstruct.sfpca.md)
   : Reconstruct data from an sfpca fit
+- [`repair_metric()`](https://bbuchsbaum.github.io/genpca/reference/repair_metric.md)
+  : Repair a metric matrix explicitly
 - [`rpls()`](https://bbuchsbaum.github.io/genpca/reference/rpls.md) :
   Regularised / Generalised Partial Least Squares (RPLS / GPLS)
 - [`sfpca()`](https://bbuchsbaum.github.io/genpca/reference/sfpca.md) :

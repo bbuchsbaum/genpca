@@ -13,7 +13,7 @@ as_weight_operator(W, transpose = FALSE, sqrt = FALSE, inverse = FALSE)
 
 - W:
 
-  A weight matrix (SPD) or NULL for identity
+  A weight matrix (symmetric PSD) or NULL for identity
 
 - transpose:
 

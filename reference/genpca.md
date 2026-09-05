@@ -14,15 +14,16 @@ genpca(
   M = NULL,
   ncomp = NULL,
   method = c("eigen", "auto", "spectra", "randomized", "deflation"),
-  constraints_remedy = c("ridge", "error", "clip", "identity"),
+  constraints_remedy = c("error", "ridge", "clip", "identity"),
   preproc = multivarious::pass(),
   threshold = 1e-06,
   maxit_deflation = 500L,
   use_cpp = TRUE,
-  maxeig = 800,
+  maxeig = 5000,
   warn_approx = TRUE,
   maxit_spectra = 1000,
   tol_spectra = 1e-09,
+  rank_rtol = 1e-06,
   oversample = 20L,
   n_power = 1L,
   n_polish = 0L,
@@ -58,28 +59,30 @@ genpca(
 
   Character string specifying the computation method. One of `"eigen"`
   (default, uses `gmdLA`), `"auto"` (heuristic choice among `"eigen"`,
-  `"spectra"`, and `"randomized"`), `"spectra"` (uses matrix-free
-  C++/Spectra implementation `gmd_fast_cpp`), `"randomized"`
-  (approximate randomized block solver `gmd_randomized`), or
-  `"deflation"` (uses `gmd_deflationR` or `gmd_deflation_cpp`).
+  `"spectra"`, and `"randomized"`), `"spectra"` (iterative partial SVD
+  of the metric-whitened data via eigencore, `gmd_spectra`),
+  `"randomized"` (approximate randomized block solver `gmd_randomized`),
+  or `"deflation"` (uses `gmd_deflationR` or `gmd_deflation_cpp`).
 
 - constraints_remedy:
 
-  Character string specifying how a supplied `A` or `M` that is not
-  symmetric positive (semi)definite is repaired. Default `"ridge"`. One
-  of: `"error"` (reject the input with an error), `"ridge"` (Gershgorin
-  diagonal shift: add the smallest diagonal loading that restores
-  positive definiteness, falling back to
+  Character string specifying what to do with a supplied `A` or `M` that
+  is not positive semi-definite (within a relative tolerance of
+  `sqrt(.Machine$double.eps)`). Default `"error"`: reject the input. The
+  alternatives repair it and emit a warning of class
+  `genpca_metric_repaired` whose `report` field (see
+  [`repair_metric`](https://bbuchsbaum.github.io/genpca/reference/repair_metric.md))
+  records the minimum eigenvalue before and after, the shift applied,
+  the rank and the condition number: `"ridge"` (Gershgorin diagonal
+  shift: add the smallest diagonal loading that restores positive
+  definiteness, falling back to
   [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) for
   small dense matrices), `"clip"` (spectral clip to the PSD cone by
   zeroing negative eigenvalues; this densifies the matrix and refuses
   sparse input larger than 2000 rows/cols, where `"ridge"` should be
   used instead), or `"identity"` (replace the matrix with the identity).
-  Note that
-  [`genpca_cov`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md)
-  defaults to `"error"` instead of `"ridge"`, since it expects an
-  already-validated covariance matrix; see its documentation for
-  details.
+  An asymmetric metric is an error under every setting. Singular PSD
+  metrics are valid input and are never repaired.
 
 - preproc:
 
@@ -115,27 +118,42 @@ genpca(
 
 - maxeig:
 
-  Upper bound on subspace dimension for eigen/SVD calculations,
-  primarily for `method = "eigen"`. If a constraint matrix dimension is
-  `<= maxeig` a full eigen decomposition is used. Otherwise only the
-  leading `maxeig` eigencomponents are computed via
-  [`RSpectra::eigs_sym`](https://rdrr.io/pkg/RSpectra/man/eigs.html), so
-  results may be approximate. Default `800`.
+  For `method = "eigen"` and `method = "spectra"`: a positive definite
+  general metric is factored exactly by Cholesky at any size, but a
+  singular general metric (e.g. a graph Laplacian) needs a dense
+  eigendecomposition of the metric, which is refused when the metric has
+  more than `maxeig` rows. The error names the alternatives
+  (`method = "deflation"`, which only multiplies by the metric, or
+  raising `maxeig`); `method = "auto"` routes such cases to deflation.
+  Results are never approximated. Default `5000`.
 
 - warn_approx:
 
-  Logical. If `TRUE` (default) a warning is emitted when an approximate
-  eigen decomposition is used because the dimension exceeds `maxeig`.
+  Deprecated and ignored: `method = "eigen"` no longer approximates
+  anything.
 
 - maxit_spectra:
 
-  Maximum iterations for the Spectra iterative solver when
-  `method = "spectra"`. Default `1000`.
+  Retained for compatibility and currently unused: the eigencore partial
+  SVD used by `method = "spectra"` is controlled by `tol_spectra` alone.
 
 - tol_spectra:
 
-  Tolerance for the Spectra iterative solver when `method = "spectra"`.
-  Default `1e-9`.
+  Convergence tolerance of the iterative solver when
+  `method = "spectra"`. Default `1e-9`. This governs iteration only;
+  rank decisions use `rank_rtol`.
+
+- rank_rtol:
+
+  Relative cutoff for component acceptance, on the scale of the singular
+  values: component \\j\\ is dropped when `d_j <= rank_rtol * d_1`.
+  Applied by every method (for the eigen paths on \\d_j^2\\), so the
+  number of components returned does not change when `X` is rescaled.
+  Default `1e-6`. Metric validation uses a separate relative tolerance,
+  `sqrt(.Machine$double.eps)`, for positive semi-definiteness and
+  null-space detection for general metric eigendecompositions. Every
+  strictly positive diagonal weight is retained in both the forward and
+  inverse factors.
 
 - oversample:
 
@@ -153,8 +171,8 @@ genpca(
 
 - jitter_metric:
 
-  Small jitter used in metric orthonormalization for
-  `method = "randomized"`. Default `1e-10`.
+  Jitter used in metric orthonormalization for `method = "randomized"`,
+  relative to the scale of the block Gram matrix. Default `1e-10`.
 
 - seed_randomized:
 
@@ -239,10 +257,11 @@ AV = I. (Allen et al., 2014). Five methods are available via the
   using heuristics on shape, rank ratio (`ncomp / min(n,p)`), and
   constraint structure.
 
-- `"spectra"`: Uses a matrix-free iterative approach via the RSpectra
-  package to solve the same eigen problem as `"eigen"` but without
+- `"spectra"`: Computes the top-k singular triplets of the
+  metric-whitened data \\F_M' X F_A\\ (with \\M = F_M F_M'\\, \\A = F_A
+  F_A'\\) as an implicit operator via the eigencore package, without
   forming the large intermediate matrix. Generally faster and uses less
-  memory for large `n` or `p`. Requires C++ compiler and RSpectra.
+  memory for large `n` or `p` when few components are requested.
 
 - `"randomized"`: Uses a randomized block range finder and small
   projected eigendecomposition. This is an approximate low-pass method
@@ -298,8 +317,7 @@ for GPCA on pre-computed covariance matrices,
 ## Examples
 
 ``` r
-if (requireNamespace("RSpectra", quietly = TRUE) &&
-    requireNamespace("multivarious", quietly = TRUE)) {
+if (requireNamespace("multivarious", quietly = TRUE)) {
   set.seed(123)
   X <- matrix(stats::rnorm(200 * 100), 200, 100)
   rownames(X) <- paste0("R", 1:200)

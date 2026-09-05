@@ -17,7 +17,7 @@ matrix-vector product in the iterative SVD costs two multiplies."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,8 +73,9 @@ matrix-vector product in the iterative SVD costs two multiplies.</p>
 <span>  k <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  center <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  scale <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  svd_backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"RSpectra"</span>, <span class="st">"irlba"</span><span class="op">)</span>,</span>
-<span>  svd_opts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>tol <span class="op">=</span> <span class="fl">1e-07</span>, maxitr <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span>
+<span>  svd_backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"eigencore"</span>, <span class="st">"irlba"</span>, <span class="st">"RSpectra"</span><span class="op">)</span>,</span>
+<span>  svd_opts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>tol <span class="op">=</span> <span class="fl">1e-07</span>, maxitr <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span>,</span>
+<span>  constraints_remedy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"ridge"</span>, <span class="st">"clip"</span>, <span class="st">"identity"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,13 +118,23 @@ truncated to that maximum.</p></dd>
 
 
 <dt id="arg-svd-backend">svd_backend<a class="anchor" aria-label="anchor" href="#arg-svd-backend"></a></dt>
-<dd><p>One of "RSpectra" (default) or "irlba". Ignored
+<dd><p>One of "eigencore" (default) or "irlba"; "RSpectra" is
+accepted as a deprecated alias of "eigencore". Ignored
 whenever both <code>ncol(X) &lt;= 64</code> and <code>ncol(Y) &lt;= 64</code>, in which case <code>S</code> is
 materialized densely and solved with <code><a href="https://rdrr.io/r/base/svd.html" class="external-link">base::svd()</a></code>.</p></dd>
 
 
 <dt id="arg-svd-opts">svd_opts<a class="anchor" aria-label="anchor" href="#arg-svd-opts"></a></dt>
-<dd><p>List of options for the backend (e.g., tol, maxitr)</p></dd>
+<dd><p>List of options for the backend: <code>tol</code> (both backends) and
+<code>maxitr</code> (irlba only; the eigencore partial SVD has no iteration cap).
+An incomplete eigencore solve raises <code>genpca_solver_nonconvergence</code>;
+try a less stringent <code>tol</code> if the requested accuracy cannot be reached.</p></dd>
+
+
+<dt id="arg-constraints-remedy">constraints_remedy<a class="anchor" aria-label="anchor" href="#arg-constraints-remedy"></a></dt>
+<dd><p>What to do with a metric that is not positive
+semi-definite: <code>"error"</code> (default), <code>"ridge"</code>, <code>"clip"</code> or <code>"identity"</code>;
+repairs emit a <code>genpca_metric_repaired</code> warning. See <code><a href="genpca.html">genpca()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

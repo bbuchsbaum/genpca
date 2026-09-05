@@ -13,7 +13,7 @@ Setting M = I_n, A = I_p recovers ordinary PCA."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -63,15 +63,16 @@ Setting M = I_n, A = I_p recovers ordinary PCA.</p>
 <span>  M <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  ncomp <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"eigen"</span>, <span class="st">"auto"</span>, <span class="st">"spectra"</span>, <span class="st">"randomized"</span>, <span class="st">"deflation"</span><span class="op">)</span>,</span>
-<span>  constraints_remedy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ridge"</span>, <span class="st">"error"</span>, <span class="st">"clip"</span>, <span class="st">"identity"</span><span class="op">)</span>,</span>
+<span>  constraints_remedy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"ridge"</span>, <span class="st">"clip"</span>, <span class="st">"identity"</span><span class="op">)</span>,</span>
 <span>  preproc <span class="op">=</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/pass.html" class="external-link">pass</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  maxit_deflation <span class="op">=</span> <span class="fl">500L</span>,</span>
 <span>  use_cpp <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  maxeig <span class="op">=</span> <span class="fl">800</span>,</span>
+<span>  maxeig <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  warn_approx <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  maxit_spectra <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  tol_spectra <span class="op">=</span> <span class="fl">1e-09</span>,</span>
+<span>  rank_rtol <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  oversample <span class="op">=</span> <span class="fl">20L</span>,</span>
 <span>  n_power <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  n_polish <span class="op">=</span> <span class="fl">0L</span>,</span>
@@ -105,23 +106,26 @@ symmetric n x n PSD matrix. If <code>NULL</code>, defaults to identity.</p></dd>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>Character string specifying the computation method. One of <code>"eigen"</code> (default, uses <code>gmdLA</code>), <code>"auto"</code> (heuristic choice among <code>"eigen"</code>, <code>"spectra"</code>, and <code>"randomized"</code>), <code>"spectra"</code> (uses matrix-free C++/Spectra implementation <code>gmd_fast_cpp</code>), <code>"randomized"</code> (approximate randomized block solver <code>gmd_randomized</code>), or <code>"deflation"</code> (uses <code>gmd_deflationR</code> or <code>gmd_deflation_cpp</code>).</p></dd>
+<dd><p>Character string specifying the computation method. One of <code>"eigen"</code> (default, uses <code>gmdLA</code>), <code>"auto"</code> (heuristic choice among <code>"eigen"</code>, <code>"spectra"</code>, and <code>"randomized"</code>), <code>"spectra"</code> (iterative partial SVD of the metric-whitened data via <span class="pkg">eigencore</span>, <code>gmd_spectra</code>), <code>"randomized"</code> (approximate randomized block solver <code>gmd_randomized</code>), or <code>"deflation"</code> (uses <code>gmd_deflationR</code> or <code>gmd_deflation_cpp</code>).</p></dd>
 
 
 <dt id="arg-constraints-remedy">constraints_remedy<a class="anchor" aria-label="anchor" href="#arg-constraints-remedy"></a></dt>
-<dd><p>Character string specifying how a supplied <code>A</code>
-or <code>M</code> that is not symmetric positive (semi)definite is repaired.
-Default <code>"ridge"</code>. One of: <code>"error"</code> (reject the input with an
-error), <code>"ridge"</code> (Gershgorin diagonal shift: add the smallest
+<dd><p>Character string specifying what to do with a
+supplied <code>A</code> or <code>M</code> that is not positive semi-definite (within a
+relative tolerance of <code>sqrt(.Machine$double.eps)</code>). Default
+<code>"error"</code>: reject the input. The alternatives repair it and emit a
+warning of class <code>genpca_metric_repaired</code> whose <code>report</code> field
+(see <code><a href="repair_metric.html">repair_metric</a></code>) records the minimum eigenvalue
+before and after, the shift applied, the rank and the condition
+number: <code>"ridge"</code> (Gershgorin diagonal shift: add the smallest
 diagonal loading that restores positive definiteness, falling back
 to <code><a href="https://rdrr.io/pkg/Matrix/man/nearPD.html" class="external-link">Matrix::nearPD()</a></code> for small dense matrices), <code>"clip"</code>
 (spectral clip to the PSD cone by zeroing negative eigenvalues;
 this densifies the matrix and refuses sparse input larger than
 2000 rows/cols, where <code>"ridge"</code> should be used instead), or
-<code>"identity"</code> (replace the matrix with the identity). Note
-that <code><a href="genpca_cov.html">genpca_cov</a></code> defaults to <code>"error"</code> instead of
-<code>"ridge"</code>, since it expects an already-validated covariance
-matrix; see its documentation for details.</p></dd>
+<code>"identity"</code> (replace the matrix with the identity). An
+asymmetric metric is an error under every setting. Singular PSD
+metrics are valid input and are never repaired.</p></dd>
 
 
 <dt id="arg-preproc">preproc<a class="anchor" aria-label="anchor" href="#arg-preproc"></a></dt>
@@ -152,24 +156,46 @@ use faster C++ implementation for <code>method = "deflation"</code>. Fallback to
 
 
 <dt id="arg-maxeig">maxeig<a class="anchor" aria-label="anchor" href="#arg-maxeig"></a></dt>
-<dd><p>Upper bound on subspace dimension for eigen/SVD calculations, primarily for
-<code>method = "eigen"</code>. If a constraint matrix dimension is <code>&lt;= maxeig</code>
-a full eigen decomposition is used. Otherwise only the leading <code>maxeig</code>
-eigencomponents are computed via <code><a href="https://rdrr.io/pkg/RSpectra/man/eigs.html" class="external-link">RSpectra::eigs_sym</a></code>, so results may be
-approximate. Default <code>800</code>.</p></dd>
+<dd><p>For <code>method = "eigen"</code> and <code>method = "spectra"</code>: a
+positive definite general metric is factored exactly by
+Cholesky at any size, but a singular general metric (e.g. a
+graph Laplacian) needs a dense eigendecomposition of the
+metric, which is refused when the metric has more than
+<code>maxeig</code> rows. The error names the alternatives
+(<code>method = "deflation"</code>, which only multiplies by the
+metric, or raising <code>maxeig</code>); <code>method = "auto"</code>
+routes such cases to deflation. Results are never
+approximated. Default <code>5000</code>.</p></dd>
 
 
 <dt id="arg-warn-approx">warn_approx<a class="anchor" aria-label="anchor" href="#arg-warn-approx"></a></dt>
-<dd><p>Logical. If <code>TRUE</code> (default) a warning is emitted when an
-approximate eigen decomposition is used because the dimension exceeds <code>maxeig</code>.</p></dd>
+<dd><p>Deprecated and ignored: <code>method = "eigen"</code> no
+longer approximates anything.</p></dd>
 
 
 <dt id="arg-maxit-spectra">maxit_spectra<a class="anchor" aria-label="anchor" href="#arg-maxit-spectra"></a></dt>
-<dd><p>Maximum iterations for the Spectra iterative solver when <code>method = "spectra"</code>. Default <code>1000</code>.</p></dd>
+<dd><p>Retained for compatibility and currently unused: the
+<span class="pkg">eigencore</span> partial SVD used by <code>method = "spectra"</code> is
+controlled by <code>tol_spectra</code> alone.</p></dd>
 
 
 <dt id="arg-tol-spectra">tol_spectra<a class="anchor" aria-label="anchor" href="#arg-tol-spectra"></a></dt>
-<dd><p>Tolerance for the Spectra iterative solver when <code>method = "spectra"</code>. Default <code>1e-9</code>.</p></dd>
+<dd><p>Convergence tolerance of the iterative solver when
+<code>method = "spectra"</code>. Default <code>1e-9</code>. This governs iteration
+only; rank decisions use <code>rank_rtol</code>.</p></dd>
+
+
+<dt id="arg-rank-rtol">rank_rtol<a class="anchor" aria-label="anchor" href="#arg-rank-rtol"></a></dt>
+<dd><p>Relative cutoff for component acceptance, on the scale of
+the singular values: component \(j\) is dropped when
+<code>d_j &lt;= rank_rtol * d_1</code>. Applied by every method
+(for the eigen paths on \(d_j^2\)), so the number of components
+returned does not change when <code>X</code> is rescaled. Default <code>1e-6</code>.
+Metric validation uses a separate relative tolerance,
+<code>sqrt(.Machine$double.eps)</code>, for positive semi-definiteness and
+null-space detection for general metric eigendecompositions.
+Every strictly positive diagonal weight is retained in both the
+forward and inverse factors.</p></dd>
 
 
 <dt id="arg-oversample">oversample<a class="anchor" aria-label="anchor" href="#arg-oversample"></a></dt>
@@ -185,7 +211,7 @@ approximate eigen decomposition is used because the dimension exceeds <code>maxe
 
 
 <dt id="arg-jitter-metric">jitter_metric<a class="anchor" aria-label="anchor" href="#arg-jitter-metric"></a></dt>
-<dd><p>Small jitter used in metric orthonormalization for <code>method = "randomized"</code>. Default <code>1e-10</code>.</p></dd>
+<dd><p>Jitter used in metric orthonormalization for <code>method = "randomized"</code>, relative to the scale of the block Gram matrix. Default <code>1e-10</code>.</p></dd>
 
 
 <dt id="arg-seed-randomized">seed_randomized<a class="anchor" aria-label="anchor" href="#arg-seed-randomized"></a></dt>
@@ -254,7 +280,7 @@ $$ \|X - UDV^\top\|_{M,A}^2
 subject to UT M U = I, VT AV = I. (Allen et al., 2014).
 Five methods are available via the <code>method</code> argument:</p><ul><li><p><code>"eigen"</code> (Default): Uses a one-shot eigen decomposition strategy based on <code>gmdLA</code>. It explicitly forms and decomposes a \(p \times p\) or \(n \times n\) matrix (depending on <code>n</code> vs <code>p</code>).</p></li>
 <li><p><code>"auto"</code>: Chooses among <code>"eigen"</code>, <code>"spectra"</code>, and <code>"randomized"</code> using heuristics on shape, rank ratio (<code>ncomp / min(n,p)</code>), and constraint structure.</p></li>
-<li><p><code>"spectra"</code>: Uses a matrix-free iterative approach via the <span class="pkg">RSpectra</span> package to solve the same eigen problem as <code>"eigen"</code> but without forming the large intermediate matrix. Generally faster and uses less memory for large <code>n</code> or <code>p</code>. Requires C++ compiler and <span class="pkg">RSpectra</span>.</p></li>
+<li><p><code>"spectra"</code>: Computes the top-k singular triplets of the metric-whitened data \(F_M' X F_A\) (with \(M = F_M F_M'\), \(A = F_A F_A'\)) as an implicit operator via the <span class="pkg">eigencore</span> package, without forming the large intermediate matrix. Generally faster and uses less memory for large <code>n</code> or <code>p</code> when few components are requested.</p></li>
 <li><p><code>"randomized"</code>: Uses a randomized block range finder and small projected eigendecomposition. This is an approximate low-pass method that is often much faster for wide dense matrices with sparse metrics when only top components are needed.</p></li>
 <li><p><code>"deflation"</code>: Uses an iterative power/deflation algorithm. Can be slower but potentially uses less memory than <code>"eigen"</code> for very large dense problems where <code>ncomp</code> is small.</p></li>
 </ul></div>
@@ -288,8 +314,7 @@ arXiv:1102.3074.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"RSpectra"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
-<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"multivarious"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"multivarious"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">200</span> <span class="op">*</span> <span class="fl">100</span><span class="op">)</span>, <span class="fl">200</span>, <span class="fl">100</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">X</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"R"</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">200</span><span class="op">)</span></span></span>

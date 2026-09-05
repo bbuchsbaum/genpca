@@ -20,8 +20,9 @@ gplssvd_op(
   k = 2,
   center = FALSE,
   scale = FALSE,
-  svd_backend = c("RSpectra", "irlba"),
-  svd_opts = list(tol = 1e-07, maxitr = 1000)
+  svd_backend = c("eigencore", "irlba", "RSpectra"),
+  svd_opts = list(tol = 1e-07, maxitr = 1000),
+  constraints_remedy = c("error", "ridge", "clip", "identity")
 )
 ```
 
@@ -63,14 +64,24 @@ gplssvd_op(
 
 - svd_backend:
 
-  One of "RSpectra" (default) or "irlba". Ignored whenever both
-  `ncol(X) <= 64` and `ncol(Y) <= 64`, in which case `S` is materialized
-  densely and solved with
-  [`base::svd()`](https://rdrr.io/r/base/svd.html).
+  One of "eigencore" (default) or "irlba"; "RSpectra" is accepted as a
+  deprecated alias of "eigencore". Ignored whenever both `ncol(X) <= 64`
+  and `ncol(Y) <= 64`, in which case `S` is materialized densely and
+  solved with [`base::svd()`](https://rdrr.io/r/base/svd.html).
 
 - svd_opts:
 
-  List of options for the backend (e.g., tol, maxitr)
+  List of options for the backend: `tol` (both backends) and `maxitr`
+  (irlba only; the eigencore partial SVD has no iteration cap). An
+  incomplete eigencore solve raises `genpca_solver_nonconvergence`; try
+  a less stringent `tol` if the requested accuracy cannot be reached.
+
+- constraints_remedy:
+
+  What to do with a metric that is not positive semi-definite: `"error"`
+  (default), `"ridge"`, `"clip"` or `"identity"`; repairs emit a
+  `genpca_metric_repaired` warning. See
+  [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md).
 
 ## Value
 

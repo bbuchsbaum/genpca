@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -407,11 +407,15 @@ Metric square roots are cached.</td>
 </tr>
 <tr class="even">
 <td align="left"><code>"spectra"</code></td>
-<td align="left">Matrix-free. Supplies only the <em>action</em>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi><mo>↦</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>M</mi><mi>X</mi><mi>A</mi><mspace width="0.167em"></mspace><mi>w</mi></mrow><annotation encoding="application/x-tex">w \mapsto X^{\top}MXA\,w</annotation></semantics></math>
-to a C++ Krylov eigensolver; neither the whitened matrix nor the Gram
+<td align="left">Iterative. Factors each metric once
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><msub><mi>F</mi><mi>M</mi></msub><msubsup><mi>F</mi><mi>M</mi><mi>⊤</mi></msubsup></mrow><annotation encoding="application/x-tex">M = F_M F_M^{\top}</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>=</mo><msub><mi>F</mi><mi>A</mi></msub><msubsup><mi>F</mi><mi>A</mi><mi>⊤</mi></msubsup></mrow><annotation encoding="application/x-tex">A = F_A F_A^{\top}</annotation></semantics></math>:
+diagonal, Cholesky, sparse Cholesky, or an eigen factor for a singular
+metric) and hands the <em>action</em> of the whitened matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>F</mi><mi>M</mi><mi>⊤</mi></msubsup><mi>X</mi><msub><mi>F</mi><mi>A</mi></msub></mrow><annotation encoding="application/x-tex">F_M^{\top} X F_A</annotation></semantics></math>
+to eigencore’s partial SVD; neither the whitened matrix nor the Gram
 matrix is ever formed.</td>
-<td align="left">Large problems with sparse structured metrics</td>
+<td align="left">Large problems where few components are needed</td>
 </tr>
 <tr class="odd">
 <td align="left"><code>"randomized"</code></td>

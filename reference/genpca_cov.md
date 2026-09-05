@@ -1,13 +1,13 @@
-# Generalized PCA on a covariance matrix
+# Generalized PCA on a covariance matrix (GMD form)
 
-Performs Generalized PCA directly on a pre-computed covariance matrix C
-with a single variable-side constraint/metric R. This is useful when you
-already have C = X'MX or when X is too large to store but C is
-manageable. Supports two methods: "gmd" (Allen et al.'s GMD approach,
-default) which exactly matches the two-sided
-[`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md), and
-"geigen" (generalized eigenvalue approach) which solves C v = lambda R
-v.
+Performs Generalized PCA directly on a pre-computed covariance matrix
+`C = X'MX` with a single variable-side metric `R`, following Allen et
+al.'s GMD: the eigendecomposition of \\R^{1/2} C R^{1/2}\\ mapped back
+with \\V = R^{-1/2} Z\\, so that \\V'RV = I\\. With `C = X'MX` and
+`R = A` this matches
+[`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)`(X, M = M, A = A)`
+exactly. This is useful when you already have `C` or when `X` is too
+large to store but `C` is manageable.
 
 ## Usage
 
@@ -18,7 +18,9 @@ genpca_cov(
   ncomp = NULL,
   method = c("gmd", "geigen"),
   constraints_remedy = c("error", "ridge", "clip", "identity"),
-  tol = 1e-08,
+  rank_rtol = 1e-06,
+  metric_rtol = .metric_rtol_default(),
+  tol = NULL,
   verbose = FALSE
 )
 ```
@@ -27,19 +29,20 @@ genpca_cov(
 
 - C:
 
-  A p x p symmetric positive semi-definite covariance matrix. Typically
-  C = X'MX where X is the data matrix and M is a row metric.
+  A p x p symmetric positive semi-definite covariance matrix, typically
+  `C = X'MX`. Asymmetry beyond roundoff and indefiniteness beyond
+  `metric_rtol` are errors.
 
 - R:
 
   Variable-side constraint/metric. Can be:
 
-  - NULL: Identity matrix (standard PCA on C)
+  - NULL: identity matrix (standard PCA on C)
 
-  - A numeric vector of length p: Interpreted as diagonal weights (must
-    be non-negative)
+  - a numeric vector of length p: diagonal weights (must be
+    non-negative)
 
-  - A p x p symmetric PSD matrix: General metric/smoothing/structure
+  - a p x p symmetric PSD matrix: general metric/smoothing/structure
     penalties
 
 - ncomp:
@@ -48,36 +51,32 @@ genpca_cov(
 
 - method:
 
-  Character string specifying the method. One of:
-
-  - "gmd" (default): Allen et al.'s GMD approach via eigen decomposition
-    of \\R^{1/2} C R^{1/2}\\
-
-  - "geigen": Generalized eigenvalue approach solving C v = lambda R v
+  Deprecated. `"gmd"` (default) is this function; `"geigen"` forwards to
+  [`geigen_cov`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md)
+  with a warning.
 
 - constraints_remedy:
 
-  How to handle slightly non-PSD inputs (used only by the `"geigen"`
-  method; `"gmd"` always clips negative eigenvalues of `R` internally,
-  see Details). Default `"error"` – note this differs from
-  [`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md),
-  whose default is `"ridge"`; `genpca_cov()` expects an
-  already-validated covariance matrix `C` and metric `R`, so it errs on
-  the side of rejecting bad input rather than silently repairing it. One
-  of:
+  Deprecated here (GMD requires PSD input and stops otherwise);
+  forwarded to
+  [`geigen_cov`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md)
+  when `method = "geigen"`.
 
-  - "error": Stop with an error if constraints are not PSD
+- rank_rtol:
 
-  - "ridge": Add a small ridge to the diagonal to make PSD
+  Relative cutoff for component acceptance on the singular-value scale
+  (components with `d_j <= rank_rtol * d_1` are dropped). Default 1e-6.
 
-  - "clip": Clip negative eigenvalues to zero
+- metric_rtol:
 
-  - "identity": Replace with identity matrix
+  Relative tolerance for validating `C` and `R` and for detecting the
+  numerical null space in an eigendecomposition of a general `R`. Every
+  strictly positive diagonal weight is retained without a rank
+  approximation. Default `sqrt(.Machine$double.eps)`.
 
 - tol:
 
-  Numerical tolerance for PSD checks and filtering small eigenvalues.
-  Default 1e-8.
+  Deprecated; use `rank_rtol` and `metric_rtol`.
 
 - verbose:
 
@@ -105,7 +104,8 @@ A plain list (**not** a multivarious `bi_projector`) with components:
 
 - propv:
 
-  Proportion of variance explained by each component
+  Proportion of variance explained by each component (total variance is
+  \\\mathrm{tr}(CR)\\, Allen et al. Corollary 5)
 
 - cumv:
 
@@ -117,7 +117,7 @@ A plain list (**not** a multivarious `bi_projector`) with components:
 
 - method:
 
-  The method used ("gmd" or "geigen")
+  `"gmd"`
 
 Because this is a plain list rather than a `bi_projector`, the
 `multivarious` generics `scores()`,
@@ -126,47 +126,18 @@ and
 [`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html)
 do not apply to it; index `$v`/`$d` directly, or use
 [`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md) when
-you need the full projector interface (out-of-sample `project()`,
-[`reconstruct()`](https://bbuchsbaum.github.io/multivarious/reference/reconstruct.html),
-etc.) on a data matrix rather than a pre-computed covariance matrix.
+you need the full projector interface on a data matrix rather than a
+pre-computed covariance matrix.
 
 ## Details
 
-**Method Selection Guide:**
-
-Use `method = "gmd"` when:
-
-- You need exact equivalence with
-  [`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)`(X, M, A)`
-
-- You're following Allen et al.'s GMD framework
-
-- You want consistent results with the two-sided decomposition
-
-Use `method = "geigen"` when:
-
-- You specifically need the generalized eigenvalue formulation
-
-- You're working with legacy code that expects this approach
-
-- Computational efficiency is critical and R is well-conditioned
-
-**Method "gmd" (default):**
-
-This method implements Allen et al.'s GMD approach and exactly matches
-the two-sided genpca when C = X'MX. It computes the eigendecomposition
-of \\R^{1/2} C R^{1/2}\\ and maps back with \\V = R^{-1/2} Z\\, ensuring
-V'RV = I. The total variance is tr(CR) as in Allen's GPCA (Corollary 5).
-
-**Method "geigen":**
-
-This method solves the generalized eigenproblem C v = lambda R v
-directly. While mathematically valid, it solves a different optimization
-than Allen's GMD and will not, in general, match the two-sided genpca
-unless R = I or special commutation conditions hold.
-
-For exact equivalence with genpca(X, M, A), use method="gmd" with C =
-X'MX and R = A.
+The generalized eigenproblem \\C v = \lambda R v\\ is a different
+estimator (it maximises \\v'Cv\\ subject to \\v'Rv = 1\\, which is
+generally gives different components from the GMD) and lives in its own
+function,
+[`geigen_cov`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md).
+`method = "geigen"` is accepted here for one release and forwards to it
+with a deprecation warning.
 
 ## References
 
@@ -176,15 +147,17 @@ Association, 109(505), 145-159.
 
 ## See also
 
+[`geigen_cov`](https://bbuchsbaum.github.io/genpca/reference/geigen_cov.md)
+for the generalized eigenproblem \\C v = \lambda R v\\,
 [`genpca`](https://bbuchsbaum.github.io/genpca/reference/genpca.md) for
-the standard two-sided GPCA on data matrices,
+the two-sided GPCA on data matrices,
 [`genpls`](https://bbuchsbaum.github.io/genpca/reference/genpls.md) for
 generalized partial least squares
 
 ## Examples
 
 ``` r
-# Example 1: Standard PCA on covariance (no constraint)
+# Standard PCA on a covariance (no constraint)
 C <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
 fit0 <- genpca_cov(C, R=NULL, ncomp=3)
 print(fit0$d[1:3])       # first 3 singular values
@@ -192,37 +165,22 @@ print(fit0$d[1:3])       # first 3 singular values
 print(fit0$propv[1:3])   # variance explained by first 3 components
 #> [1] 0.92461872 0.05306648 0.01710261
 
-# Example 2: Demonstrating equivalence with genpca
+# Equivalence with genpca()
 set.seed(123)
 X <- matrix(rnorm(50 * 10), 50, 10)
 M_diag <- runif(50, 0.5, 1.5)  # row weights
 A_diag <- runif(10, 0.5, 2)    # column weights
-
-# Two-sided GPCA
 fit_gpca <- genpca(X, M = M_diag, A = A_diag, ncomp = 5,
                    preproc = multivarious::pass())
-
-# Equivalent covariance-based GPCA
 C <- crossprod(X, diag(M_diag) %*% X)  # C = X'MX
-fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5, method = "gmd")
-
-# These should match exactly
+fit_cov <- genpca_cov(C, R = A_diag, ncomp = 5)
 all.equal(fit_gpca$sdev, fit_cov$d, tolerance = 1e-10)
 #> [1] TRUE
 
-# Example 3: Variable weights via a diagonal metric (using iris covariance)
+# Variable weights via a diagonal metric (iris covariance, 4 variables)
 C_iris <- cov(scale(iris[,1:4], center=TRUE, scale=FALSE))
-w <- c(1, 1, 0.5, 2)  # emphasize Sepal.Width less, Petal.Width more
-fitW <- genpca_cov(C_iris, R = w, ncomp=3, method="gmd")
+w <- c(1, 1, 0.5, 2)
+fitW <- genpca_cov(C_iris, R = w, ncomp=3)
 print(fitW$d[1:3])
 #> [1] 1.7972881 0.4903437 0.3173048
-
-# Example 4: Compare GMD and generalized eigenvalue approaches
-fit_gmd <- genpca_cov(C_iris, R = w, ncomp=2, method="gmd")
-fit_geigen <- genpca_cov(C_iris, R = w, ncomp=2, method="geigen")
-# These will generally differ unless R = I
-print(paste("GMD singular values:", paste(round(fit_gmd$d, 3), collapse=", ")))
-#> [1] "GMD singular values: 1.797, 0.49"
-print(paste("GEigen singular values:", paste(round(fit_geigen$d, 3), collapse=", ")))
-#> [1] "GEigen singular values: 2.658, 0.497"
 ```

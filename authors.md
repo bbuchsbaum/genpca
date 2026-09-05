@@ -10,12 +10,12 @@ Source:
 [`DESCRIPTION`](https://github.com/bbuchsbaum/genpca/blob/master/DESCRIPTION)
 
 Buchsbaum B (2026). *genpca: Generalized Principal Component Analysis*.
-R package version 0.1.0, <https://bbuchsbaum.github.io/genpca/>.
+R package version 0.2.0, <https://bbuchsbaum.github.io/genpca/>.
 
     @Manual{,
       title = {genpca: Generalized Principal Component Analysis},
       author = {Brad Buchsbaum},
       year = {2026},
-      note = {R package version 0.1.0},
+      note = {R package version 0.2.0},
       url = {https://bbuchsbaum.github.io/genpca/},
     }

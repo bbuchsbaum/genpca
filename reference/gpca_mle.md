@@ -25,10 +25,10 @@ gpca_mle(
   ncomp = min(dim(X)),
   max_iter = 20,
   lambda = 0.001,
-  scale_fix = c("trace", "det", "none"),
+  scale_fix = c("none", "trace", "det"),
   tol = 1e-04,
   method = "eigen",
-  constraints_remedy = "ridge",
+  constraints_remedy = "error",
   preproc = multivarious::pass(),
   verbose = FALSE,
   ...
@@ -60,12 +60,13 @@ gpca_mle(
 
 - scale_fix:
 
-  How to canonicalize the `c * Sigma_r, Sigma_c / c` indeterminacy at
-  exit. One of `"trace"` (default: row covariance scaled to mean
-  diagonal 1), `"det"` (row covariance scaled to determinant 1), or
-  `"none"`. Applied as a joint reciprocal rescale, so the fitted
-  covariance \\\Sigma_r \otimes \Sigma_c\\ and the likelihood are
-  unchanged.
+  Optional post-hoc reparameterization of the `c * Sigma_r, Sigma_c / c`
+  split at exit. One of `"none"` (default: keep the penalized optimum),
+  `"trace"` (row covariance scaled to mean diagonal 1) or `"det"` (row
+  covariance scaled to determinant 1). Applied as a joint reciprocal
+  rescale, so the fitted covariance \\\Sigma_r \otimes \Sigma_c\\ and
+  the unpenalized likelihood are unchanged, but the penalized objective
+  generally decreases; see Details.
 
 - tol:
 
@@ -78,7 +79,9 @@ gpca_mle(
 
 - constraints_remedy:
 
-  Passed to `genpca`; defaults to "ridge".
+  Passed to `genpca`; defaults to "error". The learned metrics are
+  inverses of positive definite matrices, so no repair fires in
+  practice.
 
 - preproc:
 
@@ -96,13 +99,17 @@ gpca_mle(
 ## Value
 
 A list with elements `fit` (a `genpca` fit computed with the returned
-canonicalized metrics), `A`, `M` (learned SPD metrics), `loglik` (final
-penalized log-likelihood), and `loglik_path` (the penalized
-log-likelihood after each outer iteration; monotone non-decreasing up to
-numerical noise, since every block update exactly minimizes the shared
-penalized objective). Values omit additive constants and include the
-`lambda` penalty, so they are comparable across iterations and across
-runs with the same `lambda`, but not across different `lambda` values.
+metrics), `A`, `M` (learned SPD metrics), `loglik` (the penalized
+log-likelihood evaluated at the returned `M`, `A` and `fit`),
+`loglik_unpenalized` (the same without the `lambda` penalty),
+`loglik_rescale_delta` (`loglik` minus the last value of `loglik_path`;
+zero for `scale_fix = "none"`, typically negative otherwise), and
+`loglik_path` (the penalized log-likelihood after each outer iteration;
+monotone non-decreasing up to numerical noise, since every block update
+exactly minimizes the shared penalized objective). Values omit additive
+constants and include the `lambda` penalty, so they are comparable
+across iterations and across runs with the same `lambda`, but not across
+different `lambda` values.
 
 ## Details
 
@@ -112,13 +119,20 @@ and an inverse-Wishart-style ridge penalty
 n\\\mathrm{tr}\\\Sigma_c^{-1})\\ (a MAP estimate). Because every block
 update is an exact minimizer of this one objective, `loglik_path` is
 monotone non-decreasing up to numerical noise. The penalty also resolves
-the \\c\\\Sigma_r, \Sigma_c/c\\ scale indeterminacy during iteration;
-`scale_fix` is applied once at exit as a *joint* reciprocal rescale (row
-covariance normalized, factor absorbed into the column covariance),
-which leaves the likelihood unchanged. The algorithm stops when the
-relative change in the penalized log-likelihood falls below `tol` or
-`max_iter` is reached. Increase `lambda` or reduce `ncomp` if iterations
-become unstable.
+the \\c\\\Sigma_r, \Sigma_c/c\\ scale indeterminacy, so the converged
+metrics are the penalized optimum and no rescaling is needed
+(`scale_fix = "none"`, the default). `scale_fix = "trace"` or `"det"`
+additionally applies a joint reciprocal rescale at exit (row covariance
+normalized, factor absorbed into the column covariance). The unpenalized
+matrix-normal likelihood is invariant to that rescale, but the penalty
+\\p\lambda\\\mathrm{tr}(M) + n\lambda\\\mathrm{tr}(A)\\ is not, so the
+rescaled metrics are no longer the penalized optimum; the returned
+`loglik` is always evaluated at the returned metrics and
+`loglik_rescale_delta` reports how far the rescale moved it. The
+algorithm stops when the relative change in the penalized log-likelihood
+falls below `tol` or `max_iter` is reached. Increase `lambda` or reduce
+`ncomp` if iterations become unstable. The objective is not identifiable
+with `lambda = 0`.
 
 ## References
 

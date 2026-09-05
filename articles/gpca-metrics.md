@@ -150,7 +150,7 @@ f1 <- genpca(Xv, M = M0,     A = A0,     ncomp = 4, preproc = multivarious::cent
 f2 <- genpca(Xv, M = 7 * M0, A = A0 / 7, ncomp = 4, preproc = multivarious::center())
 
 max(abs(f1$sdev - f2$sdev))
-#> [1] 4.440892e-15
+#> [1] 8.881784e-16
 ```
 
 The singular values and the component subspace are identical; only the
@@ -160,8 +160,11 @@ the overall magnitude of `M` against that of `A` — it is the *relative*
 weighting within each metric that changes the answer. This indeterminacy
 is also why
 [`gpca_mle()`](https://bbuchsbaum.github.io/genpca/reference/gpca_mle.md)
-takes a `scale_fix` argument: when both metrics are learned, the split
-has to be pinned down by convention rather than by the data.
+has a `scale_fix` argument: when both metrics are learned, the split is
+pinned down by the ridge penalty in the objective (the default,
+`scale_fix = "none"`), and `"trace"`/`"det"` are optional post-hoc
+reparameterizations whose effect on the penalized objective is reported
+in `loglik_rescale_delta`.
 
 ## Which way does a metric point?
 
@@ -424,39 +427,46 @@ Metrics usually fail the test for dull reasons rather than modelling
 mistakes: a covariance estimated from fewer samples than variables, a
 kernel matrix with round-off in the last few digits, a matrix that is
 asymmetric by $`10^{-16}`$ because of the order in which it was
-assembled. The check itself is tolerant — eigenvalues down to
-`-tol * max(abs(diag()))` with `tol = 1e-6` count as non-negative — so
-ordinary floating-point noise never triggers a remedy, and a metric that
-passes is used exactly as supplied.
+assembled. The checks are relative to the scale of the matrix, so
+ordinary floating-point noise never triggers anything: eigenvalues down
+to $`-\sqrt{\epsilon}\,\max|A_{ii}|`$ (about $`-1.5\times10^{-8}`$ times
+the largest diagonal entry) count as non-negative, and an asymmetry
+$`\|A - A^\top\|_F / \|A\|_F`$ below $`10^{-10}`$ is averaged away. A
+metric that passes is used exactly as supplied.
 
-When a metric does fail, `constraints_remedy` decides what happens next:
+Two things are never repaired. A genuinely asymmetric matrix is an error
+under every setting: there is no way to know which triangle you meant.
+And a metric that fails the PSD check is an error by default
+(`constraints_remedy = "error"`), because a fit that silently ran on a
+different metric than the one you supplied is worse than no fit. If you
+do want a repair, ask for it, and you will be told what was done:
 
 | Value | What it does | What it costs |
 |----|----|----|
-| `"ridge"` (default) | Adds a diagonal shift (from the Gershgorin bound, with a [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) fallback for small dense matrices) just large enough to make the matrix positive definite. Preserves sparsity. | The shift pulls the metric toward a multiple of the identity, diluting the structure you supplied. A *large* shift means the input was badly indefinite — diagnose it rather than absorb it. |
+| `"error"` (default) | Refuses the input. | Nothing — this is the right setting when the metric comes from a pipeline that ought to be producing a valid one. |
+| `"ridge"` | Adds a diagonal shift (from the Gershgorin bound, with a [`Matrix::nearPD()`](https://rdrr.io/pkg/Matrix/man/nearPD.html) fallback for small dense matrices) sufficient to make the matrix positive definite. Preserves sparsity. | The shift pulls the metric toward a multiple of the identity, diluting the structure you supplied. A *large* shift means the input was badly indefinite — diagnose it rather than absorb it. |
 | `"clip"` | Eigendecomposes and sets the negative eigenvalues to zero, leaving the rest of the spectrum exactly as it was. | Densifies the matrix, so it refuses sparse input larger than 2000×2000. Use `"ridge"` at that size. |
-| `"identity"` | Replaces the offending metric with the identity. | Discards your structure and quietly hands back ordinary PCA, with the run still reporting success. Pass `verbose = TRUE` to be told when this fires. |
-| `"error"` | Refuses the input. | Nothing — this is the right setting when the metric comes from a pipeline that ought to be producing a valid one. [`genpca_cov()`](https://bbuchsbaum.github.io/genpca/reference/genpca_cov.md) defaults to it for that reason. |
+| `"identity"` | Replaces the offending metric with the identity. | Discards your structure and hands back ordinary PCA. |
 
-Two behaviours are worth knowing about because they are silent:
-
-- `"ridge"` and `"clip"` both symmetrise the input by mirroring the
-  **upper** triangle onto the lower. If you pass a genuinely asymmetric
-  matrix, the lower triangle is discarded without a word. Only `"error"`
-  reports it.
-- `"identity"` and a large `"ridge"` shift both produce a fit that looks
-  healthy while encoding much less structure than you intended.
-
-So if a metric matters to the result, verify it rather than trusting the
-remedy to have done something sensible:
+Every repair that actually changes the metric emits a warning of class
+`genpca_metric_repaired` whose `report` field records the minimum
+eigenvalue before and after, the shift applied, the rank and the
+condition number. The same report is available directly from
+[`repair_metric()`](https://bbuchsbaum.github.io/genpca/reference/repair_metric.md),
+which is the better way to work: repair once, look at the report, and
+pass the repaired matrix to every subsequent fit.
 
 ``` r
 
-# Is the metric usable as-is? (small problems)
-range(eigen(as.matrix(A), symmetric = TRUE, only.values = TRUE)$values)
+# Is the metric usable as-is, and what would a repair do to it?
+A_ok <- repair_metric(A, method = "ridge")
+attr(A_ok, "repair_report")
 
-# Did a remedy fire, and how hard?
-fit <- genpca(X, A = A, M = M, ncomp = 3, verbose = TRUE)
+# Catch the repair warning programmatically inside a fit
+fit <- withCallingHandlers(
+  genpca(X, A = A, M = M, ncomp = 3, constraints_remedy = "ridge"),
+  genpca_metric_repaired = function(w) { print(w$report); invokeRestart("muffleWarning") }
+)
 ```
 
 Two habits that avoid the problem to begin with: scale metrics before

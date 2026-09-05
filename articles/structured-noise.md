@@ -88,9 +88,12 @@ range(eigen(as.matrix(Alap), symmetric = TRUE, only.values = TRUE)$values)
 Both traps from the previous section show up in real output. The
 adjacency comes back **indefinite** — its smallest eigenvalue is
 negative, so it is not a metric until you shift it
-(`Aadj + c * Diagonal(n)`) or let `constraints_remedy` repair it. The
-Laplacian comes back **PSD but exactly singular**, its null vector being
-the spatially constant pattern;
+(`Aadj + c * Diagonal(n)`, or `repair_metric(Aadj, method = "ridge")`,
+which also reports how large the shift had to be);
+[`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
+refuses it as supplied unless you opt into a repair with
+`constraints_remedy`. The Laplacian comes back **PSD but exactly
+singular**, its null vector being the spatially constant pattern;
 [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md)
 accepts that via a pseudo-inverse, but `Alap + eps * Diagonal(n)` is
 usually what you want. Neither is a defect in `adjoin` — an adjacency

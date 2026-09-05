@@ -18,8 +18,9 @@ genpls(
   ncomp = 2,
   preproc_x = multivarious::pass(),
   preproc_y = multivarious::pass(),
-  svd_backend = c("RSpectra", "irlba"),
+  svd_backend = c("eigencore", "irlba", "RSpectra"),
   svd_opts = list(tol = 1e-07, maxitr = 1000),
+  constraints_remedy = c("error", "ridge", "clip", "identity"),
   verbose = FALSE
 )
 ```
@@ -64,7 +65,7 @@ genpls(
 
 - svd_backend:
 
-  Character, one of `"RSpectra"` (default) or `"irlba"` for the
+  Character, one of `"eigencore"` (default) or `"irlba"` for the
   iterative SVD. This choice only matters for larger problems: whenever
   both `X` and `Y` have at most 64 columns after preprocessing, the
   operator materializes `S` densely and computes a direct
@@ -74,7 +75,16 @@ genpls(
 
 - svd_opts:
 
-  List of options passed to the SVD backend, e.g., `tol`, `maxitr`.
+  List of options: `tol` for both backends and `maxitr` for irlba only.
+  An incomplete eigencore solve raises an error of class
+  `genpca_solver_nonconvergence`; no unchecked fit is returned.
+
+- constraints_remedy:
+
+  What to do with a metric that is not positive semi-definite: `"error"`
+  (default), `"ridge"`, `"clip"` or `"identity"`; repairs emit a
+  `genpca_metric_repaired` warning. See
+  [`genpca()`](https://bbuchsbaum.github.io/genpca/reference/genpca.md).
 
 - verbose:
 
@@ -177,8 +187,7 @@ arXiv:2010.14734.
 ## Examples
 
 ``` r
-if (requireNamespace("RSpectra", quietly = TRUE) &&
-    requireNamespace("multivarious", quietly = TRUE)) {
+if (requireNamespace("multivarious", quietly = TRUE)) {
   set.seed(1)
   n <- 100; p <- 40; q <- 30
   X <- matrix(rnorm(n*p), n, p)

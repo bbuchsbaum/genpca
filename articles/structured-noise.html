@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">genpca</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -152,10 +152,13 @@ smoother side; <code>spatial_laplacian()</code> and
 <p>Both traps from the previous section show up in real output. The
 adjacency comes back <strong>indefinite</strong> — its smallest
 eigenvalue is negative, so it is not a metric until you shift it
-(<code>Aadj + c * Diagonal(n)</code>) or let
-<code>constraints_remedy</code> repair it. The Laplacian comes back
-<strong>PSD but exactly singular</strong>, its null vector being the
-spatially constant pattern; <code><a href="../reference/genpca.html">genpca()</a></code> accepts that via a
+(<code>Aadj + c * Diagonal(n)</code>, or
+<code>repair_metric(Aadj, method = "ridge")</code>, which also reports
+how large the shift had to be); <code><a href="../reference/genpca.html">genpca()</a></code> refuses it as
+supplied unless you opt into a repair with
+<code>constraints_remedy</code>. The Laplacian comes back <strong>PSD
+but exactly singular</strong>, its null vector being the spatially
+constant pattern; <code><a href="../reference/genpca.html">genpca()</a></code> accepts that via a
 pseudo-inverse, but <code>Alap + eps * Diagonal(n)</code> is usually
 what you want. Neither is a defect in <code>adjoin</code> — an adjacency
 matrix simply is not positive definite, and that is a property of

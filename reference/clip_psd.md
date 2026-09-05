@@ -4,13 +4,15 @@ Spectral clip: eigen-decompose and set negative eigenvalues to zero.
 Unlike
 [`ensure_spd()`](https://bbuchsbaum.github.io/genpca/reference/ensure_spd.md)
 (a diagonal ridge shift), this preserves the non-negative part of the
-spectrum exactly. Requires a dense eigendecomposition, so large sparse
-matrices are refused.
+spectrum exactly. The output has no negative eigenvalue beyond
+reconstruction roundoff: the only fast path is an exact (unshifted)
+Cholesky success, which proves positive definiteness. Requires a dense
+eigendecomposition, so large sparse matrices are refused.
 
 ## Usage
 
 ``` r
-clip_psd(M, tol = 1e-06, dense_maxn = 2000L)
+clip_psd(M, tol = NULL, dense_maxn = 2000L, name = "M")
 ```
 
 ## Arguments
@@ -21,14 +23,16 @@ clip_psd(M, tol = 1e-06, dense_maxn = 2000L)
 
 - tol:
 
-  tolerance passed to
-  [`is_spd()`](https://bbuchsbaum.github.io/genpca/reference/is_spd.md)
-  for the fast-path check
+  unused; kept for call compatibility
 
 - dense_maxn:
 
   refuse sparse input larger than this (clip densifies)
 
+- name:
+
+  label used in error messages
+
 ## Value
 
-a dense Matrix, symmetric PSD
+a symmetric Matrix, PSD
