@@ -43,8 +43,8 @@ data.frame(method = c("eigen", "randomized"),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]),
            max_relative_error = c(0, max(abs(fit_rnd$sdev / fit_eig$sdev - 1))))
 #>       method elapsed   top_sv max_relative_error
-#> 1      eigen   0.087 19.48896          0.0000000
-#> 2 randomized   0.007 19.26370          0.0301751
+#> 1      eigen   0.102 19.48896          0.0000000
+#> 2 randomized   0.009 19.26370          0.0301751
 ```
 
 ![The randomized approximation underestimates the reference singular
