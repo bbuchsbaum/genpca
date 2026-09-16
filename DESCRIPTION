@@ -1,7 +1,7 @@
 Package: genpca
 Type: Package
 Title: Generalized Principal Component Analysis
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: c(
     person("Brad", "Buchsbaum",
            email = "brad.buchsbaum@gmail.com",
