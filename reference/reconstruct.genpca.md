@@ -56,5 +56,5 @@ A numeric matrix of dimension `length(rowind) x length(colind)`.
 X <- matrix(rnorm(60), 15, 4)
 fit <- genpca(X, ncomp = 4, preproc = multivarious::center())
 max(abs(reconstruct(fit) - X)) # ~ 0 at full rank
-#> [1] 1.776357e-15
+#> [1] 8.881784e-16
 ```

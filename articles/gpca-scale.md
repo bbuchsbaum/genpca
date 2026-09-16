@@ -43,8 +43,8 @@ data.frame(method = c("eigen", "randomized"),
            top_sv  = c(fit_eig$sdev[1], fit_rnd$sdev[1]),
            max_relative_error = c(0, max(abs(fit_rnd$sdev / fit_eig$sdev - 1))))
 #>       method elapsed   top_sv max_relative_error
-#> 1      eigen   0.102 19.48896          0.0000000
-#> 2 randomized   0.009 19.26370          0.0301751
+#> 1      eigen   0.110 19.48896          0.0000000
+#> 2 randomized   0.008 19.26370          0.0301751
 ```
 
 ![The randomized approximation underestimates the reference singular
@@ -154,11 +154,11 @@ fit <- genpca(X[1:150, ], ncomp = 4,
               preproc = multivarious::center())
 scores_test <- multivarious::project(fit, X[151:200, ])
 head(scores_test, 4)
-#>             PC1        PC2        PC3        PC4
-#> [1,] -1.9323426  0.4080526  0.1924407  0.6673048
-#> [2,] -0.3498745 -0.6490485 -0.2579339 -0.9996621
-#> [3,] -0.9590113 -0.9305126  1.4603670  1.1496702
-#> [4,] -0.1125973 -1.0845757  0.2493420  1.2509707
+#>            PC1        PC2        PC3        PC4
+#> [1,] 1.9323426  0.4080526  0.1924407  0.6673048
+#> [2,] 0.3498745 -0.6490485 -0.2579339 -0.9996621
+#> [3,] 0.9590113 -0.9305126  1.4603670  1.1496702
+#> [4,] 0.1125973 -1.0845757  0.2493420  1.2509707
 ```
 
 ![Training scores (grey) and out-of-sample scores (blue) projected into
