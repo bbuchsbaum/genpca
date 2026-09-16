@@ -25,10 +25,10 @@ fit <- genpca(X, A = A, ncomp = 2,
 S <- multivarious::scores(fit)       # 50 states x 2 components
 V <- multivarious::components(fit)   # 3 variables x 2 projection weights
 round(cor(X, S), 2)
-#>           PC1   PC2
-#> Murder  -0.89  0.36
-#> Assault -0.93  0.14
-#> Rape    -0.83 -0.55
+#>          PC1   PC2
+#> Murder  0.89 -0.36
+#> Assault 0.93 -0.14
+#> Rape    0.83  0.55
 ```
 
 The variable-score correlations give the axes an interpretation. PC1

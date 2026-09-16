@@ -92,10 +92,10 @@ PCA on standardized columns.</p>
 <span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/scores.html" class="external-link">scores</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>       <span class="co"># 50 states x 2 components</span></span>
 <span><span class="va">V</span> <span class="op">&lt;-</span> <span class="fu">multivarious</span><span class="fu">::</span><span class="fu"><a href="https://bbuchsbaum.github.io/multivarious/reference/components.html" class="external-link">components</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>   <span class="co"># 3 variables x 2 projection weights</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">S</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           PC1   PC2</span></span>
-<span><span class="co">#&gt; Murder  -0.89  0.36</span></span>
-<span><span class="co">#&gt; Assault -0.93  0.14</span></span>
-<span><span class="co">#&gt; Rape    -0.83 -0.55</span></span></code></pre></div>
+<span><span class="co">#&gt;          PC1   PC2</span></span>
+<span><span class="co">#&gt; Murder  0.89 -0.36</span></span>
+<span><span class="co">#&gt; Assault 0.93 -0.14</span></span>
+<span><span class="co">#&gt; Rape    0.83  0.55</span></span></code></pre></div>
 <p>The variable-score correlations give the axes an interpretation. PC1
 moves with all three crime variables; PC2 contrasts Murder with Rape
 more strongly than it contrasts Assault with Rape. Component signs are

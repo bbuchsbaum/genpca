@@ -2,6 +2,8 @@
 
 ## genpca 0.2.0
 
+CRAN release: 2026-09-15
+
 #### Release review fixes
 
 - Randomized sketches use Gaussian draws and use a deterministic
