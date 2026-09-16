@@ -2,23 +2,48 @@
 
 ## Submission type
 
-This is the first CRAN submission of `genpca` (version 0.2.0).
+This is a resubmission of `genpca` (version 0.2.1). It addresses the test
+failure reported on the CRAN Fedora/OpenBLAS check.
+
+## Response to the previous check
+
+The reported failure was:
+
+```
+Expected `genpca:::.mnpca_safe_solve_spd(matrix(NaN, 2, 2))` to throw an error.
+```
+
+The internal helper had relied on `chol()`/`chol2inv()` to signal an error for
+non-finite input. That behavior differed across numerical backends. The helper
+now rejects non-finite matrices before factorization and also refuses a
+non-finite inverse. No test was skipped and no tolerance was loosened.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 2 notes
+Hosted R-hub Fedora R-devel check: 0 errors | 0 warnings | 0 notes
 
-The same source tarball was checked with `R CMD check --as-cran`, including
-vignettes and the PDF manual, against eigencore 1.0.3 and 1.3.0. Both runs
-passed tests (1,588 expectations, zero failures), examples, vignette rebuilds
-and PDF manual generation.
+Final `genpca_0.2.1.tar.gz`, local `R CMD check --as-cran`:
+0 errors | 1 warning | 3 notes
+
+The corrected code passed all tests on R-hub's `gcc16` platform: 1,588
+expectations, zero failures and one intentionally empty test skipped. The
+standard R-hub check used `--as-cran --no-manual --no-build-vignettes`.
+The hosted run tested the exact 0.2.1 package-content commit `66053cf`:
+<https://github.com/bbuchsbaum/genpca/actions/runs/35101331539>.
+The final tarball passed all 1,588 expectations locally and rebuilt all
+vignettes and the PDF manual.
+
+* checking whether package `genpca` can be installed ... WARNING
+  The local Homebrew clang reports `-Wfixed-enum-extension` as an unknown
+  warning option while compiling R's own `R_ext/Boolean.h`. The warning does
+  not originate in package code and was not suppressed.
 
 * checking CRAN incoming feasibility ... NOTE
-  Maintainer: 'Brad Buchsbaum <brad.buchsbaum@gmail.com>'
+  `Days since last update: 1` is expected for this corrective release.
 
-  New submission
-
-  Expected for a first submission.
+* checking for future file timestamps ... NOTE
+  The local check was unable to verify current time. This is an environmental
+  network/time-service limitation.
 
 * checking HTML version of manual ... NOTE
   Skipping checking HTML validation: 'tidy' doesn't look like recent enough HTML Tidy.
@@ -30,27 +55,26 @@ and PDF manual generation.
 
 ## Test environments
 
-* Local macOS 14.3 (Apple Silicon), R 4.5.1, Apple clang 15.0.0,
-  with CRAN eigencore 1.0.3 in an isolated library.
-* Same environment with installed development eigencore 1.3.0.
+* R-hub `gcc16`: Fedora Linux 44 (x86_64), R-devel r90540,
+  GCC/GFortran 16.2.1, OpenBLAS 0.3.29: status OK.
+* Local macOS 14.3 (Apple Silicon), R 4.5.1, Homebrew clang 20.1.8.
 
-A temporary Makevars selected Apple clang and the existing Homebrew Fortran
-runtime. No compiler warnings were suppressed and user compiler settings were
-unchanged. The ordinary Homebrew-clang configuration still emits the known
-warning from R's own Boolean.h.
+The local build used Homebrew clang and the existing Homebrew Fortran runtime.
+No compiler warnings were suppressed and user compiler settings were
+unchanged.
 
-A supplied Windows Server 2022 / R-devel r90492 / GCC 14.3.0 check of version
-0.2.0 reported ten failing expectations. Nine concerned randomized sketch
-rank loss; one concerned the interpretation of the MLE rescale diagnostic.
-Both causes have been addressed and are covered by additional regressions.
-A fresh Windows check of this corrected candidate is still pending.
+An earlier Windows R-devel check passed, as reported by the maintainer. This
+followed fixes for randomized sketch rank loss and separation of the MLE
+rescaling diagnostic from final refit/reevaluation differences. Both fixes
+are covered by additional regressions. The successful Windows log is not
+stored in the repository.
 
-Also pending for this candidate: Linux R-release/R-devel, Windows R-release,
-and macOS builder. Local success does not certify these environments.
+Additional environments not checked for this candidate: Linux R-release,
+Windows R-release and the CRAN macOS builder.
 
 ## Downstream dependencies
 
-There are currently no CRAN reverse dependencies (new package).
+There are currently no known CRAN reverse dependencies.
 
 ## Notes for the reviewer
 
@@ -63,9 +87,7 @@ There are currently no CRAN reverse dependencies (new package).
   no longer a dependency. The package uses R's default C++ standard and sets
   no `CXX_STD`.
 
-## Candidate receipt (2026-09-05)
+## Candidate receipt (2026-09-16)
 
 Source tarball SHA-256:
-`34a8b4123b5ab5eb7c89d5e6f6d8489a2403ec9606498c79531bdfb94eaeac57`
-
-Detailed logs: `plans/windows-check-2026-09-05/` (build-ignored).
+`da73e5b7aa7a919bb84babc7cc9aaa25f2c9cf6bccd0bd1289b24d679614511f`
