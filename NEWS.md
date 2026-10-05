@@ -1,3 +1,13 @@
+# genpca 0.2.2
+
+### CRAN compatibility fix
+
+* The `gplssvd_op()` irlba backend now supplies a genuine matrix-free S4
+  operator, replacing the `mult` callback removed in irlba 2.4.1. Forward
+  and adjoint products continue to apply the existing whitening operators
+  without forming the full cross-product matrix. Regression tests cover
+  product orientation and rectangular operators.
+
 # genpca 0.2.1
 
 ### CRAN resubmission fixes

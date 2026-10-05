@@ -1,0 +1,243 @@
+# R-hub compiler checks plus a full R-release manual/vignette check.
+# gcc16 and clang23 contain R-devel; ubuntu-release supplies R-release.
+# These are CRAN-like environments, not exact copies of CRAN's Fedora hosts.
+name: CRAN compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rhub:
+    name: ${{ matrix.config.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: gcc16
+            label: gcc16-R-devel
+            container: ghcr.io/r-hub/containers/gcc16:latest
+          - name: clang23
+            label: clang23-R-devel
+            container: ghcr.io/r-hub/containers/clang23:latest
+          - name: ubuntu-release
+            label: ubuntu-R-release
+            container: ghcr.io/r-hub/containers/ubuntu-release:latest
+    container:
+      image: ${{ matrix.config.container }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Override R-hub's --no-build-vignettes so vignette checks also run.
+      # run-check still adds --no-manual; the release stage below checks that.
+      CHECK_ARGS: --no-stop-on-test-error
+      _R_CHECK_FORCE_SUGGESTS_: 'true'
+      _R_CHECK_TESTS_NLINES_: '0'
+      _R_CHECK_VIGNETTES_NLINES_: '0'
+      _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_: 'true'
+      # Current Ripley flags missing from some R-hub container definitions.
+      _R_CHECK_BROWSER_NONINTERACTIVE_: 'true'
+      _R_CHECK_BOGUS_RETURN_: 'true'
+      _R_CHECK_MATRIX_DATA_: 'true'
+      _R_CHECK_XREFS_USE_ALIASES_FROM_CRAN_: 'true'
+      _R_CHECK_MBCS_CONVERSION_FAILURE_: 'true'
+      _R_CHECK_BASHISMS_: 'true'
+      TZ: Europe/London
+      LC_ALL: ''
+      LC_COLLATE: C
+      LANG: en_GB.UTF-8
+      OMP_THREAD_LIMIT: '2'
+      R_DATATABLE_NUM_THREADS: '2'
+      CHECKED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Prepare diagnostic directory
+        run: |
+          echo "DIAGNOSTICS_DIR=$RUNNER_TEMP/genpca-diagnostics" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/genpca-diagnostics"
+
+      - uses: r-hub/actions/checkout@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
+        with:
+          # Check the submitted source, rather than GitHub's synthetic merge.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify the exact checked commit
+        run: |
+          # An explicit SHA checkout has a detached HEAD. Reading it avoids
+          # Git ownership checks across the runner/container user boundary.
+          actual=$(cat "$GITHUB_WORKSPACE/.git/HEAD")
+          test "$actual" = "$CHECKED_COMMIT"
+          printf 'Verified checked commit: %s\n' "$actual"
+
+      - name: Prepare dependency-only Fortran compatibility flags
+        id: dependency_flags
+        run: |
+          set -euo pipefail
+          original=${R_MAKEVARS_USER:-/dev/null}
+          if [ "${{ matrix.config.name }}" = "clang23" ]; then
+            # igraph's Fortran sources request a visibility flag unsupported
+            # by this container's flang23. Scope the override to dependencies;
+            # genpca and irlba are built with the original R-hub settings.
+            flags="$RUNNER_TEMP/dependencies.Makevars"
+            if [ -f "$original" ]; then cat "$original" > "$flags"; else : > "$flags"; fi
+            printf '\nF_VISIBILITY =\n' >> "$flags"
+            echo "makevars=$flags" >> "$GITHUB_OUTPUT"
+            cat "$flags" | tee "$DIAGNOSTICS_DIR/dependency-only-Makevars.txt"
+          else
+            echo "makevars=$original" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install package dependencies
+        id: dependencies
+        env:
+          R_MAKEVARS_USER: ${{ steps.dependency_flags.outputs.makevars }}
+        uses: r-hub/actions/setup-deps@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
+        with:
+          job-config: ${{ toJSON(matrix.config) }}
+          extra-packages: any::rcmdcheck, any::V8
+
+      - name: Reinstall and verify irlba 2.4.1 from CRAN source
+        id: irlba
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIAGNOSTICS_DIR"
+          source="$DIAGNOSTICS_DIR/irlba_2.4.1.tar.gz"
+          curl --fail --location --retry 3 \
+            https://cran.r-project.org/src/contrib/irlba_2.4.1.tar.gz \
+            --output "$source" || \
+          curl --fail --location --retry 3 \
+            https://cran.r-project.org/src/contrib/Archive/irlba/irlba_2.4.1.tar.gz \
+            --output "$source"
+          # Checksum of the CRAN source published on 2026-10-05.
+          echo "00650af430b1549d54ee39c19a9cce125421c72b851ba2c4fbf6ddacccc3cad1  $source" | sha256sum --check
+          library=$(Rscript -e 'cat(.libPaths()[1L])')
+          R CMD INSTALL --preclean --library="$library" "$source" \
+            2>&1 | tee "$DIAGNOSTICS_DIR/irlba-install.log"
+          Rscript -e 'stopifnot(as.character(packageVersion("irlba")) == "2.4.1"); cat("irlba:", as.character(packageVersion("irlba")), "\n", find.package("irlba"), "\n")' \
+            2>&1 | tee "$DIAGNOSTICS_DIR/irlba-version.log"
+
+      - name: Record compiler, BLAS, package versions and diagnostic flags
+        id: environment
+        run: |
+          set -euo pipefail
+          {
+            cat /etc/os-release
+            printf '\nGit commit\n'
+            cat "$GITHUB_WORKSPACE/.git/HEAD"
+            printf '\nR build configuration\n'
+            R CMD config --all
+            printf '\nCompilers\n'
+            for variable in CC CXX FC; do
+              compiler=$(R CMD config "$variable")
+              $compiler --version
+            done
+            printf '\nSession and package versions\n'
+            Rscript - <<'RS'
+          print(sessionInfo())
+          print(extSoftVersion())
+          print(La_library())
+          print(.libPaths())
+          ip <- installed.packages()
+          print(ip[, intersect(c("Package", "Version", "Built", "LibPath"), colnames(ip)), drop = FALSE], quote = FALSE)
+          env <- Sys.getenv()
+          keep <- grepl("^(_R_CHECK_|_R_S3_|R_MAKEVARS|CHECK_ARGS$|BUILD_ARGS$|LC_|LANG$|TZ$|OMP_|OPENBLAS_|R_DATATABLE_)", names(env))
+          print(env[keep])
+          RS
+          } 2>&1 | tee "$DIAGNOSTICS_DIR/environment.log"
+
+      - name: R-hub package check
+        id: rhub-check
+        if: ${{ !cancelled() && steps.irlba.outcome == 'success' }}
+        uses: r-hub/actions/run-check@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
+        with:
+          job-config: ${{ toJSON(matrix.config) }}
+
+      - name: Show every installed-package test warning
+        if: ${{ !cancelled() && steps.irlba.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          Rscript - <<'RS' 2>&1 | tee "$DIAGNOSTICS_DIR/testthat-full.log"
+          cat("Test diagnostics started:", format(Sys.time(), tz = "UTC"), "UTC\n")
+          if (!dir.exists("check/genpca.Rcheck/genpca")) {
+            cat("No installed package from R CMD check; see the check stage for the blocking failure.\n")
+            quit(status = 0L)
+          }
+          check_lib <- normalizePath("check/genpca.Rcheck", mustWork = TRUE)
+          .libPaths(c(check_lib, .libPaths()))
+          stopifnot(as.character(packageVersion("irlba")) == "2.4.1")
+          library(genpca)
+          testthat::set_max_fails(Inf)
+          Sys.setenv(TESTTHAT_IS_CHECKING = "true")
+          reporter <- testthat::SummaryReporter$new(max_reports = Inf, show_praise = FALSE)
+          results <- testthat::test_dir(
+            "tests/testthat", package = "genpca", load_package = "installed",
+            reporter = reporter, stop_on_failure = FALSE, stop_on_warning = FALSE
+          )
+          saveRDS(results, file.path(Sys.getenv("DIAGNOSTICS_DIR"), "testthat-results.rds"))
+          summary <- as.data.frame(results)
+          write.csv(summary[, setdiff(names(summary), "result"), drop = FALSE], file.path(Sys.getenv("DIAGNOSTICS_DIR"), "testthat-results.csv"), row.names = FALSE)
+          cat("Test diagnostics finished:", format(Sys.time(), tz = "UTC"), "UTC\n")
+          if (any(summary$failed > 0L | summary$error)) {
+            stop("Installed-package tests had failures; see full log.")
+          }
+          RS
+
+      - name: Install R manual LaTeX packages
+        id: latex
+        if: ${{ !cancelled() && matrix.config.name == 'ubuntu-release' && steps.irlba.outcome == 'success' }}
+        run: |
+          # ubuntu-release already ships TinyTeX. setup-tinytex assumes sudo,
+          # which is absent in this root container.
+          command -v tlmgr
+          if ! command -v texi2dvi >/dev/null 2>&1; then
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y texinfo
+          fi
+          tlmgr update --self
+          tlmgr install inconsolata helvetic times courier texinfo fancyvrb parskip makeindex
+          pdflatex --version
+          command -v makeindex
+
+      - name: Full release check including PDF manual and rebuilt vignettes
+        if: ${{ !cancelled() && matrix.config.name == 'ubuntu-release' && steps.irlba.outcome == 'success' && steps.latex.outcome == 'success' }}
+        uses: r-lib/actions/check-r-package@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          args: 'c("--as-cran", "--no-stop-on-test-error")'
+          build_args: 'character()'
+          check-dir: 'file.path(Sys.getenv("DIAGNOSTICS_DIR"), "full-check")'
+          error-on: '"warning"'
+          upload-results: never
+        env:
+          CHECK_ARGS: ''
+
+      - name: Record checked commit and source package hashes
+        if: ${{ always() }}
+        run: |
+          mkdir -p "$DIAGNOSTICS_DIR"
+          {
+            date -u '+Diagnostics completed at %Y-%m-%dT%H:%M:%SZ'
+            printf 'Environment diagnostics: %s\n' '${{ steps.environment.outcome }}'
+            printf 'Checked commit: '
+            cat "$GITHUB_WORKSPACE/.git/HEAD"
+            printf '\nSource and binary tarball SHA-256 hashes\n'
+            find "$GITHUB_WORKSPACE" "$DIAGNOSTICS_DIR" -type f -name '*.tar.gz' -print0 \
+              | sort -z | xargs -0 -r sha256sum
+            printf '\nComplete test output files\n'
+            find "$GITHUB_WORKSPACE/check" "$DIAGNOSTICS_DIR" -type f -name '*testthat.Rout*' -print 2>/dev/null || true
+          } | tee "$DIAGNOSTICS_DIR/manifest.txt"
+
+      - name: Retain complete diagnostics and check output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: genpca-${{ matrix.config.label }}-complete-diagnostics
+          path: |
+            ${{ runner.temp }}/genpca-diagnostics
+            check
+          include-hidden-files: true
+          retention-days: 30

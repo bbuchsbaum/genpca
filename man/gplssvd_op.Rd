@@ -41,7 +41,9 @@ truncated to that maximum.}
 \item{svd_backend}{One of "eigencore" (default) or "irlba"; "RSpectra" is
 accepted as a deprecated alias of "eigencore". Ignored
 whenever both \code{ncol(X) <= 64} and \code{ncol(Y) <= 64}, in which case \code{S} is
-materialized densely and solved with \code{base::svd()}.}
+materialized densely and solved with \code{base::svd()}. Outside that fallback,
+the irlba backend requires both column counts to be at least six; use
+\code{"eigencore"} for narrower operators.}
 
 \item{svd_opts}{List of options for the backend: \code{tol} (both backends) and
 \code{maxitr} (irlba only; the eigencore partial SVD has no iteration cap).

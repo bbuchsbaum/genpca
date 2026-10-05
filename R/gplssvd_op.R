@@ -25,7 +25,9 @@
 #' @param svd_backend One of "eigencore" (default) or "irlba"; "RSpectra" is
 #'   accepted as a deprecated alias of "eigencore". Ignored
 #'   whenever both `ncol(X) <= 64` and `ncol(Y) <= 64`, in which case `S` is
-#'   materialized densely and solved with `base::svd()`.
+#'   materialized densely and solved with `base::svd()`. Outside that fallback,
+#'   the irlba backend requires both column counts to be at least six; use
+#'   `"eigencore"` for narrower operators.
 #' @param svd_opts List of options for the backend: `tol` (both backends) and
 #'   `maxitr` (irlba only; the eigencore partial SVD has no iteration cap).
 #'   An incomplete eigencore solve raises `genpca_solver_nonconvergence`;
@@ -97,6 +99,13 @@ gplssvd_op <- function(X, Y,
   I <- ncol(X)
   J <- ncol(Y)
   stopifnot(nrow(Y) == N)
+
+  # irlba's tiny-problem fallback materializes its input. Reject that shape
+  # outside our documented small-dense path before building any operators.
+  if (svd_backend == "irlba" && max(I, J) > 64L && min(I, J) < 6L) {
+    stop("The irlba operator backend requires both column counts >= 6; ",
+         "use svd_backend='eigencore' for this shape.")
+  }
 
   # Validate k against matrix dimensions
   if (k > min(I, J)) {
@@ -179,27 +188,14 @@ gplssvd_op <- function(X, Y,
     v <- sv$v
     d <- sv$d
   } else {
-    # irlba operator path via mult() callback. The dummy A supplies dims only,
-    # so use an empty sparse matrix rather than allocating I x J dense zeros.
-    A0 <- Matrix::sparseMatrix(i = integer(0), j = integer(0),
-                               dims = c(I, J), x = numeric(0))
-    mult_fun <- function(x, y) {
-      # Handle both mult(A, v) and mult(v, A) calling styles
-      if (is.matrix(x) || inherits(x, "Matrix")) {
-        # x is A, y is vector(s): return A %*% y
-        opc$S_mv(y)
-      } else {
-        # x is vector(s), y is A: return t(A) %*% x
-        opc$ST_mv(x)
-      }
-    }
-    sv <- irlba::irlba(A0,
+    # Use irlba's matrix-like S4 interface (supported before and after 2.4.1).
+    # Products apply the whitening operators without forming the I x J matrix.
+    A <- .irlba_operator(opc)
+    sv <- irlba::irlba(A,
                        nv = k, nu = k,
                        work = max(3 * k, k + 1),
                        tol = if (!is.null(svd_opts$tol)) svd_opts$tol else 1e-7,
-                       maxit = if (!is.null(svd_opts$maxitr)) svd_opts$maxitr else 1000,
-                       mult = mult_fun,
-                       fastpath = FALSE)
+                       maxit = if (!is.null(svd_opts$maxitr)) svd_opts$maxitr else 1000)
     u <- sv$u
     v <- sv$v
     d <- sv$d
