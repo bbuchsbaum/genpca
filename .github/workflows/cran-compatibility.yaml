@@ -53,6 +53,7 @@ jobs:
       LANG: en_GB.UTF-8
       OMP_THREAD_LIMIT: '2'
       R_DATATABLE_NUM_THREADS: '2'
+      CHECKED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Prepare diagnostic directory
@@ -61,12 +62,44 @@ jobs:
           mkdir -p "$RUNNER_TEMP/genpca-diagnostics"
 
       - uses: r-hub/actions/checkout@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
+        with:
+          # Check the submitted source, rather than GitHub's synthetic merge.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify the exact checked commit
+        run: |
+          # An explicit SHA checkout has a detached HEAD. Reading it avoids
+          # Git ownership checks across the runner/container user boundary.
+          actual=$(cat "$GITHUB_WORKSPACE/.git/HEAD")
+          test "$actual" = "$CHECKED_COMMIT"
+          printf 'Verified checked commit: %s\n' "$actual"
+
+      - name: Prepare dependency-only Fortran compatibility flags
+        id: dependency_flags
+        run: |
+          set -euo pipefail
+          original=${R_MAKEVARS_USER:-/dev/null}
+          if [ "${{ matrix.config.name }}" = "clang23" ]; then
+            # igraph's Fortran sources request a visibility flag unsupported
+            # by this container's flang23. Scope the override to dependencies;
+            # genpca and irlba are built with the original R-hub settings.
+            flags="$RUNNER_TEMP/dependencies.Makevars"
+            if [ -f "$original" ]; then cat "$original" > "$flags"; else : > "$flags"; fi
+            printf '\nF_VISIBILITY =\n' >> "$flags"
+            echo "makevars=$flags" >> "$GITHUB_OUTPUT"
+            cat "$flags" | tee "$DIAGNOSTICS_DIR/dependency-only-Makevars.txt"
+          else
+            echo "makevars=$original" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install package dependencies
         id: dependencies
+        env:
+          R_MAKEVARS_USER: ${{ steps.dependency_flags.outputs.makevars }}
         uses: r-hub/actions/setup-deps@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
         with:
           job-config: ${{ toJSON(matrix.config) }}
+          extra-packages: any::rcmdcheck, any::V8
 
       - name: Reinstall and verify irlba 2.4.1 from CRAN source
         id: irlba
@@ -89,12 +122,13 @@ jobs:
             2>&1 | tee "$DIAGNOSTICS_DIR/irlba-version.log"
 
       - name: Record compiler, BLAS, package versions and diagnostic flags
+        id: environment
         run: |
           set -euo pipefail
           {
             cat /etc/os-release
             printf '\nGit commit\n'
-            git rev-parse HEAD
+            cat "$GITHUB_WORKSPACE/.git/HEAD"
             printf '\nR build configuration\n'
             R CMD config --all
             printf '\nCompilers\n'
@@ -117,6 +151,8 @@ jobs:
           } 2>&1 | tee "$DIAGNOSTICS_DIR/environment.log"
 
       - name: R-hub package check
+        id: rhub-check
+        if: ${{ !cancelled() && steps.irlba.outcome == 'success' }}
         uses: r-hub/actions/run-check@02be5ffbeae2b0d553da66acded089da11a1fb8f # v1
         with:
           job-config: ${{ toJSON(matrix.config) }}
@@ -127,8 +163,11 @@ jobs:
           set -euo pipefail
           Rscript - <<'RS' 2>&1 | tee "$DIAGNOSTICS_DIR/testthat-full.log"
           cat("Test diagnostics started:", format(Sys.time(), tz = "UTC"), "UTC\n")
+          if (!dir.exists("check/genpca.Rcheck/genpca")) {
+            cat("No installed package from R CMD check; see the check stage for the blocking failure.\n")
+            quit(status = 0L)
+          }
           check_lib <- normalizePath("check/genpca.Rcheck", mustWork = TRUE)
-          stopifnot(dir.exists(file.path(check_lib, "genpca")))
           .libPaths(c(check_lib, .libPaths()))
           stopifnot(as.character(packageVersion("irlba")) == "2.4.1")
           library(genpca)
@@ -148,16 +187,17 @@ jobs:
           }
           RS
 
-      - name: Set up LaTeX for the full R-release check
-        if: ${{ !cancelled() && matrix.config.name == 'ubuntu-release' && steps.irlba.outcome == 'success' }}
-        uses: r-lib/actions/setup-tinytex@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
-        env:
-          TINYTEX_INSTALLER: TinyTeX
-
       - name: Install R manual LaTeX packages
         id: latex
         if: ${{ !cancelled() && matrix.config.name == 'ubuntu-release' && steps.irlba.outcome == 'success' }}
         run: |
+          # ubuntu-release already ships TinyTeX. setup-tinytex assumes sudo,
+          # which is absent in this root container.
+          command -v tlmgr
+          if ! command -v texi2dvi >/dev/null 2>&1; then
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y texinfo
+          fi
           tlmgr update --self
           tlmgr install inconsolata helvetic times courier texinfo fancyvrb parskip makeindex
           pdflatex --version
@@ -181,8 +221,9 @@ jobs:
           mkdir -p "$DIAGNOSTICS_DIR"
           {
             date -u '+Diagnostics completed at %Y-%m-%dT%H:%M:%SZ'
+            printf 'Environment diagnostics: %s\n' '${{ steps.environment.outcome }}'
             printf 'Checked commit: '
-            git rev-parse HEAD
+            cat "$GITHUB_WORKSPACE/.git/HEAD"
             printf '\nSource and binary tarball SHA-256 hashes\n'
             find "$GITHUB_WORKSPACE" "$DIAGNOSTICS_DIR" -type f -name '*.tar.gz' -print0 \
               | sort -z | xargs -0 -r sha256sum

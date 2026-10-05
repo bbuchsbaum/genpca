@@ -1,3 +1,15 @@
+#' Matrix-free operator for the irlba backend
+#'
+#' Internal matrix-like object storing dimensions and functions for forward
+#' and adjoint products. Its multiplication methods preserve ordinary matrix
+#' product orientation for vectors and blocks without storing the matrix.
+#'
+#' @name genpca_irlba_operator
+#' @aliases genpca_irlba_operator-class dim,genpca_irlba_operator-method
+#'   %*%,genpca_irlba_operator,ANY-method %*%,ANY,genpca_irlba_operator-method
+#' @keywords internal
+NULL
+
 # A matrix-free matrix product for irlba's documented S4 interface. Unlike a
 # placeholder matrix plus the retired `mult` argument, the object itself owns
 # both products. In particular x %*% A returns a row matrix, not A' %*% x.
