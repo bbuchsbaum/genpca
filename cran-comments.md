@@ -1,4 +1,15 @@
-# genpca 0.2.2 check notes (candidate)
+# genpca 0.2.2 CRAN resubmission
+
+## Submission type
+
+This is a corrective resubmission of genpca 0.2.2 following archival of 0.2.1
+on 2026-10-26. It addresses the irlba 2.4.1 compatibility failure reported by
+CRAN on 2026-10-05. The correction was merged in PR #52 on 2026-10-05 as
+`8f2af8b689da7e986c76d4311bf85df2f0eb0925`. Please consider restoring the
+package to CRAN.
+
+The results below are historical validation from 2026-10-05. They are not
+fresh checks of the archive prepared for this resubmission.
 
 ## Reported failure and fix
 
@@ -14,7 +25,7 @@ would require materialization when the smaller dimension is below six. Such
 shapes now receive an explicit error directing callers to the eigencore
 backend, rather than returning zero singular values or silently densifying.
 
-## Local reproduction and regression results
+## Historical reproduction and regression results (2026-10-05)
 
 On Debian 13, R 4.5.0, GCC 14.2.0, Matrix 1.7.3, with all suggested test
 dependencies installed:
@@ -30,7 +41,7 @@ and seven top-level deprecation warnings), and one existing empty-test skip.
 Warnings cover legacy testthat deprecations, intentional degenerate-rank
 examples, and metric-repair diagnostics. The fix adds no warning messages.
 
-## Full package checks
+## Historical full package checks (2026-10-05)
 
 Package-content commit: `1a90a8c6bb55cd9c9923e4571f78fa21442b68a7`.
 The final metadata-only update to this file does not alter the built package
@@ -93,10 +104,15 @@ retained in the artifacts. No package compiler warnings are disabled.
 
 Complete check trees, examples/vignettes/manual logs, compiler logs, individual
 test warnings/results, environment metadata, timestamps, checked commit and
-tarball hashes are attached to the run above. Draft PR and latest checks:
+tarball hashes were attached to the run above. PR #52 is merged:
 <https://github.com/bbuchsbaum/genpca/pull/52>.
+The final workflow for that PR also completed successfully on 2026-10-05:
+<https://github.com/bbuchsbaum/genpca/actions/runs/37345083392>.
+Its GCC16 R-devel, Clang23 R-devel and Ubuntu R-release jobs all succeeded,
+including the full R-release manual/vignette check. These are October 5
+results, not checks rerun on October 26.
 
-## Checked source archive hashes (SHA-256)
+## Historical checked source archive hashes (SHA-256)
 
 The archives were built from the same package-content commit; generated
 vignette outputs and build metadata mean their bytes differ by environment.
@@ -106,4 +122,16 @@ vignette outputs and build metadata mean their bytes differ by environment.
 - R-hub Clang23: `8b4da7f4eed7d73c1766ce1fe42641f3c8dfc565ea0746511e19cc6a97f98859`
 - Full R-release check: `ba2ae46c8fd42ce2ccc3f4409b09961dee7286f2205e02399c69cf1267b59bfd`
 
-No merge or CRAN submission has been performed.
+## Resubmission preparation (2026-10-26)
+
+The release source is merged master
+`8f2af8b689da7e986c76d4311bf85df2f0eb0925`. Its DESCRIPTION, R and compiled
+code, documentation, tests, and vignettes match the package-content commit
+validated above. This comments-only update is excluded by `.Rbuildignore`.
+
+Fresh local build/check results and the exact submission archive hash remain
+pending. No upload or confirmation has been performed by this resubmission
+task. Searches of the maintainer's personal and work mail accounts found no
+0.2.2 submission or acceptance receipt. CRAN's live package page confirms
+archival on 2026-10-26; it does not establish whether an unconfirmed upload
+exists.
