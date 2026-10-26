@@ -2,18 +2,15 @@
 
 ## Submission type
 
-This is a corrective resubmission of genpca 0.2.2 following archival of 0.2.1
-on 2026-10-26. It addresses the irlba 2.4.1 compatibility failure reported by
+This is a corrective resubmission following archival of genpca 0.2.1 on
+2026-10-26. It addresses the irlba 2.4.1 compatibility failure reported by
 CRAN on 2026-10-05. The correction was merged in PR #52 on 2026-10-05 as
 `8f2af8b689da7e986c76d4311bf85df2f0eb0925`. Please consider restoring the
 package to CRAN.
 
-The results below are historical validation from 2026-10-05. They are not
-fresh checks of the archive prepared for this resubmission.
-
 ## Reported failure and fix
 
-CRAN's Fedora R-devel checks of 0.2.1 report `starting vector near the null
+CRAN's Fedora R-devel checks of 0.2.1 reported `starting vector near the null
 space` in `test-gplssvd-op-large.R:99`. irlba 2.4.1 removed the `mult` argument;
 the old implementation supplied a zero placeholder matrix and a callback
 through that argument. The replacement supplies a matrix-free S4 operator
@@ -25,113 +22,83 @@ would require materialization when the smaller dimension is below six. Such
 shapes now receive an explicit error directing callers to the eigencore
 backend, rather than returning zero singular values or silently densifying.
 
-## Historical reproduction and regression results (2026-10-05)
+## Fresh checks (2026-10-26)
 
-On Debian 13, R 4.5.0, GCC 14.2.0, Matrix 1.7.3, with all suggested test
-dependencies installed:
+Checked source commit: `0421e66723fbf83b9ef6cfd32b9d9fac96239281`.
+This differs from merged master only in this file, which is excluded by
+`.Rbuildignore`. No package code, documentation, tests, or vignettes changed.
 
-- Unmodified 0.2.1 + source-installed irlba 2.4.1: 1,582 passing expectations,
-  one null-space error at the reported test, one existing empty-test skip.
-- Unmodified 0.2.1 + irlba 2.3.7: 1,588 passing expectations, no failures.
-- Patched 0.2.2 + irlba 2.4.1: 1,620 passing expectations, no failures/errors.
-- Patched 0.2.2 + irlba 2.3.7: 1,620 passing expectations, no failures/errors.
+Fresh workflow and complete diagnostics:
+<https://github.com/bbuchsbaum/genpca/actions/runs/40326421125>.
 
-All four runs report the same 73 warning messages (66 associated with tests
-and seven top-level deprecation warnings), and one existing empty-test skip.
-Warnings cover legacy testthat deprecations, intentional degenerate-rank
-examples, and metric-repair diagnostics. The fix adds no warning messages.
+| Environment | Result |
+| --- | --- |
+| Fedora 44, R-devel r90763, GCC/GFortran 16.2.1 | 0 errors, 0 warnings, 0 notes |
+| Ubuntu 26.04.1, R-devel r90763, Clang/Flang 23 | 0 errors, 0 warnings, 0 notes |
+| Ubuntu 26.04.1, R 4.6.1, GCC/GFortran 15.2.0 | 0 errors, 0 warnings, 0 notes |
+| Additional full R 4.6.1 check, including PDF/HTML manual and regenerated vignettes | 0 errors, 0 warnings, 0 notes |
+| Local macOS 14.3 arm64, R 4.5.1, Apple clang 15.0.0; full check of local build | 0 errors, 0 warnings, 3 notes |
+| Same local environment, full check of exact selected submission archive | 0 errors, 0 warnings, 3 notes |
 
-## Historical full package checks (2026-10-05)
+The hosted standard checks used `--as-cran --no-manual
+--no-stop-on-test-error`. The full R-release and local checks used
+`--as-cran --no-stop-on-test-error`, without disabling manual or vignette
+checks. These environments provide compiler-family and R-version coverage;
+they are not exact replicas of every CRAN host.
 
-Package-content commit: `1a90a8c6bb55cd9c9923e4571f78fa21442b68a7`.
-The final metadata-only update to this file does not alter the built package
-(`cran-comments.md` is excluded by `.Rbuildignore`).
+All environments used CRAN irlba 2.4.1, eigencore 1.0.3 and multivarious
+0.3.2. The R-devel and local checks used current CRAN Matrix 1.7-6; the
+R-release image supplied recommended Matrix 1.7-5. The hosted workflow
+reinstalls irlba from its checksummed CRAN source and verifies its loaded
+version. Local updates were installed in an isolated library; the
+maintainer's existing library was unchanged.
 
-R-hub run on 2026-10-05:
-<https://github.com/bbuchsbaum/genpca/actions/runs/37342894925>.
+Each check passed all 1,620 expectations, with one pre-existing
+empty-test skip and 83 test diagnostic warnings. Test warning counts are
+separate from check-level warnings. No diagnostic flags or package compiler
+warnings were suppressed. Full test and compiler logs are retained.
 
-- Fedora 44, R-devel r90638, GCC/GFortran 16.2.1: Status OK.
-- Ubuntu 26.04.1, R-devel r90631, Clang/Flang 23.1.3: Status OK.
-- Ubuntu 24.04.5, R 4.6.1, GCC/GFortran 13.3.0: Status OK.
-- Additional full R-release `R CMD check --as-cran --no-stop-on-test-error`,
-  including PDF manual and regenerated vignettes: Status OK.
+## Exact submission archive
 
-All hosted checks have zero errors, check-level warnings and notes. Each
-standard check passed 1,620 expectations with one pre-existing empty-test
-skip. The workflow reinstalls irlba 2.4.1 from its checksummed CRAN source and
-asserts its loaded version after dependency setup, avoiding stale binaries.
+`genpca_0.2.2.tar.gz` (1,243,956 bytes) is the source archive built and checked
+by the successful full R 4.6.1 check above, including the PDF manual and
+rebuilt vignettes. It was downloaded from that run without rebuilding.
 
-Local Debian 13 / R 4.5.0 full `R CMD check --as-cran
---no-stop-on-test-error`: zero errors, zero warnings, one NOTE:
-`unable to verify current time`. Incoming feasibility, examples, all tests,
-rebuilt vignettes, PDF manual, HTML validation/math rendering and PDF size
-checks passed. The exact checked installed artifact also passed all 1,620
-expectations with irlba 2.3.7.
+SHA-256:
+`d06182849aa2f55dd51921924079823fbc309689a6f80defceb338fe3b45936d`
 
-## Warning review
+The artifact's checksum and 128 included source files were verified after
+download. The local full check of this exact archive with current Matrix 1.7-6
+also passed, with the three notes explained below.
 
-Test warning counts are not check-level warnings. Hosted `R CMD check`
-reports 83 test warnings; the separately logged test pass with all installed
-packages visible reports the original 73. A controlled reproduction using
-R CMD check's recommended-package hiding mechanism reproduces exactly 83:
-all original 73 warning records are unchanged, plus ten multivarious
-regularized-inverse fallback warnings when MASS is unavailable. Hosted
-CheckReporter suppresses individual warning records; this attribution is
-based on that controlled reproduction and dependency source inspection.
-The new operator tests emit no warnings. No diagnostic flags are suppressed.
+Environment-specific builds have different bytes because of generated
+vignette output and build metadata. The earlier supplemental local check
+used its own archive, SHA-256:
+`4f5e400e6a49724fc84024547cf13838adc8c1479cb3b249a121ff5361a60c64`.
 
-Clang emits ten compiler warnings from upstream RcppEigen headers
-(`-Wunused-but-set-variable`), matching the locations in CRAN's existing
-0.2.1 Clang install log. They are retained in the complete install log and
-are separate from the test warning counts.
+## Local notes
 
-## Environment differences and retained diagnostics
+1. Incoming feasibility identifies a new submission of an archived package.
+   This resubmission addresses the failure that led to archival.
+2. `unable to verify current time`: local network/time-service limitation.
+3. HTML validation was skipped because the Mac's HTML Tidy is too old.
+   The fresh hosted full R-release check passed HTML manual validation.
 
-R-hub GCC matches CRAN's current R revision and GCC version, but uses
-OpenBLAS 0.3.29 rather than CRAN's reference BLAS. R-hub Clang is Ubuntu,
-R-devel r90631, Clang/Flang 23.1.3 and OpenBLAS 0.3.32; CRAN's Clang host is
-Fedora, r90638 and Clang/Flang 23.1.2. R-hub's release host uses OpenBLAS
-0.3.26. There is no native four-way GCC16/Clang23 by R-devel/R-release matrix.
-These checks therefore provide compiler-family and release-R coverage,
-not an assertion that every CRAN host has been reproduced exactly.
+The first local check stopped during incoming feasibility when CRAN's
+`PACKAGES.in` request timed out. The same local archive passed the complete
+check on retry with a 180-second internet timeout; all diagnostic checks
+remained enabled. Both logs were retained.
 
-On the Clang container, igraph's dependency build initially failed because
-Flang rejects `-fvisibility=hidden`. A temporary `F_VISIBILITY =` override
-is used only while installing dependencies. genpca and the explicitly
-reinstalled irlba use the original R-hub compiler settings. The effective
-dependency override, original package compiler flags and all versions are
-retained in the artifacts. No package compiler warnings are disabled.
+## Historical validation
 
-Complete check trees, examples/vignettes/manual logs, compiler logs, individual
-test warnings/results, environment metadata, timestamps, checked commit and
-tarball hashes were attached to the run above. PR #52 is merged:
-<https://github.com/bbuchsbaum/genpca/pull/52>.
-The final workflow for that PR also completed successfully on 2026-10-05:
+PR #52 also passed regression and compiler/R-devel/R-release/manual checks
+on 2026-10-05. The final historical workflow was
 <https://github.com/bbuchsbaum/genpca/actions/runs/37345083392>.
-Its GCC16 R-devel, Clang23 R-devel and Ubuntu R-release jobs all succeeded,
-including the full R-release manual/vignette check. These are October 5
-results, not checks rerun on October 26.
+Those results are historical context, separate from the fresh checks above.
+The original reproduction and warning/environment audit are recorded in
+<https://github.com/bbuchsbaum/genpca/pull/52>.
 
-## Historical checked source archive hashes (SHA-256)
+## Downstream dependencies
 
-The archives were built from the same package-content commit; generated
-vignette outputs and build metadata mean their bytes differ by environment.
-
-- Local full check: `31bfd7a77c0aed807dbceff9a0c5d8f10d4f82e6699bcec832ac90d946dfecda`
-- R-hub GCC16: `a49c4ad490deacf263d917e7cc6f0ab457eee16283ed083beda746f5cc856cdd`
-- R-hub Clang23: `8b4da7f4eed7d73c1766ce1fe42641f3c8dfc565ea0746511e19cc6a97f98859`
-- Full R-release check: `ba2ae46c8fd42ce2ccc3f4409b09961dee7286f2205e02399c69cf1267b59bfd`
-
-## Resubmission preparation (2026-10-26)
-
-The release source is merged master
-`8f2af8b689da7e986c76d4311bf85df2f0eb0925`. Its DESCRIPTION, R and compiled
-code, documentation, tests, and vignettes match the package-content commit
-validated above. This comments-only update is excluded by `.Rbuildignore`.
-
-Fresh local build/check results and the exact submission archive hash remain
-pending. No upload or confirmation has been performed by this resubmission
-task. Searches of the maintainer's personal and work mail accounts found no
-0.2.2 submission or acceptance receipt. CRAN's live package page confirms
-archival on 2026-10-26; it does not establish whether an unconfirmed upload
-exists.
+The CRAN package index retrieved on 2026-10-26 lists no reverse dependencies
+on genpca in Depends, Imports, LinkingTo, Suggests or Enhances.
